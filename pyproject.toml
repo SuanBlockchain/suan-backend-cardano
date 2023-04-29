@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "suan-trazabilidad"
+version = "0.1.0"
+description = ""
+authors = ["Moxie <moxie@suan.global>"]
+readme = "README.md"
+packages = [{include = "suan_trazabilidad"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+alembic = "^1.10.4"
+pydantic = "^1.10.7"
+psycopg2-binary = "^2.9.6"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
