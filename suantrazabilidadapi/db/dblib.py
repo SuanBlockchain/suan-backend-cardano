@@ -4,10 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-config_path = "./models/credentials.local.ini"  # Optional argument
 
-
-def config(config_path: str, section: str) -> dict:
+def config(config_path: str = "./credentials.local.ini", section: str = "") -> dict:
     # create a parser
     parser = ConfigParser()
     # read config file
@@ -29,7 +27,7 @@ def config(config_path: str, section: str) -> dict:
 
 """ Connect to the PostgreSQL database server using SQLAlchemy method """
 # read connection parameters
-params = config(config_path, section="postgresql")
+params = config(section="postgresql")
 
 # connect to the PostgreSQL server
 print("Connecting to the PostgreSQL database...")

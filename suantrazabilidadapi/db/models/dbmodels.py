@@ -1,11 +1,9 @@
-from datetime import datetime
-
 from sqlalchemy import BigInteger, Boolean, Column, Enum
 from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, BigInteger
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSON
 
-from .dblib import Base
+from ..dblib import Base
 from .mixins import Timestamp
 import uuid
 
@@ -25,7 +23,6 @@ class Projects(Timestamp, Base):
     kind = Column(Text, nullable=False)
     asset_type = Column(Text, nullable=False)
     version_id = Column(Text, nullable=False)
-    date_created = Column(DateTime, nullable=False)
 
     # user = relationship("User", back_populates="wallet")
     # transactions = relationship("Transactions", back_populates="wallet")
