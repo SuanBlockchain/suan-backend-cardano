@@ -5,18 +5,34 @@ from sqlalchemy.orm import Session
 
 from db.dblib import get_db
 from db.models import dbmodels
+from kobo import kobo_api as kobo
 
 router = APIRouter()
 
 
 @router.get(
-    "/projects",
-    summary="Get current available projects",
-    response_description="List of projects",
-    response_model=List[pydantic_schemas.ProjectBase],
+    "/all/",
+    status_code=200,
+    summary="Get all the data",
+    response_description="Projects from Kobo",
+    # response_model=List[pydantic_schemas.ProjectBase],
 )
-def get_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    db_projects = db.query(dbmodels.Projects).offset(skip).limit(limit).all()
+async def get_projects_from_kobo():
+    db_projects = kobo.make_kobo_request()
+    if db_projects is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_projects
+
+
+@router.get(
+    "/projects-kobo/{kobo_id}",
+    status_code=200,
+    summary="Get the project from Kobo based on Kobo Id",
+    response_description="Project from Kobo",
+    # response_model=List[pydantic_schemas.ProjectBase],
+)
+async def get_projects_from_kobo(kobo_id: str):
+    db_projects = kobo.make_kobo_request(kobo_id)
     if db_projects is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_projects
@@ -24,11 +40,14 @@ def get_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
 
 @router.post(
     "/projects/",
+    status_code=201,
     summary="Create Project",
     response_description="Project saved in database",
     response_model=pydantic_schemas.ProjectBase,
 )
-def save_project(project: pydantic_schemas.ProjectBase, db: Session = Depends(get_db)):
+async def save_project(
+    project: pydantic_schemas.ProjectBase, db: Session = Depends(get_db)
+):
     db_project = dbmodels.Projects(
         name=project.name,
         country=project.country,

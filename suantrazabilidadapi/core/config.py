@@ -1,4 +1,5 @@
 import pathlib
+from configparser import ConfigParser
 
 from pydantic import AnyHttpUrl, BaseSettings, EmailStr, validator
 from typing import List, Optional, Union
@@ -31,3 +32,23 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def config(config_path: str = "./credentials.local.ini", section: str = "") -> dict:
+    # create a parser
+    parser = ConfigParser()
+    # read config file
+    parser.read(config_path)
+
+    # get section, default to postgresql
+    db = {}
+    if parser.has_section(section):
+        params = parser.items(section)
+        for param in params:
+            db[param[0]] = param[1]
+    else:
+        raise Exception(
+            "Section {0} not found in the {1} file".format(section, config_path)
+        )
+
+    return db

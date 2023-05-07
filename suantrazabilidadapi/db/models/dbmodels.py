@@ -14,15 +14,11 @@ class Projects(Timestamp, Base):
     __tablename__ = "projects"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    suanid = Column(UUID(as_uuid=True), default=uuid.uuid4, nullable=False)
     name = Column(Text, nullable=False)
-    country = Column(Text, nullable=True)
-    sector = Column(Text, nullable=True)
-    url = Column(Text, nullable=True)
-    owner = Column(Text, nullable=True)
-    uid = Column(Text, nullable=True)
-    kind = Column(Text, nullable=False)
-    asset_type = Column(Text, nullable=False)
-    version_id = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    categoryid = Column(Text, nullable=True)
+    status = Column(Boolean, nullable=False)
 
     # user = relationship("User", back_populates="wallet")
     # transactions = relationship("Transactions", back_populates="wallet")
