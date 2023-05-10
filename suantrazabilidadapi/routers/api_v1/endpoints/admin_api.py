@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy.orm import Session
 
@@ -7,64 +6,38 @@ from db.dblib import get_db
 from routers.api_v1.endpoints import pydantic_schemas
 from db.models import dbmodels
 
-from pydantic import UUID4
-
 router = APIRouter()
 
-
 @router.get(
-    "/users",
-    summary="Get all the users stored in local database",
-    response_description="List of users",
-    response_model=List[pydantic_schemas.User],
+    "/all-projects",
+    summary="Get all projects stored in local database",
+    response_description="List of projects",
+    response_model=List[pydantic_schemas.ProjectBase],
 )
-def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    db_user = db.query(dbmodels.User).offset(skip).limit(limit).all()
-    if db_user is None:
+def get_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    db_projects = db.query(dbmodels.Projects).offset(skip).limit(limit).all()
+    if db_projects is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_user
-
-
-@router.get(
-    "/users/{user_id}",
-    summary="Get user by id",
-    response_description="User by id",
-    response_model=pydantic_schemas.User,
-)
-def get_user_by_id(user_id: UUID4, db: Session = Depends(get_db)):
-    db_user = db.query(dbmodels.User).filter(dbmodels.User.id == user_id).first()
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
-
-
-@router.get(
-    "/users/wallet/{id_wallet}",
-    summary="Get user by wallet id",
-    response_description="User by wallet id",
-    response_model=pydantic_schemas.User,
-)
-def get_user_by_wallet_id(id_wallet: UUID4, db: Session = Depends(get_db)):
-    db_user = (
-        db.query(dbmodels.User).filter(dbmodels.User.id_wallet == id_wallet).first()
-    )
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
-
+    return db_projects
 
 @router.post(
-    "/users/",
-    summary="Create User",
-    response_description="User created",
-    response_model=pydantic_schemas.User,
+    "/project/",
+    status_code=201,
+    summary="Create Project",
+    response_description="Project saved in database",
+    response_model=pydantic_schemas.ProjectBase,
 )
-def create_user(user: pydantic_schemas.UserCreate, db: Session = Depends(get_db)):
-    fake_hashed_password = user.password + "notreallyhashed"
-    db_user = dbmodels.User(
-        username=user.username, hashed_password=fake_hashed_password
+async def save_project(
+    project: pydantic_schemas.ProjectBase, db: Session = Depends(get_db)
+):
+    db_project = dbmodels.Projects(
+        suanid=project.suanid,
+        name=project.name,
+        description=project.description,
+        categoryid=project.categoryid,
+        status=project.status,
     )
-    db.add(db_user)
+    db.add(db_project)
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(db_project)
+    return db_project

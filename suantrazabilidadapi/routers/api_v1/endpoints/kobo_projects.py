@@ -11,17 +11,66 @@ router = APIRouter()
 
 
 @router.get(
-    "/all/",
+    "/all-projects/",
     status_code=200,
     summary="Get all the data",
     response_description="Projects from Kobo",
     # response_model=List[pydantic_schemas.ProjectBase],
 )
 async def get_projects_from_kobo():
-    db_projects = kobo.make_kobo_request()
-    if db_projects is None:
+    db_projects_forms = kobo.generic_kobo_request()
+    if db_projects_forms is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_projects
+    return db_projects_forms
+
+@router.post(
+    "/kobo-forms/",
+    status_code=201,
+    summary="Update kobo forms table",
+    response_description="Kobo forms updated",
+    # response_model=[pydantic_schemas.KoboFormResponse],
+)
+async def update_koboForms(db: Session = Depends(get_db)):
+
+    SUANBLOCKCHAIN = "suanblockchain"
+    DEPLOYED = True
+    S = "shared"
+    
+    db_projects_forms = kobo.generic_kobo_request()
+    if db_projects_forms is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    else:
+        filtered_forms = []
+        result = {}
+        for project_form in db_projects_forms["results"]:
+            owner_username = project_form["owner__username"]
+            has_deployment = project_form["has_deployment"]
+            status = project_form["status"]
+            if owner_username == SUANBLOCKCHAIN and has_deployment == DEPLOYED and status == S:
+                country = project_form["settings"].get("country", None)
+                if country is not None:
+                    country = country[0].get("label", "")
+                
+                form = dbmodels.Kobo_forms(
+                    koboform_id = project_form["uid"],
+                    name = project_form["name"],
+                    description = project_form["settings"].get("description", ""),
+                    organization = project_form["settings"].get("organization", ""),
+                    country = country,
+                    kind = project_form["kind"],
+                    asset_type = project_form["asset_type"],
+                    deployment_active = project_form["deployment__active"],
+                    deployment_count = project_form["deployment__submission_count"],
+                    owner_username = owner_username,
+                    has_deployment = has_deployment,
+                    status = status
+                )
+                filtered_forms.append(form)
+                db.add(form)
+                db.commit()
+                db.refresh(form)
+        result["results"] = filtered_forms
+    return result
 
 
 @router.get(
@@ -32,34 +81,10 @@ async def get_projects_from_kobo():
     # response_model=List[pydantic_schemas.ProjectBase],
 )
 async def get_projects_from_kobo(kobo_id: str):
-    db_projects = kobo.make_kobo_request(kobo_id)
-    if db_projects is None:
+    db_projects_form = kobo.generic_kobo_request(kobo_id)
+    if db_projects_form is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_projects
+    return db_projects_form
 
 
-@router.post(
-    "/projects/",
-    status_code=201,
-    summary="Create Project",
-    response_description="Project saved in database",
-    response_model=pydantic_schemas.ProjectBase,
-)
-async def save_project(
-    project: pydantic_schemas.ProjectBase, db: Session = Depends(get_db)
-):
-    db_project = dbmodels.Projects(
-        name=project.name,
-        country=project.country,
-        sector=project.sector,
-        url=project.url,
-        owner=project.owner,
-        uid=project.uid,
-        kind=project.kind,
-        asset_type=project.asset_type,
-        version_id=project.version_id,
-    )
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
+

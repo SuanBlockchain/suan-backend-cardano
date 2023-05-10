@@ -13,18 +13,28 @@ from pydantic import BaseModel, validator
 
 
 class ProjectBase(BaseModel):
+    suanid: str
     name: str
-    country: str
-    sector: str
-    url: str
-    owner: str
-    uid: str
-    kind: str
-    asset_type: str
-    version_id: str
+    description: str
+    categoryid: str 
+    status: str
 
     class Config:
         orm_mode = True
+
+class KoboForm(BaseModel):
+    koboform_id: str
+    name: str
+    description: str
+    organization: str
+    country: str
+    kind: str
+    asset_type: str
+    deployment_active: str
+    deployment_count: int
+    owner_username: str
+    has_deployment: bool
+    status: str
 
 
 ############################

@@ -19,7 +19,7 @@ def kobo_api(URL, params={}):
     return requests.get(URL, headers=headers, params=params)
 
 
-def make_kobo_request(kobo_id: str = "") -> dict:
+def generic_kobo_request(kobo_id: str = "") -> dict:
     TODAY = date.fromtimestamp(time.time())
     BASE_URL = "https://kf.kobotoolbox.org/api/v2/assets/"
     params = {"format": "json"}
@@ -31,7 +31,6 @@ def make_kobo_request(kobo_id: str = "") -> dict:
         json.dump(rawResult, file, indent=4, ensure_ascii=False)
 
     return rawResult
-
 
 # def get_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 #     db_projects = db.query(dbmodels.Projects).offset(skip).limit(limit).all()
