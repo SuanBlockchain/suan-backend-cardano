@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from routers.api_v1.endpoints import pydantic_schemas
-from typing import List
+from typing import List, Any
 from sqlalchemy.orm import Session
 
 from db.dblib import get_db
@@ -13,24 +13,47 @@ router = APIRouter()
 @router.get(
     "/all-projects/",
     status_code=200,
-    summary="Get all the data",
+    summary="Get all data",
     response_description="Projects from Kobo",
     # response_model=List[pydantic_schemas.ProjectBase],
 )
-async def get_projects_from_kobo():
+async def get_projects_from_kobo() -> dict:
+    """Get all kobo data available for any project and any form.\n 
+        No updates or creation of records in PostgresQl DB.\n
+    """
     db_projects_forms = kobo.generic_kobo_request()
     if db_projects_forms is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Problems getting project data from Kobo")
     return db_projects_forms
+
+@router.get(
+    "/projects-kobo/{kobo_id}",
+    status_code=200,
+    summary="Get the project from Kobo based on Kobo Id",
+    response_description="Project from Kobo",
+    # response_model=List[pydantic_schemas.ProjectBase],
+)
+async def get_projects_from_kobo_by_id(kobo_id: str):
+    """Get kobo data by filtering from kobo_id.\n 
+        It just query kobo database and get all the data available in the specified form.\n
+        No updates or creation of records in PostgresQl DB.\n
+        **kobo_id**: represents the kobo_id for the form. For example: kobo_id = a3amV423RwsTrQgTu8G4mc.\n
+    """
+    db_projects_form = kobo.generic_kobo_request(kobo_id)
+    if db_projects_form is None:
+        raise HTTPException(status_code=404, detail=f"Project with {kobo_id} not found")
+    return db_projects_form
 
 @router.post(
     "/kobo-forms/",
     status_code=201,
-    summary="Update kobo forms table",
-    response_description="Kobo forms updated",
-    # response_model=[pydantic_schemas.KoboFormResponse],
+    summary="Create kobo forms in kobo_forms table",
+    response_description="Kobo forms created",
 )
-async def update_koboForms(db: Session = Depends(get_db)):
+async def create_koboForms(db: Session = Depends(get_db)) -> dict:
+    """Create generic data associated to the form itself.\n 
+        This endpoint is useful when new form is created in Kobo so it needs to be registered in DB.\n
+    """
 
     SUANBLOCKCHAIN = "suanblockchain"
     DEPLOYED = True
@@ -42,49 +65,112 @@ async def update_koboForms(db: Session = Depends(get_db)):
     else:
         filtered_forms = []
         result = {}
+        results = db.query(dbmodels.Kobo_forms.koboform_id).all()
+        koboform_id = [t[0] for t in results]
         for project_form in db_projects_forms["results"]:
-            owner_username = project_form["owner__username"]
-            has_deployment = project_form["has_deployment"]
-            status = project_form["status"]
-            if owner_username == SUANBLOCKCHAIN and has_deployment == DEPLOYED and status == S:
-                country = project_form["settings"].get("country", None)
-                if country is not None:
-                    country = country[0].get("label", "")
-                
-                form = dbmodels.Kobo_forms(
-                    koboform_id = project_form["uid"],
-                    name = project_form["name"],
-                    description = project_form["settings"].get("description", ""),
-                    organization = project_form["settings"].get("organization", ""),
-                    country = country,
-                    kind = project_form["kind"],
-                    asset_type = project_form["asset_type"],
-                    deployment_active = project_form["deployment__active"],
-                    deployment_count = project_form["deployment__submission_count"],
-                    owner_username = owner_username,
-                    has_deployment = has_deployment,
-                    status = status
-                )
-                filtered_forms.append(form)
-                db.add(form)
-                db.commit()
-                db.refresh(form)
+            uid = project_form["uid"]
+            if uid not in koboform_id: # if form is not yet there in DB
+                owner_username = project_form["owner__username"]
+                has_deployment = project_form["has_deployment"]
+                status = project_form["status"]
+                if owner_username == SUANBLOCKCHAIN and has_deployment == DEPLOYED and status == S:
+                    country = project_form["settings"].get("country", None)
+                    if country is not None:
+                        country = country[0].get("label", "")
+                    
+                    form = dbmodels.Kobo_forms(
+                        koboform_id = project_form["uid"],
+                        name = project_form["name"],
+                        description = project_form["settings"].get("description", ""),
+                        organization = project_form["settings"].get("organization", ""),
+                        country = country,
+                        kind = project_form["kind"],
+                        asset_type = project_form["asset_type"],
+                        deployment_active = project_form["deployment__active"],
+                        deployment_count = project_form["deployment__submission_count"],
+                        owner_username = owner_username,
+                        has_deployment = has_deployment,
+                        status = status
+                    )
+                    filtered_forms.append(form)
+                    db.add(form)
+                    db.commit()
+                    db.refresh(form)
+            else:
+                filtered_forms.append({f'Koboform with uid {uid} already created'})
         result["results"] = filtered_forms
+    
     return result
 
 
-@router.get(
-    "/projects-kobo/{kobo_id}",
-    status_code=200,
-    summary="Get the project from Kobo based on Kobo Id",
-    response_description="Project from Kobo",
-    # response_model=List[pydantic_schemas.ProjectBase],
+
+
+@router.post("/kobo/{command_name}/",
+    status_code=201,
+    summary="Create kobo data in kobo_data table",
+    response_description="Kobo data created",
 )
-async def get_projects_from_kobo(kobo_id: str):
-    db_projects_form = kobo.generic_kobo_request(kobo_id)
-    if db_projects_form is None:
+async def create_dataForms(command_name: pydantic_schemas.KoboFormId, db: Session = Depends(get_db)) -> dict:
+    """Create data for all the existing projects.\n 
+        It creates only non existing data, which means that data already existing is ignored and not updated.\n
+        It can be slow when there is many data in kobo as it is not filtering by date so
+        it takes all the available data registries and check one by one if created in PostgresQL DB.\n
+        Command_names: \n
+        **parcelas**: represents the form with kobo_id = a5eQnzRdEiVWkt9jBmiJ3L\n
+        **caracterizacion**: represents the form with kobo_id = a3amV423RwsTrQgTu8G4mc\n
+    """
+    prefix1 = ""
+    if command_name is pydantic_schemas.KoboFormId.parcelas:
+        kobo_id = "a5eQnzRdEiVWkt9jBmiJ3L"
+        prefix1 = "geopoint_widgets"
+    elif command_name is pydantic_schemas.KoboFormId.caracterizacion:
+        kobo_id = "a3amV423RwsTrQgTu8G4mc"
+
+    data = kobo.generic_kobo_request(kobo_id)
+    if data is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_projects_form
+    else:
+        data_list = []
+        result = {}
+        db_kobo_id = []
+        query = db.query(dbmodels.Kobo_forms.id).filter(dbmodels.Kobo_forms.koboform_id == kobo_id)
+        forms_table_id = query.first()[0]
+        query = db.query(dbmodels.Kobo_data.kobo_id).filter(dbmodels.Kobo_data.id_form == forms_table_id)
+        results = query.all()
+        if results !=[]:
+            db_kobo_id = [t[0] for t in results]
+        for item in data["results"]:
+            _id = item["_id"]
+            suanID = item["suanID"]
+            query = db.query(dbmodels.Projects.id).filter(dbmodels.Projects.suanid == suanID)
+            project_table_id = query.first()[0]
+            if _id not in db_kobo_id or results == []:
+                data_set = dbmodels.Kobo_data(
+                    id_form = forms_table_id,
+                    id_suan = project_table_id,
+                    username = item["username"],
+                    phonenumber = item["phonenumber"],
+                    kobo_id = _id,
+                    submission_time = item["_submission_time"],
+                    text = item.get(f'{prefix1}/text', ""),
+                    geopoint_map = item.get(f'{prefix1}/geopoint_map', ""),
+                    annotate = item.get(f'{prefix1}/annotate', ""),
+                    text_001 = item.get(f'{prefix1}/text_001', ""),
+                    geotrace = item.get(f'{prefix1}/geotrace', ""),
+                    text_002 = item.get(f'{prefix1}/text_002', ""),
+                    geoshape = item.get(f'{prefix1}/geoshape', ""),
+                    geopoint_hide = item.get(f'{prefix1}/geopoint_hide', ""),
+                    audit = item.get("meta/audit", "")
+                )
+                data_list.append(data_set)
+                db.add(data_set)
+                db.commit()
+                db.refresh(data_set)
+            else:
+                data_list.append({f'Data set with _id: {_id} already exists in database'})
+        result["results"] = data_list
+    
+    return result
 
 
 

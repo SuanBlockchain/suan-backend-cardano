@@ -3,6 +3,8 @@ from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, BigInteger
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSON
 
+from datetime import datetime
+
 from ..dblib import Base
 from .mixins import Timestamp
 
@@ -19,8 +21,7 @@ class Projects(Timestamp, Base):
     categoryid = Column(Text, nullable=True)
     status = Column(Text, nullable=False)
 
-    # user = relationship("User", back_populates="wallet")
-    # transactions = relationship("Transactions", back_populates="wallet")
+    suan = relationship("Kobo_data", back_populates="suan")
 
 class Kobo_forms(Base):
     __tablename__ = "kobo_forms"
@@ -38,3 +39,28 @@ class Kobo_forms(Base):
     owner_username = Column(Text, nullable=True)
     has_deployment = Column(Boolean, nullable=False)
     status = Column(Text, nullable=True)
+
+    koboform = relationship("Kobo_data", back_populates="kobo_forms")
+
+class Kobo_data(Base):
+    __tablename__ = "kobo_data"
+
+    id = Column(Integer, primary_key=True)
+    id_form = Column(Integer, ForeignKey('kobo_forms.id'), nullable=True)
+    id_suan = Column(Integer, ForeignKey('projects.id'), nullable=False)
+    username = Column(Text, nullable=True)
+    phonenumber = Column(Text, nullable=True)
+    kobo_id = Column(BigInteger, nullable=True)
+    submission_time = Column(DateTime, default=datetime.utcnow, nullable=False)
+    text = Column(Text, nullable=True)
+    geopoint_map = Column(Text, nullable=True)
+    annotate = Column(Text, nullable=True)
+    text_001 = Column(Text, nullable=True)
+    geotrace = Column(Text, nullable=True)
+    text_002 = Column(Text, nullable=True)
+    geoshape = Column(Text, nullable=True)
+    geopoint_hide = Column(Text, nullable=True)
+    audit = Column(Text, nullable=True)
+
+    suan = relationship("Projects", back_populates="suan")
+    kobo_forms = relationship("Kobo_forms", back_populates="koboform")

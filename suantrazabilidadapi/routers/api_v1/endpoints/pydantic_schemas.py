@@ -22,21 +22,9 @@ class ProjectBase(BaseModel):
     class Config:
         orm_mode = True
 
-class KoboForm(BaseModel):
-    koboform_id: str
-    name: str
-    description: str
-    organization: str
-    country: str
-    kind: str
-    asset_type: str
-    deployment_active: str
-    deployment_count: int
-    owner_username: str
-    has_deployment: bool
-    status: str
-
-
+class KoboFormId(str, Enum):
+    parcelas = "parcelas"
+    caracterizacion = "caracterizacion"
 ############################
 # User section definition
 ############################
