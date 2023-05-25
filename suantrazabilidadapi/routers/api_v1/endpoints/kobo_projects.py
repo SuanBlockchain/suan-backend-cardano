@@ -27,7 +27,7 @@ async def get_projects_from_kobo() -> dict:
     return db_projects_forms
 
 @router.get(
-    "/projects-kobo/{kobo_id}",
+    "/projects-kobo/{kobo_id}/",
     status_code=200,
     summary="Get the project from Kobo based on Kobo Id",
     response_description="Project from Kobo",
@@ -102,10 +102,7 @@ async def create_koboForms(db: Session = Depends(get_db)) -> dict:
     
     return result
 
-
-
-
-@router.post("/kobo/{command_name}/",
+@router.post("/{command_name}/",
     status_code=201,
     summary="Create kobo data in kobo_data table",
     response_description="Kobo data created",

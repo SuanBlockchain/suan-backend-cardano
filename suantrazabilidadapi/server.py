@@ -6,6 +6,8 @@ from db.dblib import engine
 from routers.api_v1.api import api_router
 from core.config import settings
 
+from fastapi.responses import HTMLResponse
+
 
 database_flag = "postgresql"  # Other option could be dynamodb
 
@@ -43,7 +45,20 @@ suantrazabilidad.add_middleware(
 # @root_router.get("/api/v1", status_code=200)
 @suantrazabilidad.get("/")
 async def root():
-    return {"message": "SuanTrazabilidad Api"}
+    # return {"message": "SuanTrazabilidad Api"}
+    """Basic HTML response."""
+    body = (
+        "<html>"
+        "<body style='padding: 10px;'>"
+        "<h1>Bienvenidos al API de Suan Trazabilidad</h1>"
+    "<div>"
+        "Check the docs: <a href='/docs'>here</a>"
+        "</div>"
+        "</body>"
+        "</html>"
+    )
+
+    return HTMLResponse(content=body)
 
 
 suantrazabilidad.include_router(root_router)
@@ -51,6 +66,8 @@ suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)
 
 
 if __name__ == "__main__":
+    # Use this for debugging purposes only
+    # logger.warning("Running in development mode. Do not run like this in production.")
     import uvicorn
 
     uvicorn.run(
