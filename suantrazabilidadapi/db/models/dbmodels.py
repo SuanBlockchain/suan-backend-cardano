@@ -2,6 +2,8 @@ from sqlalchemy import BigInteger, Boolean, Column, Enum
 from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, BigInteger
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSON
+from alembic.config import Config
+from alembic import command
 
 from datetime import datetime
 
@@ -22,6 +24,8 @@ class Projects(Timestamp, Base):
     status = Column(Text, nullable=False)
 
     suan = relationship("Kobo_data", back_populates="suan")
+
+
 
 class Kobo_forms(Base):
     __tablename__ = "kobo_forms"
@@ -64,3 +68,35 @@ class Kobo_data(Base):
 
     suan = relationship("Projects", back_populates="suan")
     kobo_forms = relationship("Kobo_forms", back_populates="koboform")
+
+
+def kobo_data_tables(form_id: str, **column_schema):
+
+    """_summary_
+    ** column_schema: {column_name: column_type}
+    """
+    column_definitions = []
+    table_name = f'kobo_data_{form_id}'
+    for column_name, column_type in column_schema.items():
+        column = Column(column_type, nullable=True)
+        column_definitions.append((column_name, column))
+    
+    columns = {
+        '__tablename__': table_name,
+        'id': Column(Integer, primary_key=True),
+    }
+    columns.update(column_definitions)
+
+    
+    type('Data', (Base,), columns)
+
+    # Perform the Alembic upgrade
+    alembic_cfg = Config('alembic.ini')
+    alembic_cfg.set_main_option('script_location', 'your_migration_directory')
+    alembic_cfg.set_main_option('sqlalchemy.url', 'your_database_connection_string')
+
+    # Run the Alembic upgrade command programmatically
+    with alembic_cfg.connect() as connection:
+        context = alembic_cfg.configure(connection=connection)
+        command.upgrade(context, 'head')
+    

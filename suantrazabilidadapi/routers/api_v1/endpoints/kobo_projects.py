@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from db.dblib import get_db
 from db.models import dbmodels
 from kobo import kobo_api as kobo
+import io
+import pandas as pd
 
 router = APIRouter()
 
@@ -77,6 +79,23 @@ async def create_koboForms(db: Session = Depends(get_db)) -> dict:
                 status = project_form["status"]
                 name = project_form["name"]
                 if owner_username == SUANBLOCKCHAIN and has_deployment == DEPLOYED and status == S and desc_name_1 in name and desc_name_2 in name:
+                    
+                    # Here is the implementation of the dynamic creation of the tables following excel schema
+                    for file in project_form["downloads"]:
+                        for v in file.values():
+                            if v == "xls":
+
+                                url = file["url"].split("?")[0][:-1]+'.xls'
+                    form_format = kobo.kobo_api(url)
+                    if form_format.status_code == 200:
+                        data = pd.read_excel(io.BytesIO(form_format.content))
+                        print(data)
+                        with open(f'./{uid}.xls', 'wb') as file:
+                            file.write(form_format.content)
+                        print('Excel file format sucessfully Downloaded: ', uid)
+                    else:
+                        print('Failed to download the file: ', uid)
+
                     country = project_form["settings"]["country"]
                     if country != []:
                         country = country[0].get("label", "")
@@ -116,19 +135,22 @@ async def create_dataForms(command_name: pydantic_schemas.KoboFormId, db: Sessio
         It can be slow when there is many data in kobo as it is not filtering by date so
         it takes all the available data registries and check one by one if created in PostgresQL DB.\n
         Command_names: \n
-        **parcelas**: represents the form with kobo_id = a5eQnzRdEiVWkt9jBmiJ3L\n
-        **caracterizacion**: represents the form with kobo_id = a3amV423RwsTrQgTu8G4mc\n
+        **parcelas**: represents the form with kobo_id = aAfruCuf8SbUd4jaztbmto\n
+        **caracterizacion**: represents the form with kobo_id = a44ciRM8GHh5XHyJu4XEKn\n
+        **postulacion**: represents the form with kobo_id = avJvoP4AH7Kj2LgVrdwdpj\n
     """
     prefix1 = ""
     if command_name is pydantic_schemas.KoboFormId.parcelas:
-        kobo_id = "a5eQnzRdEiVWkt9jBmiJ3L"
-        prefix1 = "geopoint_widgets"
+        kobo_id = "aAfruCuf8SbUd4jaztbmto"
+        prefix1 = "A_data"
     elif command_name is pydantic_schemas.KoboFormId.caracterizacion:
-        kobo_id = "a3amV423RwsTrQgTu8G4mc"
+        kobo_id = "a44ciRM8GHh5XHyJu4XEKn"
+    elif command_name is pydantic_schemas.KoboFormId.postulacion:
+        kobo_id = "avJvoP4AH7Kj2LgVrdwdpj"
 
     data = kobo.generic_kobo_request(kobo_id)
-    if data is None:
-        raise HTTPException(status_code=404, detail="User not found")
+    if data == []:
+        raise HTTPException(status_code=404, detail="Problems getting data or data empty")
     else:
         data_list = []
         result = {}
@@ -141,14 +163,15 @@ async def create_dataForms(command_name: pydantic_schemas.KoboFormId, db: Sessio
             db_kobo_id = [t[0] for t in results]
         for item in data["results"]:
             _id = item["_id"]
-            suanID = item["suanID"]
+            suanID = item["I_suanID"]
             query = db.query(dbmodels.Projects.id).filter(dbmodels.Projects.suanid == suanID)
             project_table_id = query.first()[0]
             if _id not in db_kobo_id or results == []:
                 data_set = dbmodels.Kobo_data(
                     id_form = forms_table_id,
                     id_suan = project_table_id,
-                    username = item["username"],
+                    username = item.get(f'{prefix1}/A_username', ""),
+                    # username = item["username"],
                     phonenumber = item["phonenumber"],
                     kobo_id = _id,
                     submission_time = item["_submission_time"],

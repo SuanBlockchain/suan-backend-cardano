@@ -25,6 +25,7 @@ class ProjectBase(BaseModel):
 class KoboFormId(str, Enum):
     parcelas = "parcelas"
     caracterizacion = "caracterizacion"
+    postulacion = "postulacion"
 ############################
 # User section definition
 ############################
