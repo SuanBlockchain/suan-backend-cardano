@@ -29,8 +29,8 @@ async def get_projects_from_kobo() -> dict:
 @router.get(
     "/projects-kobo/{kobo_id}/",
     status_code=200,
-    summary="Get the project from Kobo based on Kobo Id",
-    response_description="Project from Kobo",
+    summary="Get the data from specific form",
+    response_description="Data from Kobo",
     # response_model=List[pydantic_schemas.ProjectBase],
 )
 async def get_projects_from_kobo_by_id(kobo_id: str):
@@ -58,6 +58,8 @@ async def create_koboForms(db: Session = Depends(get_db)) -> dict:
     SUANBLOCKCHAIN = "suanblockchain"
     DEPLOYED = True
     S = "shared"
+    desc_name_1 = "revision"
+    desc_name_2 = "version"
     
     db_projects_forms = kobo.generic_kobo_request()
     if db_projects_forms is None:
@@ -73,9 +75,10 @@ async def create_koboForms(db: Session = Depends(get_db)) -> dict:
                 owner_username = project_form["owner__username"]
                 has_deployment = project_form["has_deployment"]
                 status = project_form["status"]
-                if owner_username == SUANBLOCKCHAIN and has_deployment == DEPLOYED and status == S:
-                    country = project_form["settings"].get("country", None)
-                    if country is not None:
+                name = project_form["name"]
+                if owner_username == SUANBLOCKCHAIN and has_deployment == DEPLOYED and status == S and desc_name_1 in name and desc_name_2 in name:
+                    country = project_form["settings"]["country"]
+                    if country != []:
                         country = country[0].get("label", "")
                     
                     form = dbmodels.Kobo_forms(

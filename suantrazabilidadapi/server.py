@@ -51,6 +51,7 @@ async def root():
         "<html>"
         "<body style='padding: 10px;'>"
         "<h1>Bienvenidos al API de Suan Trazabilidad</h1>"
+        "<iframe src='https://ee.kobotoolbox.org/i/32SQGf9l' width='800' height='600'></iframe>"
     "<div>"
         "Check the docs: <a href='/docs'>here</a>"
         "</div>"
