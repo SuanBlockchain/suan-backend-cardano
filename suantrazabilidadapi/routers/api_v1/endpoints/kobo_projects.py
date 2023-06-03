@@ -1,50 +1,107 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
 from routers.api_v1.endpoints import pydantic_schemas
 from typing import List, Any
 from sqlalchemy.orm import Session
+import json
 
 from db.dblib import get_db
 from db.models import dbmodels
 from kobo import kobo_api as kobo
 import io
 import pandas as pd
+import numpy as np
+from core.config import config
+from kobo import manager
 
 router = APIRouter()
 
+URL_KOBO = "https://kf.kobotoolbox.org/"
+API_VERSION = 2
+kobo_tokens_dict = config(section="kobo")
+MYTOKEN = kobo_tokens_dict["kobo_token"]
+
 
 @router.get(
-    "/all-projects/",
+    "/all-forms/",
     status_code=200,
-    summary="Get all data",
-    response_description="Projects from Kobo",
+    summary="Get the list of forms you have access to",
+    response_description="List of forms",
     # response_model=List[pydantic_schemas.ProjectBase],
 )
-async def get_projects_from_kobo() -> dict:
-    """Get all kobo data available for any project and any form.\n 
+async def get_forms_from_kobo() -> dict:
+    """Get the list of forms you have access to \n 
         No updates or creation of records in PostgresQl DB.\n
     """
-    db_projects_forms = kobo.generic_kobo_request()
-    if db_projects_forms is None:
-        raise HTTPException(status_code=404, detail="Problems getting project data from Kobo")
-    return db_projects_forms
+    meta = []
+
+    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    my_forms = km.get_forms()
+    for form in my_forms:
+        meta.append(form.metadata)
+    
+    # db_projects_forms = kobo.generic_kobo_request()
+    # if db_projects_forms is None:
+    #     raise HTTPException(status_code=404, detail="Problems getting project data from Kobo")
+    return {"results": meta}
+
+# @router.get(
+#     "/all-projects/",
+#     status_code=200,
+#     summary="Get all data",
+#     response_description="Projects from Kobo",
+#     # response_model=List[pydantic_schemas.ProjectBase],
+# )
+# async def get_projects_from_kobo() -> dict:
+#     """Get all kobo data available for any project and any form.\n 
+#         No updates or creation of records in PostgresQl DB.\n
+#     """
+#     db_projects_forms = kobo.generic_kobo_request()
+#     if db_projects_forms is None:
+#         raise HTTPException(status_code=404, detail="Problems getting project data from Kobo")
+#     return db_projects_forms
 
 @router.get(
-    "/projects-kobo/{kobo_id}/",
+    "/forms/{form_id}/",
     status_code=200,
-    summary="Get the data from specific form",
+    summary="Fetch single form",
     response_description="Data from Kobo",
     # response_model=List[pydantic_schemas.ProjectBase],
 )
-async def get_projects_from_kobo_by_id(kobo_id: str):
-    """Get kobo data by filtering from kobo_id.\n 
-        It just query kobo database and get all the data available in the specified form.\n
+async def get_form_by_id(form_id: str):
+    """Get form metadata with form_id.\n 
         No updates or creation of records in PostgresQl DB.\n
-        **kobo_id**: represents the kobo_id for the form. For example: kobo_id = a3amV423RwsTrQgTu8G4mc.\n
+        **form_id**: represents the form_id for the form. For example: form_id = a3amV423RwsTrQgTu8G4mc.\n
     """
-    db_projects_form = kobo.generic_kobo_request(kobo_id)
-    if db_projects_form is None:
-        raise HTTPException(status_code=404, detail=f"Project with {kobo_id} not found")
-    return db_projects_form
+    # db_projects_form = kobo.generic_kobo_request(form_id)
+    # if db_projects_form is None:
+    #     raise HTTPException(status_code=404, detail=f"Project with {form_id} not found")
+    # return db_projects_form
+    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    form = km.get_form(form_id)
+    return { "results": form.metadata }
+
+@router.get(
+    "/forms-data/{form_id}/",
+    status_code=200,
+    summary="Get data submissions from specific form",
+    response_description="Data from Kobo",
+    # response_model=List[pydantic_schemas.ProjectBase],
+)
+async def get_form_data(form_id: str):
+    """Get form data with form_id.\n 
+        No updates or creation of records in PostgresQl DB.\n
+        **form_id**: represents the form_id for the form. For example: form_id = a3amV423RwsTrQgTu8G4mc.\n
+    """
+
+    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    form = km.get_form(form_id)
+    form.fetch_data()
+    print(form.data.columns)
+    df = form.data
+
+    return {"results": json.loads(df.to_json())}
+
 
 @router.post(
     "/kobo-forms/",

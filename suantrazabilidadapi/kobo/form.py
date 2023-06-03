@@ -437,11 +437,13 @@ class KoboForm:
             new_geo_names = [f"_{g.name}_{c}" for c in base_geo_columns]
             new_geo_labels = [f"_{g.label}_{c}" for c in base_geo_columns]
 
-            for idx, c in enumerate(new_geo_names):
-                q = Question(c, "geo", new_geo_labels[idx])
-                self.__root_structure.insert(index_geo + idx + 1, q)
+            has_null_values = self.data[g.name].isnull().any()
+            if not has_null_values:
+                for idx, c in enumerate(new_geo_names):
+                    q = Question(c, "geo", new_geo_labels[idx])
+                    self.__root_structure.insert(index_geo + idx + 1, q)
 
-            self.data[new_geo_names] = self.data[g.name].str.split(" ", expand=True)
+                self.data[new_geo_names] = self.data[g.name].str.split(" ", expand=True)
 
         # XXX This has not been tested
         if self.has_repeats:
