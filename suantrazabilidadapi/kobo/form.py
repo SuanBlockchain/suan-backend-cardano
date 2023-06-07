@@ -26,6 +26,7 @@ class KoboForm:
         self.naming_conflicts = None
         self.separator = "|"
         self.__initial_separator = " "
+        self.attachments = None
 
     def __repr__(self):
         return f"KoboForm('{self.uid}')"
@@ -132,6 +133,10 @@ class KoboForm:
                     v, self.__repeats_structure[k]["columns"], self.__choices_as
                 )
         self.__initial_separator = self.separator
+
+        for item in data:
+            attachments_lists = item["_attachments"]
+            self.attachments = pd.DataFrame(attachments_lists)
 
     def display(self, columns_as: str = "name", choices_as: str = "name") -> None:
         """Update the DatFrames containing the data by using names or labels for
@@ -340,6 +345,8 @@ class KoboForm:
         self.metadata["has_deployment"] = asset["has_deployment"]
         self.metadata["num_submissions"] = asset["deployment__submission_count"]
         self.metadata["geo"] = asset["summary"]["geo"]
+        self.metadata["deployment__active"] = asset["deployment__active"]
+        self.metadata["owner__username"] = asset["owner__username"]
 
         self.url_asset = asset["url"]
         self.url_data = asset["data"]
@@ -462,7 +469,7 @@ class KoboForm:
                             g.name
                         ].str.split(" ", expand=True)
 
-    def download_form(self, format: str) -> None:
+    def download_form(self, format: str, write: bool) -> bytes:
         """Given the uid of a form and a format ('xls' or 'xml')
         download the form in that format in the current directory"""
 
@@ -476,5 +483,8 @@ class KoboForm:
 
         r = requests.get(URL, headers=self.headers)
 
-        with open(filename, "wb") as f:
-            f.write(r.content)
+        if write:
+            with open(filename, "wb") as f:
+                f.write(r.content)
+        
+        return r.content

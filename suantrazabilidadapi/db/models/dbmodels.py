@@ -1,16 +1,16 @@
-from sqlalchemy import BigInteger, Boolean, Column, Enum
-from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, BigInteger
+import os
+from core.config import config
+from sqlalchemy import Column, create_engine
+from sqlalchemy import Integer, Text
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID, JSON
 from alembic.config import Config
 from alembic import command
-
-from datetime import datetime
+from typing import List
+from alembic.util import CommandError
+from alembic.script import ScriptDirectory
 
 from ..dblib import Base
 from .mixins import Timestamp
-
-# from routers.api_v1.endpoints.pydantic_schemas import ScriptPurpose
 
 
 class Projects(Timestamp, Base):
@@ -26,77 +26,62 @@ class Projects(Timestamp, Base):
     suan = relationship("Kobo_data", back_populates="suan")
 
 
-
-class Kobo_forms(Base):
-    __tablename__ = "kobo_forms"
-
-    id = Column(Integer, primary_key=True)
-    koboform_id = Column(Text, nullable=False)
-    name = Column(Text, nullable=True)
-    description = Column(Text, nullable=True)
-    organization = Column(Text, nullable=True)
-    country = Column(Text, nullable=True)
-    kind = Column(Text, nullable=True)
-    asset_type = Column(Text, nullable=True)
-    deployment_active = Column(Text, nullable=True)
-    deployment_count = Column(Integer, nullable=True)
-    owner_username = Column(Text, nullable=True)
-    has_deployment = Column(Boolean, nullable=False)
-    status = Column(Text, nullable=True)
-
-    koboform = relationship("Kobo_data", back_populates="kobo_forms")
-
-class Kobo_data(Base):
-    __tablename__ = "kobo_data"
-
-    id = Column(Integer, primary_key=True)
-    id_form = Column(Integer, ForeignKey('kobo_forms.id'), nullable=True)
-    id_suan = Column(Integer, ForeignKey('projects.id'), nullable=False)
-    username = Column(Text, nullable=True)
-    phonenumber = Column(Text, nullable=True)
-    kobo_id = Column(BigInteger, nullable=True)
-    submission_time = Column(DateTime, default=datetime.utcnow, nullable=False)
-    text = Column(Text, nullable=True)
-    geopoint_map = Column(Text, nullable=True)
-    annotate = Column(Text, nullable=True)
-    text_001 = Column(Text, nullable=True)
-    geotrace = Column(Text, nullable=True)
-    text_002 = Column(Text, nullable=True)
-    geoshape = Column(Text, nullable=True)
-    geopoint_hide = Column(Text, nullable=True)
-    audit = Column(Text, nullable=True)
-
-    suan = relationship("Projects", back_populates="suan")
-    kobo_forms = relationship("Kobo_forms", back_populates="koboform")
-
-
-def kobo_data_tables(form_id: str, **column_schema):
+def kobo_data_tables(form_id_list: List[str], column_schema_list: List[dict]) -> str:
 
     """_summary_
     ** column_schema: {column_name: column_type}
     """
-    column_definitions = []
-    table_name = f'kobo_data_{form_id}'
-    for column_name, column_type in column_schema.items():
-        column = Column(column_type, nullable=True)
-        column_definitions.append((column_name, column))
-    
-    columns = {
-        '__tablename__': table_name,
-        'id': Column(Integer, primary_key=True),
-    }
-    columns.update(column_definitions)
+    params = config(section="postgresql")
 
-    
-    type('Data', (Base,), columns)
+    for i, form_id in enumerate(form_id_list):
+        table_name = f'kobo_data_{form_id}'
+        columns = {
+            '__tablename__': table_name,
+            'id': Column(Integer, primary_key=True),
+        }
 
+        for column_name, column_type in column_schema_list[i].items():
+            columns[column_name] = Column(column_type, nullable=True)
+        
+        type(table_name, (Base,), {
+            '__tablename__': table_name,
+            '__table_args__': {'extend_existing': True},
+            **columns
+        }
+        )
     # Perform the Alembic upgrade
-    alembic_cfg = Config('alembic.ini')
-    alembic_cfg.set_main_option('script_location', 'your_migration_directory')
-    alembic_cfg.set_main_option('sqlalchemy.url', 'your_database_connection_string')
+    conn_string = f"postgresql://{params['user']}:{params['password']}@{params['host']}:{params['port']}/{params['database']}"
 
-    # Run the Alembic upgrade command programmatically
-    with alembic_cfg.connect() as connection:
-        context = alembic_cfg.configure(connection=connection)
-        command.upgrade(context, 'head')
+    alembic_cfg = Config('suantrazabilidadapi/alembic.ini')
+    alembic_cfg.set_main_option('script_location', 'suantrazabilidadapi/alembic')
+    alembic_cfg.set_main_option('sqlalchemy.url', conn_string)
+
+    engine = create_engine(conn_string)
+
+    try:
+
+        with engine.begin() as connection:
+            alembic_cfg.attributes["connection"] = connection
+            command.revision(alembic_cfg, autogenerate=True, message="Auto-generated migration")
+
+            script_directory = ScriptDirectory.from_config(alembic_cfg)
+            latest_revision = script_directory.get_current_head()
+            migration_script_path = script_directory.get_revision(latest_revision).path
+            with open(migration_script_path) as file:
+                migration_script_contents = file.read()
+            
+            # Check if the migration script contains only a `pass` statement
+            if 'pass' in migration_script_contents:
+                msg = f"No changes detected. Skipping migration."
+                if os.path.exists(migration_script_path):
+                    os.remove(migration_script_path)
+            else:
+                command.upgrade(alembic_cfg, "head")
+
+                msg = f"Upgrade completed successfully for the following forms: {form_id_list}"
+    
+    except CommandError as e:
+        msg = f'Upgrade failed: {str(e)}'
+
+    return msg
     

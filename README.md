@@ -30,4 +30,8 @@ alembic init alembic
 alembic revision --autogenerate -m "Creation of tables"
 
 alembic upgrade head
+
+alembic downgrade -1 # downgrade to previous version
+alembic downgrade head # drop tables
+
 ```
