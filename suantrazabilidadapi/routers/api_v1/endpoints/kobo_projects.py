@@ -4,6 +4,7 @@ from routers.api_v1.endpoints import pydantic_schemas
 from typing import List, Any
 from sqlalchemy.orm import Session
 import json
+import sqlalchemy as sq
 
 from db.dblib import get_db
 from db.models import dbmodels
@@ -21,45 +22,43 @@ API_VERSION = 2
 kobo_tokens_dict = config(section="kobo")
 MYTOKEN = kobo_tokens_dict["kobo_token"]
 
+SUANBLOCKCHAIN = "suanblockchain"
+desc_name_1 = "revision"
+desc_name_2 = "version"
+
+column_exclusions = [
+    "note",
+    "begin_group",
+    "end_group"
+]
+
 
 @router.get(
-    "/all-forms/",
+    "/forms/",
     status_code=200,
     summary="Get the list of forms you have access to",
     response_description="List of forms",
     # response_model=List[pydantic_schemas.ProjectBase],
 )
 async def get_forms_from_kobo() -> dict:
-    """Get the list of forms you have access to \n 
+    """Get the list of forms you have access to, and filtered if active, deployed, username = 'suanblockchain' and if the name contains revision and version \n 
         No updates or creation of records in PostgresQl DB.\n
     """
+
     meta = []
 
     km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
     my_forms = km.get_forms()
     for form in my_forms:
-        meta.append(form.metadata)
+        deployment_active = form.metadata["deployment__active"]
+        has_deployment = form.metadata["has_deployment"]
+        owner = form.metadata["owner"]
+        name = form.metadata["name"]
+        # Filter forms active, deployed and owner username = 'suanblockchain'
+        if deployment_active and has_deployment and owner == SUANBLOCKCHAIN and desc_name_1 in name and desc_name_2 in name:
+            meta.append(form.metadata)
     
-    # db_projects_forms = kobo.generic_kobo_request()
-    # if db_projects_forms is None:
-    #     raise HTTPException(status_code=404, detail="Problems getting project data from Kobo")
     return {"results": meta}
-
-# @router.get(
-#     "/all-projects/",
-#     status_code=200,
-#     summary="Get all data",
-#     response_description="Projects from Kobo",
-#     # response_model=List[pydantic_schemas.ProjectBase],
-# )
-# async def get_projects_from_kobo() -> dict:
-#     """Get all kobo data available for any project and any form.\n 
-#         No updates or creation of records in PostgresQl DB.\n
-#     """
-#     db_projects_forms = kobo.generic_kobo_request()
-#     if db_projects_forms is None:
-#         raise HTTPException(status_code=404, detail="Problems getting project data from Kobo")
-#     return db_projects_forms
 
 @router.get(
     "/forms/{form_id}/",
@@ -73,10 +72,6 @@ async def get_form_by_id(form_id: str):
         No updates or creation of records in PostgresQl DB.\n
         **form_id**: represents the form_id for the form. For example: form_id = a3amV423RwsTrQgTu8G4mc.\n
     """
-    # db_projects_form = kobo.generic_kobo_request(form_id)
-    # if db_projects_form is None:
-    #     raise HTTPException(status_code=404, detail=f"Project with {form_id} not found")
-    # return db_projects_form
     km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
     form = km.get_form(form_id)
     return { "results": form.metadata }
@@ -93,15 +88,75 @@ async def get_form_data(form_id: str):
         No updates or creation of records in PostgresQl DB.\n
         **form_id**: represents the form_id for the form. For example: form_id = a3amV423RwsTrQgTu8G4mc.\n
     """
-
+    # db_projects_form = kobo.generic_kobo_request(form_id)
     km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
     form = km.get_form(form_id)
     form.fetch_data()
-    print(form.data.columns)
     df = form.data
 
     return {"results": json.loads(df.to_json())}
 
+
+@router.post(
+    "/forms/upgrade",
+    status_code=201,
+    summary="Create or upgrade kobo forms tables in postgresql DB",
+    response_description="Kobo forms created",
+)
+async def create_koboForms(db: Session = Depends(get_db)) -> dict:
+    """Create or upgrade kobo forms tables in postgresql DB\n 
+        This endpoint is useful when a new form is created in Kobo so it needs to be registered in DB.\n
+        Or when there are changes in existing forms which requires upgrades in postgresql DB tables.\n
+    """
+    form_id_list = []
+    column_schema_list = []
+
+    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    my_forms = km.get_forms()
+
+    msg = f'No forms to update'
+
+    for form in my_forms:
+        column_schema = {}
+        column_schema_dict = {}
+        form_id = form.metadata["uid"]
+        deployment_active = form.metadata["deployment__active"]
+        has_deployment = form.metadata["has_deployment"]
+        owner = form.metadata["owner"]
+        name = form.metadata["name"]
+        # Filter forms active, deployed and owner username = 'suanblockchain'
+        if deployment_active and has_deployment and owner == SUANBLOCKCHAIN and desc_name_1 in name and desc_name_2 in name:
+
+            form = km.get_form(form_id)
+            form.fetch_data()
+            form.display(columns_as='name', choices_as='name')
+            form_bytestring = form.download_form('xls', False)
+            form_template = pd.read_excel(io.BytesIO(form_bytestring))
+            for index, row in form_template.iterrows():
+                type = row["type"]
+                if type not in column_exclusions:
+                    if type == "text" or "select_one" in type or "select_multiple" in type or type == "file" or type == "image":
+                        column_schema = {
+                            row["name"]: sq.String
+                        }
+                    elif type == "integer":
+                        column_schema = {
+                            row["name"]: sq.Integer
+                        }
+                    elif type == "date":
+                        column_schema = { row["name"]: sq.DateTime}
+                    elif type == "decimal":
+                        column_schema = { row["name"]: sq.Numeric}
+
+                if column_schema != {}:
+                    column_schema_dict.update(column_schema)
+
+            form_id_list.append(form_id)
+            column_schema_list.append(column_schema_dict)
+        
+    msg = dbmodels.kobo_data_tables(form_id_list, column_schema_list)
+            
+    return { "results": msg}
 
 @router.post(
     "/kobo-forms/",
