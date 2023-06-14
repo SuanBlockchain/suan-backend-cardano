@@ -3,17 +3,18 @@ from fastapi.encoders import jsonable_encoder
 from routers.api_v1.endpoints import pydantic_schemas
 from typing import List, Any
 from sqlalchemy.orm import Session
-import json
 import sqlalchemy as sq
+from sqlalchemy.exc import SQLAlchemyError
+import json
 
 from db.dblib import get_db
-from db.models import dbmodels
+from db.models import dbmodels, mixins
 from kobo import kobo_api as kobo
 import io
 import pandas as pd
-import numpy as np
 from core.config import config
 from kobo import manager
+import math
 
 router = APIRouter()
 
@@ -26,12 +27,21 @@ SUANBLOCKCHAIN = "suanblockchain"
 desc_name_1 = "revision"
 desc_name_2 = "version"
 
-column_exclusions = [
-    "note",
-    "begin_group",
-    "end_group"
-]
+def filter_form(forms) -> list:
 
+    form_list = []
+
+    for form in forms:
+
+        deployment_active = form.metadata["deployment__active"]
+        has_deployment = form.metadata["has_deployment"]
+        owner = form.metadata["owner"]
+        name = form.metadata["name"]
+        # Filter forms active, deployed and owner username = 'suanblockchain'
+        if deployment_active and has_deployment and owner == SUANBLOCKCHAIN and desc_name_1 in name and desc_name_2 in name:
+            form_list.append(form)
+
+    return form_list
 
 @router.get(
     "/forms/",
@@ -103,7 +113,7 @@ async def get_form_data(form_id: str):
     summary="Create or upgrade kobo forms tables in postgresql DB",
     response_description="Kobo forms created",
 )
-async def create_koboForms(db: Session = Depends(get_db)) -> dict:
+async def create_koboForms() -> dict:
     """Create or upgrade kobo forms tables in postgresql DB\n 
         This endpoint is useful when a new form is created in Kobo so it needs to be registered in DB.\n
         Or when there are changes in existing forms which requires upgrades in postgresql DB tables.\n
@@ -116,125 +126,198 @@ async def create_koboForms(db: Session = Depends(get_db)) -> dict:
 
     msg = f'No forms to update'
 
-    for form in my_forms:
-        column_schema = {}
-        column_schema_dict = {}
+    # Filter forms active, deployed and owner username = 'suanblockchain'
+    filtered_forms = filter_form(my_forms)
+
+    for form in filtered_forms:
         form_id = form.metadata["uid"]
-        deployment_active = form.metadata["deployment__active"]
-        has_deployment = form.metadata["has_deployment"]
-        owner = form.metadata["owner"]
-        name = form.metadata["name"]
-        # Filter forms active, deployed and owner username = 'suanblockchain'
-        if deployment_active and has_deployment and owner == SUANBLOCKCHAIN and desc_name_1 in name and desc_name_2 in name:
 
-            form = km.get_form(form_id)
-            form.fetch_data()
-            form.display(columns_as='name', choices_as='name')
-            form_bytestring = form.download_form('xls', False)
-            form_template = pd.read_excel(io.BytesIO(form_bytestring))
-            for index, row in form_template.iterrows():
-                type = row["type"]
-                if type not in column_exclusions:
-                    if type == "text" or "select_one" in type or "select_multiple" in type or type == "file" or type == "image":
-                        column_schema = {
-                            row["name"]: sq.String
-                        }
-                    elif type == "integer":
-                        column_schema = {
-                            row["name"]: sq.Integer
-                        }
-                    elif type == "date":
-                        column_schema = { row["name"]: sq.DateTime}
-                    elif type == "decimal":
-                        column_schema = { row["name"]: sq.Numeric}
+        form = km.get_form(form_id)
+        form.fetch_data()
+        # form.display(columns_as='name', choices_as='name')
+        form_bytestring = form.download_form('xls', False)
+        form_template = pd.read_excel(io.BytesIO(form_bytestring))
+        column_schema_dict = mixins.build_schema(form_template)
 
-                if column_schema != {}:
-                    column_schema_dict.update(column_schema)
-
-            form_id_list.append(form_id)
-            column_schema_list.append(column_schema_dict)
+        form_id_list.append(form_id)
+        column_schema_list.append(column_schema_dict)
         
     msg = dbmodels.kobo_data_tables(form_id_list, column_schema_list)
             
     return { "results": msg}
 
-@router.post(
-    "/kobo-forms/",
+# @router.post(
+#     "/kobo-forms/",
+#     status_code=201,
+#     summary="Create kobo forms in kobo_forms table",
+#     response_description="Kobo forms created",
+# )
+# async def create_koboForms(db: Session = Depends(get_db)) -> dict:
+#     """Create generic data associated to the form itself.\n 
+#         This endpoint is useful when new form is created in Kobo so it needs to be registered in DB.\n
+#     """
+
+#     SUANBLOCKCHAIN = "suanblockchain"
+#     DEPLOYED = True
+#     S = "shared"
+#     desc_name_1 = "revision"
+#     desc_name_2 = "version"
+    
+#     db_projects_forms = kobo.generic_kobo_request()
+#     if db_projects_forms is None:
+#         raise HTTPException(status_code=404, detail="User not found")
+#     else:
+#         filtered_forms = []
+#         result = {}
+#         results = db.query(dbmodels.Kobo_forms.koboform_id).all()
+#         koboform_id = [t[0] for t in results]
+#         for project_form in db_projects_forms["results"]:
+#             uid = project_form["uid"]
+#             if uid not in koboform_id: # if form is not yet there in DB
+#                 owner_username = project_form["owner__username"]
+#                 has_deployment = project_form["has_deployment"]
+#                 status = project_form["status"]
+#                 name = project_form["name"]
+#                 if owner_username == SUANBLOCKCHAIN and has_deployment == DEPLOYED and status == S and desc_name_1 in name and desc_name_2 in name:
+                    
+#                     # Here is the implementation of the dynamic creation of the tables following excel schema
+#                     for file in project_form["downloads"]:
+#                         for v in file.values():
+#                             if v == "xls":
+
+#                                 url = file["url"].split("?")[0][:-1]+'.xls'
+#                     form_format = kobo.kobo_api(url)
+#                     if form_format.status_code == 200:
+#                         data = pd.read_excel(io.BytesIO(form_format.content))
+#                         print(data)
+#                         with open(f'./{uid}.xls', 'wb') as file:
+#                             file.write(form_format.content)
+#                         print('Excel file format sucessfully Downloaded: ', uid)
+#                     else:
+#                         print('Failed to download the file: ', uid)
+
+#                     country = project_form["settings"]["country"]
+#                     if country != []:
+#                         country = country[0].get("label", "")
+                    
+#                     form = dbmodels.Kobo_forms(
+#                         koboform_id = project_form["uid"],
+#                         name = project_form["name"],
+#                         description = project_form["settings"].get("description", ""),
+#                         organization = project_form["settings"].get("organization", ""),
+#                         country = country,
+#                         kind = project_form["kind"],
+#                         asset_type = project_form["asset_type"],
+#                         deployment_active = project_form["deployment__active"],
+#                         deployment_count = project_form["deployment__submission_count"],
+#                         owner_username = owner_username,
+#                         has_deployment = has_deployment,
+#                         status = status
+#                     )
+#                     filtered_forms.append(form)
+#                     db.add(form)
+#                     db.commit()
+#                     db.refresh(form)
+#             else:
+#                 filtered_forms.append({f'Koboform with uid {uid} already created'})
+#         result["results"] = filtered_forms
+    
+#     return result
+
+
+@router.post("/data/upgrade/",
     status_code=201,
-    summary="Create kobo forms in kobo_forms table",
-    response_description="Kobo forms created",
+    summary="Create kobo data in all existing forms tables",
+    response_description="Kobo data created in postgresql DB",
 )
-async def create_koboForms(db: Session = Depends(get_db)) -> dict:
-    """Create generic data associated to the form itself.\n 
-        This endpoint is useful when new form is created in Kobo so it needs to be registered in DB.\n
+async def create_dataForms(db: Session = Depends(get_db)) -> dict:
+    """Create data for all kobo forms tables existing in postgresql DB.\n 
+        It creates only non existing data, which means that data already existing is ignored and not updated.\n
+        It can be slow when there are many data in kobo as it is not filtering by date so
+        it takes all the available data registries and check one by one if created in PostgresQL DB.\n
     """
 
-    SUANBLOCKCHAIN = "suanblockchain"
-    DEPLOYED = True
-    S = "shared"
-    desc_name_1 = "revision"
-    desc_name_2 = "version"
-    
-    db_projects_forms = kobo.generic_kobo_request()
-    if db_projects_forms is None:
+    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    forms = km.get_forms()
+
+    if forms == []:
         raise HTTPException(status_code=404, detail="User not found")
     else:
-        filtered_forms = []
+
         result = {}
-        results = db.query(dbmodels.Kobo_forms.koboform_id).all()
-        koboform_id = [t[0] for t in results]
-        for project_form in db_projects_forms["results"]:
-            uid = project_form["uid"]
-            if uid not in koboform_id: # if form is not yet there in DB
-                owner_username = project_form["owner__username"]
-                has_deployment = project_form["has_deployment"]
-                status = project_form["status"]
-                name = project_form["name"]
-                if owner_username == SUANBLOCKCHAIN and has_deployment == DEPLOYED and status == S and desc_name_1 in name and desc_name_2 in name:
-                    
-                    # Here is the implementation of the dynamic creation of the tables following excel schema
-                    for file in project_form["downloads"]:
-                        for v in file.values():
-                            if v == "xls":
 
-                                url = file["url"].split("?")[0][:-1]+'.xls'
-                    form_format = kobo.kobo_api(url)
-                    if form_format.status_code == 200:
-                        data = pd.read_excel(io.BytesIO(form_format.content))
-                        print(data)
-                        with open(f'./{uid}.xls', 'wb') as file:
-                            file.write(form_format.content)
-                        print('Excel file format sucessfully Downloaded: ', uid)
-                    else:
-                        print('Failed to download the file: ', uid)
+        filtered_forms = filter_form(forms)
 
-                    country = project_form["settings"]["country"]
-                    if country != []:
-                        country = country[0].get("label", "")
-                    
-                    form = dbmodels.Kobo_forms(
-                        koboform_id = project_form["uid"],
-                        name = project_form["name"],
-                        description = project_form["settings"].get("description", ""),
-                        organization = project_form["settings"].get("organization", ""),
-                        country = country,
-                        kind = project_form["kind"],
-                        asset_type = project_form["asset_type"],
-                        deployment_active = project_form["deployment__active"],
-                        deployment_count = project_form["deployment__submission_count"],
-                        owner_username = owner_username,
-                        has_deployment = has_deployment,
-                        status = status
-                    )
-                    filtered_forms.append(form)
-                    db.add(form)
-                    db.commit()
-                    db.refresh(form)
+        msgs = []
+
+        for form in filtered_forms:
+            # if uid not in koboform_id: # if form is not yet there in DB
+            
+            form_id = form.metadata["uid"]
+            form = km.get_form(form_id)
+            form.fetch_data()
+            data_frame = form.data
+
+            if data_frame is not None:
+
+                form_bytestring = form.download_form('xls', False)
+                form_template = pd.read_excel(io.BytesIO(form_bytestring))
+                column_schema_dict = mixins.build_schema(form_template)
+
+                column_schema_dict.update({"kobo_id": sq.Integer})
+
+                table_class = mixins.create_dataType(form_id, column_schema_dict)
+
+                data_list = data_frame.to_dict(orient='records')
+                
+                filtered_data_list = []
+                filtered_data = []
+                id_list = []
+                data_sets = []
+                for data in data_list:
+                    _id = data["_id"]
+                    id_list.append(_id)
+                query = db.query(table_class.kobo_id).filter(table_class.kobo_id.in_(id_list))
+                results = query.all()
+                if results == []:
+                    for data in data_list:
+                        filtered_data = {k: None if isinstance(v, float) and math.isnan(v) else v for k, v in data.items() if k in column_schema_dict}
+                        filtered_data["kobo_id"] = data["_id"]
+                        filtered_data_list.append(filtered_data)
+
+                    for item in filtered_data_list:
+                        data_set = table_class(**item)
+                        data_sets.append(data_set)
+                    for data_set in data_sets:
+                        db.add(data_set)
+                    try:
+                        db.commit()
+                        msg = f'Data updated succesfully in postgresQL for form: {form_id}'
+                        print(msg)
+                        msgs.append(msg)
+                    except SQLAlchemyError as e:
+                        db.rollback()
+                        msg = f'An error occurred during the database commit:", {str(e)} for form: {form_id}'
+                        print(msg)
+                        msgs.append(msg)
+                else:
+                    msg = f'No data to update for form: {form_id}'
+                    print(msg)
+                    msgs.append(msg)
             else:
-                filtered_forms.append({f'Koboform with uid {uid} already created'})
-        result["results"] = filtered_forms
-    
-    return result
+                msg = f'No data to update for form: {form_id}'
+                print(msg)
+                msgs.append(msg)
+                    
+    return { "results": msgs}
+
+
+
+
+
+
+
+
 
 @router.post("/{command_name}/",
     status_code=201,

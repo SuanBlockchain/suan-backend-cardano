@@ -2,7 +2,6 @@ import os
 from core.config import config
 from sqlalchemy import Column, create_engine
 from sqlalchemy import Integer, Text
-from sqlalchemy.orm import relationship
 from alembic.config import Config
 from alembic import command
 from typing import List
@@ -10,7 +9,7 @@ from alembic.util import CommandError
 from alembic.script import ScriptDirectory
 
 from ..dblib import Base
-from .mixins import Timestamp
+from .mixins import Timestamp, create_dataType
 
 
 class Projects(Timestamp, Base):
@@ -23,9 +22,6 @@ class Projects(Timestamp, Base):
     categoryid = Column(Text, nullable=True)
     status = Column(Text, nullable=False)
 
-    suan = relationship("Kobo_data", back_populates="suan")
-
-
 def kobo_data_tables(form_id_list: List[str], column_schema_list: List[dict]) -> str:
 
     """_summary_
@@ -34,21 +30,8 @@ def kobo_data_tables(form_id_list: List[str], column_schema_list: List[dict]) ->
     params = config(section="postgresql")
 
     for i, form_id in enumerate(form_id_list):
-        table_name = f'kobo_data_{form_id}'
-        columns = {
-            '__tablename__': table_name,
-            'id': Column(Integer, primary_key=True),
-        }
+        create_dataType(form_id, column_schema_list[i])
 
-        for column_name, column_type in column_schema_list[i].items():
-            columns[column_name] = Column(column_type, nullable=True)
-        
-        type(table_name, (Base,), {
-            '__tablename__': table_name,
-            '__table_args__': {'extend_existing': True},
-            **columns
-        }
-        )
     # Perform the Alembic upgrade
     conn_string = f"postgresql://{params['user']}:{params['password']}@{params['host']}:{params['port']}/{params['database']}"
 
