@@ -1,5 +1,5 @@
 import os
-from core.config import config
+from suantrazabilidadapi.core.config import config
 from sqlalchemy import Column, create_engine
 from sqlalchemy import Integer, Text
 from alembic.config import Config

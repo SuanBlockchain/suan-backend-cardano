@@ -7,7 +7,7 @@ from datetime import date
 # from fastapi import Depends
 # from db.dblib import get_db
 # from db.models import dbmodels
-from core.config import config
+from suantrazabilidadapi.core.config import config
 
 
 def kobo_api(URL, params={}):

@@ -35,3 +35,17 @@ alembic downgrade -1 # downgrade to previous version
 alembic downgrade head # drop tables
 
 ```
+
+### Use docker
+
+Create docker file
+
+Run following commands to create or update the image
+
+    docker build -t suantrazabilidad .
+    docker run -d --name suantrazabilidadapi -p 80:80 suantrazabilidad
+
+Other useful docker commands
+
+    docker rm {image}
+    docker image ls

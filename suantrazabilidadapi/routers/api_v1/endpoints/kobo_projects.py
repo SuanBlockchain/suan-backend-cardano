@@ -1,19 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
-from routers.api_v1.endpoints import pydantic_schemas
+from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from typing import List, Any
 from sqlalchemy.orm import Session
 import sqlalchemy as sq
 from sqlalchemy.exc import SQLAlchemyError
 import json
 
-from db.dblib import get_db
-from db.models import dbmodels, mixins
-from kobo import kobo_api as kobo
+from suantrazabilidadapi.db.dblib import get_db
+from suantrazabilidadapi.db.models import dbmodels, mixins
+from suantrazabilidadapi.kobo import kobo_api as kobo, manager
 import io
 import pandas as pd
-from core.config import config
-from kobo import manager
+from suantrazabilidadapi.core.config import config
 import math
 
 router = APIRouter()

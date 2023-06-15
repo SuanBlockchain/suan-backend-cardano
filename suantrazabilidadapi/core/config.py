@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def config(config_path: str = "./credentials.local.ini", section: str = "") -> dict:
+def config(config_path: str = "./suantrazabilidadapi/credentials.local.ini", section: str = "") -> dict:
     # create a parser
     parser = ConfigParser()
     # read config file

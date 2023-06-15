@@ -1,10 +1,10 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from db.models import dbmodels
-from db.dblib import engine
+from .db.models import dbmodels
+from .db.dblib import engine
 
-from routers.api_v1.api import api_router
-from core.config import settings
+from .routers.api_v1.api import api_router
+from .core.config import settings
 
 from fastapi.responses import HTMLResponse
 
@@ -42,10 +42,8 @@ suantrazabilidad.add_middleware(
 ##################################################################
 
 
-# @root_router.get("/api/v1", status_code=200)
 @suantrazabilidad.get("/")
 async def root():
-    # return {"message": "SuanTrazabilidad Api"}
     """Basic HTML response."""
     body = (
         "<html>"
@@ -64,7 +62,6 @@ async def root():
 
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)
-
 
 if __name__ == "__main__":
     # Use this for debugging purposes only
