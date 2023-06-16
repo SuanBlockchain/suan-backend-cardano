@@ -49,3 +49,20 @@ Other useful docker commands
 
     docker rm {image}
     docker image ls
+
+
+### Copilot 
+
+Install copilot
+
+    curl -Lo copilot https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux && chmod +x copilot && sudo mv copilot /usr/local/bin/copilot && copilot --help
+
+Then we just need to start copilot CLI
+
+    copilot init
+
+Other useful commands
+
+    copilot app delete
+
+http://suant-Publi-15HX2LGTWJYAV-1336239482.us-east-1.elb.amazonaws.com
