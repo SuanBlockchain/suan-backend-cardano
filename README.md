@@ -65,4 +65,10 @@ Other useful commands
 
     copilot app delete
 
+Create new environment
+
+    copilot env init
+    copilot env deploy --name prod
+    copilot env ls
+
 http://suant-Publi-15HX2LGTWJYAV-1336239482.us-east-1.elb.amazonaws.com
