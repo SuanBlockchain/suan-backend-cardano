@@ -17,14 +17,6 @@ class Timestamp:
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-# class NullableString(TypeDecorator):
-#     impl = Text
-
-#     def process_bind_param(self, value, dialect):
-#         if value is None or value != value:  # Check for NaN
-#             return None
-#         return value
-
 def create_dataType(form_id: str, column_schema: dict) -> type:
 
     table_name = f'kobo_data_{form_id}'
