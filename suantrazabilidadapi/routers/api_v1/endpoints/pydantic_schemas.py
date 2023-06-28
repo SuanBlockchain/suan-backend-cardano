@@ -22,10 +22,10 @@ class ProjectBase(BaseModel):
     class Config:
         orm_mode = True
 
-class KoboFormId(str, Enum):
-    parcelas = "parcelas"
-    caracterizacion = "caracterizacion"
-    postulacion = "postulacion"
+# class KoboFormId(str, Enum):
+#     parcelas = "parcelas"
+#     caracterizacion = "caracterizacion"
+#     postulacion = "postulacion"
 ############################
 # User section definition
 ############################
