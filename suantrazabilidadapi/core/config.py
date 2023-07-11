@@ -4,6 +4,8 @@ from configparser import ConfigParser
 from pydantic import AnyHttpUrl, BaseSettings, EmailStr, validator
 from typing import List, Optional, Union
 
+from pathlib import Path
+
 
 # Project Directories
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -34,7 +36,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def config(config_path: str = "./suantrazabilidadapi/credentials.local.ini", section: str = "") -> dict:
+def config(config_path: str = f'{ROOT}/credentials.local.ini', section: str = "") -> dict:
     # create a parser
     parser = ConfigParser()
     # read config file
