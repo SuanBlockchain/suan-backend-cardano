@@ -1,7 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.encoders import jsonable_encoder
-from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from typing import List, Any
 from sqlalchemy.orm import Session
 import sqlalchemy as sq
 from sqlalchemy.exc import SQLAlchemyError
@@ -9,18 +6,13 @@ import json
 
 from suantrazabilidadapi.db.dblib import get_db
 from suantrazabilidadapi.db.models import dbmodels, mixins
-from suantrazabilidadapi.kobo import kobo_api as kobo, manager
+from suantrazabilidadapi.kobo.manager import Manager
 import io
 import pandas as pd
 from suantrazabilidadapi.core.config import config
 import math
 
 router = APIRouter()
-
-URL_KOBO = "https://kf.kobotoolbox.org/"
-API_VERSION = 2
-kobo_tokens_dict = config(section="kobo")
-MYTOKEN = kobo_tokens_dict["kobo_token"]
 
 SUANBLOCKCHAIN = "suanblockchain"
 desc_name_1 = "revision"
@@ -56,7 +48,7 @@ async def get_forms_from_kobo() -> dict:
 
     meta = []
 
-    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    km = Manager()
     my_forms = km.get_forms()
     for form in my_forms:
         deployment_active = form.metadata["deployment__active"]
@@ -81,7 +73,7 @@ async def get_form_by_id(form_id: str) -> dict:
         No updates or creation of records in PostgresQl DB.\n
         **form_id**: represents the form_id for the form. For example: form_id = a3amV423RwsTrQgTu8G4mc.\n
     """
-    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    km = Manager()
     form = km.get_form(form_id)
     return { "results": form.metadata }
 
@@ -98,7 +90,7 @@ async def get_form_data(form_id: str) -> dict:
         **form_id**: represents the form_id for the form. For example: form_id = a3amV423RwsTrQgTu8G4mc.\n
     """
     # db_projects_form = kobo.generic_kobo_request(form_id)
-    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    km = Manager()
     form = km.get_form(form_id)
     form.fetch_data()
     df = form.data
@@ -120,7 +112,7 @@ async def create_koboForms() -> dict:
     form_id_list = []
     column_schema_list = []
 
-    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    km = Manager()
     my_forms = km.get_forms()
 
     msg = f'No forms to update'
@@ -157,7 +149,7 @@ async def create_dataForms(db: Session = Depends(get_db)) -> dict:
         it takes all the available data registries and check one by one if created in PostgresQL DB.\n
     """
 
-    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    km = Manager()
     forms = km.get_forms()
 
     if forms == []:
@@ -243,7 +235,7 @@ async def create_dataFormsById(form_id: str, db: Session = Depends(get_db)) -> d
         **form_id**: represents the form_id for the form. For example: form_id = a3amV423RwsTrQgTu8G4mc.\n
     """
 
-    km = manager.Manager(url=URL_KOBO, api_version=API_VERSION, token=MYTOKEN)
+    km = Manager()
     form = km.get_form(form_id)
 
     if form == []:

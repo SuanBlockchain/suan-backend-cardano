@@ -22,6 +22,10 @@ class ProjectBase(BaseModel):
     class Config:
         orm_mode = True
 
+class Form(str, Enum):
+    registro = "registro"
+
+
 # class KoboFormId(str, Enum):
 #     parcelas = "parcelas"
 #     caracterizacion = "caracterizacion"

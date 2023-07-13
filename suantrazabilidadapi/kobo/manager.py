@@ -1,27 +1,31 @@
 from typing import Union
+from dataclasses import dataclass, field
+
 
 import requests
 
 from .form import KoboForm
+from suantrazabilidadapi.core.config import config
+
+@dataclass()
+class Manager():
+    kobo_tokens_dict = config(section="kobo")
+    # headers = CaseInsensitiveDict()
+
+    url: str = field(init=True, default="https://kf.kobotoolbox.org/")
+    api_version: int = field(init=True, default=2)
+    headers: dict = field(init=False)
+    token: str = field(init=False)
 
 
-class Manager:
-    def __init__(self, url: str, api_version: int, token: str) -> None:
-        self.url = url.rstrip("/")
-        self.api_version = api_version
-        self.token = token
-        self.headers = {"Authorization": f"Token {token}"}
+    def __post_init__(self) -> None:
+        self.url = self.url.rstrip("/")
+        self.api_version = self.api_version
+        if self.api_version != 2:
+            raise ValueError("The value of 'api_version' has to be: 2")
+        self.token = self.kobo_tokens_dict["kobo_token"]
+        self.headers: dict = {"Authorization": f"Token {self.token}"}
         self._assets = None
-
-    @property
-    def api_version(self):
-        return self._api_version
-
-    @api_version.setter
-    def api_version(self, value):
-        if value != 2:
-            raise ValueError("The value of 'api_version' has to be: 2.")
-        self._api_version = value
 
     def _fetch_forms(self) -> None:
         """Fetch the list of forms the user has access to with its token."""
@@ -79,3 +83,4 @@ class Manager:
         kform = self._create_koboform(form)
 
         return kform
+    

@@ -22,26 +22,98 @@ class Plataforma(Start):
         self.awsAppSyncApiKey = self.graphqlSecrets["key"]
         self.headers["x-api-key"] = self.awsAppSyncApiKey
 
-    def getCategories(self) -> dict:
+    def getProjects(self, projectId) -> dict:
 
-        graphql_variables = {}
+        graphql_variables = {
+                "projectId": projectId
+            }
+
         graphql_query = """
-            query getCategories {
-                        listCategories {
-                            items {
-                                id
-                                products {
-                                    items {
-                                        id
-                                    }
-                                }
-                                name
-                            }
-                        }
+           query getProjects ($projectId: ID!) {
+                getProduct(id: $projectId) {
+                id
+                amountToBuy
+                categoryID
+                counterNumberOfTimesBuyed
+                createdAt
+                description
+                isActive
+                name
+                order
+                status
+                updatedAt
+                images {
+                    items {
+                    id
+                    productID
+                    title
+                    imageURL
+                    imageURLToDisplay
+                    format
+                    carouselDescription
+                    order
                     }
+                }
+                productFeatures(filter: {isToBlockChain: {eq: true}}) {
+                    items {
+                    featureID
+                    value
+                    }
+                }
+                }
+            }
                     """
 
         rawResult = requests.post(self.graphqlEndpoint, json={"query": graphql_query, "variables": graphql_variables}, headers=self.headers)
         data = json.loads(rawResult.content.decode("utf-8"))
 
         return data
+    
+    def createProject(self, name: dict, categoryID: str, isActive: bool) -> dict:
+
+        for name in name.values():
+
+            graphql_variables = {
+                "name": name,
+                "categoryID": categoryID,
+                "isActive": isActive
+                }
+
+            graphql_query = """
+            mutation MyMutation($name: String!, $categoryID: ID!, $isActive: Boolean!) {
+                createProduct(input: {name: $name, categoryID: $categoryID, isActive: $isActive}) {
+                    id
+                }
+            }
+        """
+
+
+            try:
+                rawResult = requests.post(
+                    self.graphqlEndpoint,
+                    json={"query": graphql_query, "variables": graphql_variables},
+                    headers=self.headers
+                )
+                rawResult.raise_for_status()  # Raise an exception for non-2xx responses
+
+                data = json.loads(rawResult.content.decode("utf-8"))
+                # Process the data or perform additional operations
+
+                # Return or use the processed data
+                response = {
+                    "success": True,
+                    "data": data
+                }
+            except requests.exceptions.RequestException as e:
+                # Handle any exceptions that occur during the request
+                response = {
+                    "success": False,
+                    "error": str(e)
+                }
+
+            # rawResult = requests.post(self.graphqlEndpoint, json={"query": graphql_query, "variables": graphql_variables}, headers=self.headers)
+
+
+        # data = json.loads(rawResult.content.decode("utf-8"))
+
+        return response
