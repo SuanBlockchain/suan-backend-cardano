@@ -69,19 +69,20 @@ class Plataforma(Start):
 
         return data
     
-    def createProject(self, name: dict, categoryID: str, isActive: bool) -> dict:
+    def createProject(self, id: str, name: dict, categoryID: str, isActive: bool) -> dict:
 
         for name in name.values():
 
             graphql_variables = {
+                "id": id,
                 "name": name,
                 "categoryID": categoryID,
                 "isActive": isActive
                 }
 
             graphql_query = """
-            mutation MyMutation($name: String!, $categoryID: ID!, $isActive: Boolean!) {
-                createProduct(input: {name: $name, categoryID: $categoryID, isActive: $isActive}) {
+            mutation MyMutation($id: ID! $name: String!, $categoryID: ID!, $isActive: Boolean!) {
+                createProduct(input: {id: $id, name: $name, categoryID: $categoryID, isActive: $isActive}) {
                     id
                 }
             }
