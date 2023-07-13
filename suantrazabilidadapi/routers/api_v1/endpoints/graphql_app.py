@@ -50,15 +50,13 @@ def put_project() -> dict:
     name_dict = df_json["A_asset_names"]
     description_dict = df_json["A_description"]
     categoryID_dict = df_json["A_category"]
-
-    isActive = True
+    A_postulante_name = df_json["A_postulante_name"]["0"]
 
     plataforma = Plataforma()
     for k, v in _id.items(): #TODO: 
         result = plataforma.getProjects(v)
         if result["data"]["getProduct"] is None:
-            result = plataforma.createProject(v, name_dict, categoryID_dict["0"], isActive)
-
+            result = plataforma.createProject(v, name_dict, categoryID_dict["0"], A_postulante_name)
 
     #TODO: pack the name_dict and description_dict into a new dict with both name and description ready
 
