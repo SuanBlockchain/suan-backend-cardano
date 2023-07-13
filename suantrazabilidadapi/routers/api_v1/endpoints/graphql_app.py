@@ -29,7 +29,7 @@ def get_item_from_graphql(command_name: pydantic_schemas.Form) -> dict:
     return {"results": json.loads(df.to_json())}
 
 @router.post(
-        "/plataforma/{command_name}",
+        "/plataforma/",
         status_code=200,
         summary="Put register data in Plataforma for related projects",
         response_description="Succesfully project created"
@@ -46,14 +46,23 @@ def put_project() -> dict:
 
     df_json = json.loads(df.to_json())
 
+    _id = df_json["_id"]
     name_dict = df_json["A_asset_names"]
     description_dict = df_json["A_description"]
+    categoryID_dict = df_json["A_category"]
 
-    #TODO: pack the name_dict and description_dict into a new dict with both name and description ready
-    categoryID = "PROYECTO_PLANTACIONES"
-    isActive = False
+    isActive = True
 
     plataforma = Plataforma()
-    result = plataforma.createProject(name_dict, categoryID, isActive)
+    for k, v in _id.items(): #TODO: 
+        result = plataforma.getProjects(v)
+        if result["data"]["getProduct"] is None:
+            result = plataforma.createProject(v, name_dict, categoryID_dict["0"], isActive)
+
+
+    #TODO: pack the name_dict and description_dict into a new dict with both name and description ready
+
+
+    # result = plataforma.createProject(name_dict, categoryID, isActive)
 
     return {"results": result}
