@@ -75,9 +75,11 @@ def put_project(db: Session = Depends(get_db)) -> dict:
             for d in data_list
         ]
 
+        plataforma = Plataforma()
+
         for data in filtered_list:
             project_id = data["_id"]
-            project = Plataforma().getProjects(project_id)
+            project = plataforma.getProjects(project_id)
             
             if project["data"]["data"]["getProduct"] is None:
 
@@ -114,7 +116,7 @@ def put_project(db: Session = Depends(get_db)) -> dict:
                     except ValueError:
                         next
 
-                response = Plataforma().createProject(project_id, project_name, project_description, project_category, filtered_data)
+                response = plataforma.createProject(project_id, project_name, project_description, project_category, filtered_data)
             
             else:
                 response = {
