@@ -7,6 +7,7 @@ from suantrazabilidadapi.routers.api_v1.api import api_router
 from suantrazabilidadapi.core.config import settings
 
 from fastapi.responses import HTMLResponse
+from suantrazabilidadapi.utils.initialize import DbService
 
 
 database_flag = "postgresql"  # Other option could be dynamodb
@@ -15,8 +16,6 @@ description = "Este API facilita la integración de datos con proyectos forestal
 title = "Suan Trazabilidad API"
 version = "0.0.1"
 contact = {"name": "Suan"}
-
-dbmodels.Base.metadata.create_all(bind=engine)
 
 suantrazabilidad = FastAPI(
     title=title,
@@ -59,6 +58,12 @@ async def root():
 
     return HTMLResponse(content=body)
 
+@suantrazabilidad.on_event("startup")
+async def startup_event() -> None:
+    dbmodels.Base.metadata.create_all(bind=engine)
+    msg = DbService()._addFirstData()
+    print(msg)
+    print("Application startup")
 
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)

@@ -9,7 +9,6 @@ from suantrazabilidadapi.db.models import dbmodels, mixins
 from suantrazabilidadapi.kobo.manager import Manager
 import io
 import pandas as pd
-from suantrazabilidadapi.core.config import config
 import math
 
 router = APIRouter()

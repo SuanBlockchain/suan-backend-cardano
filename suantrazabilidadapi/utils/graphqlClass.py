@@ -26,108 +26,143 @@ class Plataforma(Start):
         self.isResult = False
         self.isOnMainCard = False
 
+    def post(self, graphql_query: str, graphql_variables: dict) -> dict:
 
-    def getProjects(self, projectId) -> dict:
+        try:
+            rawResult = requests.post(
+                self.graphqlEndpoint,
+                json={"query": graphql_query, "variables": graphql_variables},
+                headers=self.headers
+            )
+            rawResult.raise_for_status()
+            data = json.loads(rawResult.content.decode("utf-8"))
+            response = {
+                "success": True,
+                "data": data
+            }
+        
+        except requests.exceptions.RequestException as e:
+            # Handle any exceptions that occur during the request
+            response = {
+                "success": False,
+                "error": str(e)
+            }
+        
+        return response
 
-        graphql_variables = {
+    def getProjects(self, projectId: int) -> dict:
+        try:
+            graphql_variables = {
                 "projectId": projectId
             }
 
-        graphql_query = """
-           query getProjects ($projectId: ID!) {
-                getProduct(id: $projectId) {
-                id
-                amountToBuy
-                categoryID
-                counterNumberOfTimesBuyed
-                createdAt
-                description
-                isActive
-                name
-                order
-                status
-                updatedAt
-                images {
-                    items {
-                    id
-                    productID
-                    title
-                    imageURL
-                    imageURLToDisplay
-                    format
-                    carouselDescription
-                    order
-                    }
-                }
-                productFeatures(filter: {isToBlockChain: {eq: true}}) {
-                    items {
-                    featureID
-                    value
-                    }
-                }
-                }
-            }
-                    """
-
-        rawResult = requests.post(self.graphqlEndpoint, json={"query": graphql_query, "variables": graphql_variables}, headers=self.headers)
-        data = json.loads(rawResult.content.decode("utf-8"))
-
-        return data
-    
-    def createProject(self, id: str, name: dict, categoryID: str, value: str) -> dict:
-
-        for name in name.values():
-
-            graphql_variables = {
-                "id": id,
-                "name": name,
-                "categoryID": categoryID,
-                "isActive": self.isActive,
-                "status": self.status
-                }
-
             graphql_query = """
-            mutation MyMutation($id: ID! $name: String!, $categoryID: ID!, $isActive: Boolean!) {
-                createProduct(input: {id: $id, name: $name, categoryID: $categoryID, isActive: $isActive}) {
+            query getProjects ($projectId: ID!) {
+                    getProduct(id: $projectId) {
+                    id
+                    categoryID
+                    createdAt
+                    description
+                    isActive
+                    name
+                    order
+                    status
+                    updatedAt
+                    images {
+                        items {
+                        id
+                        productID
+                        title
+                        imageURL
+                        imageURLToDisplay
+                        format
+                        carouselDescription
+                        order
+                        }
+                    }
+                    productFeatures(filter: {isToBlockChain: {eq: true}}) {
+                        items {
+                        featureID
+                        value
+                        }
+                    }
+                    }
+                }
+            """
+
+            # rawResult = requests.post(self.graphqlEndpoint, json={"query": graphql_query, "variables": graphql_variables}, headers=self.headers)
+            # rawResult.raise_for_status()  # Raise an exception if the request was not successful
+
+            # data = json.loads(rawResult.content.decode("utf-8"))
+
+            data = self.post(graphql_query, graphql_variables)
+
+            return data
+
+        except requests.exceptions.RequestException as e:
+            print("An error occurred during the API request:", e)
+            return {}  # Return an empty dictionary or any other suitable default value
+
+        except (json.JSONDecodeError, KeyError) as e:
+            print("An error occurred while processing the API response:", e)
+            return {}  # Return an empty dictionary or any other suitable default value
+    
+    def createProject(self, id: int, name: str, description: str, categoryID: str, values: dict) -> dict:
+
+        graphql_variables = {
+            "id": id,
+            "name": name,
+            "description": description,
+            "categoryID": categoryID,
+            "isActive": self.isActive,
+            "status": self.status
+            }
+
+        graphql_query = """
+            mutation MyMutation($id: ID!, $name: String!, $description: String!, $categoryID: ID!, $isActive: Boolean!) {
+                createProduct(input: {id: $id, name: $name, description: $description, categoryID: $categoryID, isActive: $isActive}) {
                     id
                 }
             }
         """
 
 
-            try:
-                rawResult = requests.post(
-                    self.graphqlEndpoint,
-                    json={"query": graphql_query, "variables": graphql_variables},
-                    headers=self.headers
-                )
-                rawResult.raise_for_status()  # Raise an exception for non-2xx responses
+        # try:
+            # rawResult = requests.post(
+            #     self.graphqlEndpoint,
+            #     json={"query": graphql_query, "variables": graphql_variables},
+            #     headers=self.headers
+            # )
+            # rawResult.raise_for_status()  # Raise an exception for non-2xx responses
 
-                data = json.loads(rawResult.content.decode("utf-8"))
-                # Process the data or perform additional operations
-
-                # Return or use the processed data
-                response = {
-                    "success": True,
-                    "data": data
-                }
-
-            except requests.exceptions.RequestException as e:
-                # Handle any exceptions that occur during the request
-                response = {
-                    "success": False,
-                    "error": str(e)
-                }
+            # data = json.loads(rawResult.content.decode("utf-8"))
+        response = self.post(graphql_query, graphql_variables)
 
 
+            # Process the data or perform additional operations
+
+            # Return or use the processed data
+            # response = {
+            #     "success": True,
+            #     "data": data
+            # }
+
+        # except requests.exceptions.RequestException as e:
+        #     # Handle any exceptions that occur during the request
+        #     response = {
+        #         "success": False,
+        #         "error": str(e)
+        #     }
+
+        for k, v in values.items():
 
             graphql_variables = {
-                            "featureID": "A_postulante_name",
-                            "productID": id,
-                            "value": value,
-                            "isResult": self.isResult,
-                            "isOnMainCard": self.isOnMainCard
-                            }
+                "featureID": k,
+                "productID": id,
+                "value": v,
+                "isResult": self.isResult,
+                "isOnMainCard": self.isOnMainCard
+                }
 
             graphql_query = """
                 mutation MyMutation ($featureID: ID! $productID: ID!, $value: String!, $isResult: Boolean!, $isOnMainCard: Boolean!) {
@@ -137,29 +172,31 @@ class Plataforma(Start):
                     }
                 }
             """
-            try:
-                rawResult = requests.post(
-                    self.graphqlEndpoint,
-                    json={"query": graphql_query, "variables": graphql_variables},
-                    headers=self.headers
-                )
-                rawResult.raise_for_status()  # Raise an exception for non-2xx responses
+            response = self.post(graphql_query, graphql_variables)
 
-                data = json.loads(rawResult.content.decode("utf-8"))
-                # Process the data or perform additional operations
+        # try:
+        #     rawResult = requests.post(
+        #         self.graphqlEndpoint,
+        #         json={"query": graphql_query, "variables": graphql_variables},
+        #         headers=self.headers
+        #     )
+        #     rawResult.raise_for_status()  # Raise an exception for non-2xx responses
 
-                # Return or use the processed data
-                response = {
-                    "success": True,
-                    "data": data
-                }
+        #     data = json.loads(rawResult.content.decode("utf-8"))
+        #     # Process the data or perform additional operations
 
-            except requests.exceptions.RequestException as e:
-                # Handle any exceptions that occur during the request
-                response = {
-                    "success": False,
-                    "error": str(e)
-                }
+        #     # Return or use the processed data
+        #     response = {
+        #         "success": True,
+        #         "data": data
+        #     }
+
+        # except requests.exceptions.RequestException as e:
+        #     # Handle any exceptions that occur during the request
+        #     response = {
+        #         "success": False,
+        #         "error": str(e)
+        #     }
 
 
             # rawResult = requests.post(self.graphqlEndpoint, json={"query": graphql_query, "variables": graphql_variables}, headers=self.headers)

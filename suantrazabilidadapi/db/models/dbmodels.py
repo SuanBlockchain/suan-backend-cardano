@@ -1,7 +1,7 @@
 import os
 from suantrazabilidadapi.core.config import config
 from sqlalchemy import Column, create_engine
-from sqlalchemy import Integer, Text
+from sqlalchemy import Integer, Text, Boolean
 from alembic.config import Config
 from alembic import command
 from typing import List
@@ -67,4 +67,13 @@ def kobo_data_tables(form_id_list: List[str], column_schema_list: List[dict]) ->
         msg = f'Upgrade failed: {str(e)}'
 
     return msg
-    
+
+class Principalform(Base):
+    __tablename__ = "principalform"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(Text, nullable=False)
+    proyecto = Column(Boolean, nullable=False)
+    featureName = Column(Text, nullable=True)
+    featureType = Column(Text, nullable=True)
+    format = Column(Text, nullable=True)
