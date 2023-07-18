@@ -1,0 +1,44 @@
+query getProjects ($projectId: ID!) {
+        getProduct(id: $projectId) {
+        id
+        categoryID
+        createdAt
+        description
+        isActive
+        name
+        order
+        status
+        updatedAt
+        images {
+            items {
+            id
+            productID
+            title
+            imageURL
+            imageURLToDisplay
+            format
+            carouselDescription
+            order
+            }
+        }
+        productFeatures(filter: {isToBlockChain: {eq: true}}) {
+            items {
+            featureID
+            value
+            }
+        }
+        }
+    }
+
+mutation ProjectMutation ($id: ID!, $name: String!, $description: String!, $categoryID: ID!, $isActive: Boolean!) {
+        createProduct(input: {id: $id, name: $name, description: $description, categoryID: $categoryID, isActive: $isActive}) {
+            id
+        }
+    }
+
+mutation ProductFeatureMutation ($featureID: ID! $productID: ID!, $value: String!, $isResult: Boolean!, $isOnMainCard: Boolean!) {
+    createProductFeature(input: {featureID: $featureID, productID: $productID, value: $value, isResult: $isResult, isOnMainCard: $isOnMainCard}) 
+        {
+            id
+        }
+    }

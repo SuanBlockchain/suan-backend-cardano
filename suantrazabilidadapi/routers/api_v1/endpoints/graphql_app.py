@@ -77,57 +77,69 @@ def put_project(db: Session = Depends(get_db)) -> dict:
 
         plataforma = Plataforma()
 
+        response_list = []
+
         for data in filtered_list:
             project_id = data["_id"]
-            project = plataforma.getProjects(project_id)
+            response = plataforma.getProjects(project_id)
+
+            if response["success"] == True:
             
-            if project["data"]["data"]["getProduct"] is None:
+                if response["data"]["data"]["getProduct"] is None:
 
-                # Values specific to the project table
-                project_name = data["A_asset_names"]
-                project_description = data["A_description"]
-                project_category = data["A_category"]
+                    # Values specific to the project table
+                    project_name = data["A_asset_names"]
+                    project_description = data["A_description"]
+                    project_category = data["A_category"]
 
-                # Values specific to the product features
-                fixed_index = 0
-                filtered_data = {}
-                for k, v in data.items():
-                    try:
-                        index = name_list.index(k)
-                        if format_list[index] != "Json" and v is not None:
-                            filtered_data[featureName_list[index]] =  v
-                        elif format_list[index] == "Json" and k == featureName_list[index]:
-                            fixed_index = 0
-                            someJson_list = []
-                            someJson_list.append({
-                                k: v
-                            })
-                            someJson_dict = { k: [{ k: v}]}
-                            fixed_index = index
-                        elif format_list[index] == "Json" and k != featureName_list[index]:
-                            someJson_list.append({ k: v })
-                            someJson_dict[featureName_list[fixed_index]] = someJson_list
-                        else:
-                            print("Nothing to update in the dictionary")
+                    # Values specific to the product features
+                    fixed_index = 0
+                    filtered_data = {}
+                    for k, v in data.items():
+                        try:
+                            index = name_list.index(k)
+                            if format_list[index] != "Json" and v is not None:
+                                filtered_data[featureName_list[index]] =  v
+                            elif format_list[index] == "Json" and k == featureName_list[index]:
+                                fixed_index = 0
+                                someJson_list = []
+                                someJson_list.append({
+                                    k: v
+                                })
+                                someJson_dict = { k: [{ k: v}]}
+                                fixed_index = index
+                            elif format_list[index] == "Json" and k != featureName_list[index]:
+                                someJson_list.append({ k: v })
+                                someJson_dict[featureName_list[fixed_index]] = someJson_list
+                            else:
+                                print("Nothing to update in the dictionary")
 
-                        if fixed_index != 0:
-                            filtered_data.update(someJson_dict)
+                            if fixed_index != 0:
+                                filtered_data.update(someJson_dict)
 
-                    except ValueError:
-                        next
+                        except ValueError:
+                            next
 
-                response = plataforma.createProject(project_id, project_name, project_description, project_category, filtered_data)
-            
+                    response = plataforma.createProject(project_id, project_name, project_description, project_category, filtered_data)
+                
+                else:
+                    response = {
+                        "success": True,
+                        "msg": "Project already exists in DynamoDB",
+                        "data": response["data"]
+                    }
             else:
                 response = {
-                    "success": True,
-                    "msg": "Project already exists in DynamoDB",
-                    "data": project["data"]
+                    "success": False,
+                    "msg": "Something happened",
+                    "data": response["data"]
                 }
+        
+            response_list.append(response)
 
     else:
-        response = {
+        response_list = {
             "success": True,
             "data": "Form data is empty"
         }
-    return {"results": response}
+    return {"results": response_list}

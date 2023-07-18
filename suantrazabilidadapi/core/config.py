@@ -2,9 +2,7 @@ import pathlib
 from configparser import ConfigParser
 
 from pydantic import AnyHttpUrl, BaseSettings, EmailStr, validator
-from typing import List, Optional, Union
-
-from pathlib import Path
+from typing import List, Union
 
 
 # Project Directories
@@ -32,9 +30,7 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
 
-
 settings = Settings()
-
 
 def config(config_path: str = f'{ROOT}/credentials.local.ini', section: str = "") -> dict:
     # create a parser
