@@ -87,6 +87,9 @@ def put_project(db: Session = Depends(get_db)) -> dict:
             
                 if response["data"]["data"]["getProduct"] is None:
 
+                    #TODO: get_attachments by only selected projects. 
+                    # Create temp folder to store the downloaded files and then delete them once done.
+                    form.get_attachments()
                     # Values specific to the project table
                     project_name = data["A_asset_names"]
                     project_description = data["A_description"]

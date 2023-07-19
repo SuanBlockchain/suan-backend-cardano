@@ -1,4 +1,5 @@
 from typing import Union
+import pathlib
 
 import numpy as np
 import pandas as pd
@@ -26,7 +27,7 @@ class KoboForm:
         self.naming_conflicts = None
         self.separator = "|"
         self.__initial_separator = " "
-        self.attachments = None
+        self.attachments = []
 
     def __repr__(self):
         return f"KoboForm('{self.uid}')"
@@ -133,10 +134,12 @@ class KoboForm:
                     v, self.__repeats_structure[k]["columns"], self.__choices_as
                 )
         self.__initial_separator = self.separator
-
+        attachments_data = []
         for item in data:
             attachments_lists = item["_attachments"]
-            self.attachments = pd.DataFrame(attachments_lists)
+            attachments_data.extend(attachments_lists) 
+        
+        self.attachments = pd.DataFrame(attachments_data)
 
     def display(self, columns_as: str = "name", choices_as: str = "name") -> None:
         """Update the DatFrames containing the data by using names or labels for
@@ -488,3 +491,19 @@ class KoboForm:
                 f.write(r.content)
         
         return r.content
+    
+    def get_attachments(self):
+        ROOT = pathlib.Path(__file__).resolve().parent.parent
+        url = self.attachments["download_url"].values
+        filename = list(map(lambda x: x.split("/")[-1], self.attachments["filename"].values))
+        file_tuples = list(zip(filename, url))
+
+        for item in file_tuples:
+            filename, URL = item
+            r = requests.get(URL, headers=self.headers)
+            r.raw.decode_content = True
+            file_path = f'{ROOT}/utils/data/{filename}'
+            with open(file_path, 'wb') as file:
+                for chunk in r.iter_content(chunk_size=16 * 1024):
+                    file.write(chunk)
+                print('Image sucessfully Downloaded: ', filename)

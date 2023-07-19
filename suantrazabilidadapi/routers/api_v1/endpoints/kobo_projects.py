@@ -86,7 +86,7 @@ async def get_form_by_id(form_id: str) -> dict:
 async def get_form_data(form_id: str) -> dict:
     """Get form data with form_id.\n 
         No updates or creation of records in PostgresQl DB.\n
-        **form_id**: represents the form_id for the form. For example: form_id = a3amV423RwsTrQgTu8G4mc.\n
+        **form_id**: represents the form_id for the form. For example: form_id = avJvoP4AH7Kj2LgVrdwdpj\n
     """
     # db_projects_form = kobo.generic_kobo_request(form_id)
     km = Manager()

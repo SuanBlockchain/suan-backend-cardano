@@ -38,7 +38,6 @@ class Manager():
             return []
 
         results = res.json()["results"]
-
         # It seems that when uploading an XLSForm from the website to create
         # a new form and there is an issue during the upload, the form
         # will be visible in the API but not in the UI. In this case it will

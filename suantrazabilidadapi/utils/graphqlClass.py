@@ -62,7 +62,9 @@ class Plataforma(Start):
 
         return data
     
-    def createProject(self, id: int, name: str, description: str, categoryID: str, values: dict) -> dict:
+    def createProject(self, id: int, name: str, description: str, categoryID: str, values: dict) -> list[dict]:
+
+        response_list = []
 
         graphql_variables = {
             "id": id,
@@ -74,6 +76,7 @@ class Plataforma(Start):
             }
 
         response = self.post('ProjectMutation', graphql_variables)
+        response_list.append(response)
 
         for k, v in values.items():
 
@@ -86,5 +89,6 @@ class Plataforma(Start):
                 }
 
             response = self.post('ProductFeatureMutation', graphql_variables)
+            response_list.append(response)
 
-        return response
+        return response_list

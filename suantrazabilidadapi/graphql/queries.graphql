@@ -30,7 +30,7 @@ query getProjects ($projectId: ID!) {
         }
     }
 
-mutation ProjectMutation ($id: ID!, $name: String!, $description: String!, $categoryID: ID!, $isActive: Boolean!, $status: Boolean!) {
+mutation ProjectMutation ($id: ID!, $name: String!, $description: String!, $categoryID: ID!, $isActive: Boolean!, $status: String!) {
         createProduct(input: {id: $id, name: $name, description: $description, categoryID: $categoryID, isActive: $isActive, status: $status}) {
             id
         }
