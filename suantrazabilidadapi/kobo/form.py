@@ -472,6 +472,13 @@ class KoboForm:
                             g.name
                         ].str.split(" ", expand=True)
 
+    def _get_AllAttachments(self) -> Union[str, list[tuple]]:
+        ROOT = pathlib.Path(__file__).resolve().parent.parent
+        url = self.attachments["download_url"].values
+        filename = list(map(lambda x: x.split("/")[-1], self.attachments["filename"].values))
+        file_tuples = list(zip(filename, url))
+        return ROOT, file_tuples
+    
     def download_form(self, format: str, write: bool) -> bytes:
         """Given the uid of a form and a format ('xls' or 'xml')
         download the form in that format in the current directory"""
@@ -492,11 +499,8 @@ class KoboForm:
         
         return r.content
     
-    def get_attachments(self):
-        ROOT = pathlib.Path(__file__).resolve().parent.parent
-        url = self.attachments["download_url"].values
-        filename = list(map(lambda x: x.split("/")[-1], self.attachments["filename"].values))
-        file_tuples = list(zip(filename, url))
+    def get_AllAttachments(self):
+        ROOT, file_tuples = self._get_AllAttachments()
 
         for item in file_tuples:
             filename, URL = item
@@ -507,3 +511,22 @@ class KoboForm:
                 for chunk in r.iter_content(chunk_size=16 * 1024):
                     file.write(chunk)
                 print('Image sucessfully Downloaded: ', filename)
+
+        return file_tuples
+    
+    def get_ProjectAttachments(self, project_id: int) -> list[tuple]:
+        ROOT, file_tuples = self._get_AllAttachments()
+
+        final_tuples = [tup for tup in file_tuples if str(project_id) in tup[1]]
+
+        for item in final_tuples:
+            filename, URL = item
+            r = requests.get(URL, headers=self.headers)
+            r.raw.decode_content = True
+            file_path = f'{ROOT}/utils/data/{filename}'
+            with open(file_path, 'wb') as file:
+                for chunk in r.iter_content(chunk_size=16 * 1024):
+                    file.write(chunk)
+                print('Image sucessfully Downloaded: ', filename)
+
+        return final_tuples
