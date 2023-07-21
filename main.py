@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse
 from suantrazabilidadapi.utils.initialize import DbService
 
 
+
 database_flag = "postgresql"  # Other option could be dynamodb
 
 description = "Este API facilita la integración de datos con proyectos forestales para mejorar su trazabilidad - Suan"

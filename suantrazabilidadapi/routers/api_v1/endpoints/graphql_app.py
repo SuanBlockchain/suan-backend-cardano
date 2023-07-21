@@ -20,7 +20,6 @@ router = APIRouter()
         )
 def get_item_from_graphql(command_name: pydantic_schemas.Form) -> dict:
 
-    #TODO: for the time being use this logic, but it should go to a postgresql table where the forms are mapped with the kobo_id value
     if command_name == "registro":
         form_id = "avJvoP4AH7Kj2LgVrdwdpj"
     
@@ -47,7 +46,7 @@ def put_project(db: Session = Depends(get_db)) -> dict:
     featureType_list = []
 
     form_id = "avJvoP4AH7Kj2LgVrdwdpj"
-    bucket_name = "plataforma.docs"
+    bucket_name = "kiosuanbcrjsappcad3eb2dd1b14457b491c910d5aa45dd145518-dev"
     s3Root = "https://s3.amazonaws.com"
     
     km = Manager()
@@ -78,23 +77,25 @@ def put_project(db: Session = Depends(get_db)) -> dict:
 
         plataforma = Plataforma()
 
-        response_list = []
         s3_msgs = []
+        responseDocuments_list = []
+        final_response = {}
+        response_list = []
 
         for data in filtered_list:
             project_id = data["_id"]
-            response = plataforma.getProjects(project_id)
+            r = plataforma.getProjects(project_id)
 
-            if response["success"] == True:
+            if r["success"] == True:
             
-                if response["data"]["data"]["getProduct"] is None:
+                if r["data"]["data"]["getProduct"] is None:
 
                     # Values specific to the project table
                     project_name = data["A_asset_names"]
                     project_description = data["A_description"]
                     project_category = data["A_category"]
 
-                    response = plataforma.createProject(project_id, project_name, project_description, project_category)
+                    project_response = plataforma.createProject(project_id, project_name, project_description, project_category)
 
                     # Values specific to the product features
                     fixed_index = 0
@@ -130,8 +131,6 @@ def put_project(db: Session = Depends(get_db)) -> dict:
                             next
                     
                     responseFeatures = plataforma.createFeatures(project_id, filtered_data)
-                    response.update(responseFeatures)
-                    print(response)
 
                     # Handle attachments
                     files = form.get_ProjectAttachments(project_id)
@@ -144,31 +143,49 @@ def put_project(db: Session = Depends(get_db)) -> dict:
                             for fileFeatures in responseFileFeatures:
                                 if fileFeatures["success"]:
                                     feature_id = fileFeatures["data"]["data"]["createProductFeature"]["id"]
-                                    s3_url = f'{s3Root}/{bucket_name}/{project_id}/{filename}'
+                                    s3_url = f'{s3Root}/{bucket_name}/public/{project_id}/{filename}'
                                     print(s3_url)
                                     responseDocuments = plataforma.createDocument(feature_id, s3_url)
-                                    print(responseDocuments)
-                    s3_msgs_dict = {project_id: s3_msgs}
+                                else:
+                                    responseDocuments = {
+                                        "success": False,
+                                        "error": f'Error creating document feature for file: {filename}'
+                                    }
+                        else:
+                            responseDocuments = {
+                                "success": False,
+                                "error": f'Could not upload file into S3: {filename}'
+                            }
+                    #     response.update(responseDocuments_list)
+                    # print(response)
 
+                    final_response = {
+                            "project": project_response,
+                            "features": responseFeatures,
+                            "documents": responseDocuments
+                            
+                        }
                 else:
-                    response = {
+                    final_response = {
                         "success": True,
                         "msg": "Project already exists in DynamoDB",
-                        "data": response["data"]
+                        "data": r["data"]
                     }
             else:
-                response = {
+                final_response = {
                     "success": False,
-                    "msg": "Something happened",
-                    "data": response["data"]
+                    "msg": "Error fetching data",
+                    "data": r["error"]
                 }
-            if s3_msgs_dict != {}:
-                response_list.append(response.update(s3_msgs_dict))
-            else:
-                response_list.append(response)
+
+            # response.update({"documents": responseDocuments_list})
+        
+            response_list.append(final_response)
     else:
-        response_list = {
+        response_list = [{
             "success": True,
             "data": "Problems fetching the data"
-        }
+        }]
+    
+
     return {"results": response_list}

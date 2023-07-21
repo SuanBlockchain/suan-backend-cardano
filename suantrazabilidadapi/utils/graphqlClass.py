@@ -4,6 +4,7 @@ import requests
 import json
 import boto3
 import time
+import os
 
 from suantrazabilidadapi.core.config import config
 
@@ -11,6 +12,20 @@ from suantrazabilidadapi.core.config import config
 class Start:
     headers = {'Content-Type': 'application/json'}
     ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+    # def remove_file(self, path: str, name: str) -> None:
+    #     if os.path.exists(path+name):
+    #         os.remove(path+name)
+
+    def delete_file(self, file_path: str):
+        try:
+            os.remove(file_path)
+            print(f"{file_path} deleted successfully.")
+        except FileNotFoundError:
+            print(f"File not found: {file_path}")
+        except Exception as e:
+            print(f"Error deleting {file_path}: {e}")
 
 @dataclass()
 class Plataforma(Start):
@@ -107,9 +122,7 @@ class Plataforma(Start):
         status = "pending"
 
         graphql_variables = {
-            "data": data,
             "productFeatureID": productFeatureID,
-            "timeStamp": timeStamp,
             "url": url,
             "isApproved": isApproved,
             "status": status,
@@ -130,11 +143,11 @@ class S3Files(Start):
 
         session = boto3.Session(profile_name=self.profile_name)
         s3_client = session.client('s3')
-        file_path = f'{self.ROOT}/utils/data/{file_name}'
-        s3_key = f'{project_id}/{file_name}'
+        file_path = f'{self.ROOT}/utils/files/{file_name}'
+        s3_key = f'public/{project_id}/{file_name}'
         try:
             s3_client.upload_file(file_path, bucket_name, s3_key)
-            #TODO: delete file from temp folder
+            self.delete_file(file_path)
             return True
         except Exception as e:
             print(f'Error uploading file: {e}')

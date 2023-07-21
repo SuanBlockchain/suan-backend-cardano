@@ -523,7 +523,7 @@ class KoboForm:
             filename, URL = item
             r = requests.get(URL, headers=self.headers)
             r.raw.decode_content = True
-            file_path = f'{ROOT}/utils/data/{filename}'
+            file_path = f'{ROOT}/utils/files/{filename}'
             with open(file_path, 'wb') as file:
                 for chunk in r.iter_content(chunk_size=16 * 1024):
                     file.write(chunk)

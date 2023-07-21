@@ -43,8 +43,8 @@ mutation ProductFeatureMutation ($featureID: ID! $productID: ID!, $value: String
         }
     }
 
-mutation DocumentMutation ($data: AWSJSON!, $productFeatureID: ID!, $timeStamp: AWSTimestamp!, $url: AWSURL!, $isApproved: Boolean!, $status: String!, $isUploadedToBlockChain: Boolean!, $userID: ID!) {
-  createDocument(input: {data: $data, productFeatureID: $productFeatureID, timeStamp: $timeStamp, url: $url, isApproved: $isApproved, status: $status, isUploadedToBlockChain: $isUploadedToBlockChain, userID: $userID})
+mutation DocumentMutation ($productFeatureID: ID!, $url: AWSURL!, $isApproved: Boolean!, $status: String!, $isUploadedToBlockChain: Boolean!, $userID: ID!) {
+  createDocument(input: {productFeatureID: $productFeatureID, url: $url, isApproved: $isApproved, status: $status, isUploadedToBlockChain: $isUploadedToBlockChain, userID: $userID})
     {
         id
     }
