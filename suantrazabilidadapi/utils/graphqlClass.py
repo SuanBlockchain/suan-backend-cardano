@@ -13,11 +13,6 @@ class Start:
     headers = {'Content-Type': 'application/json'}
     ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-
-    # def remove_file(self, path: str, name: str) -> None:
-    #     if os.path.exists(path+name):
-    #         os.remove(path+name)
-
     def delete_file(self, file_path: str):
         try:
             os.remove(file_path)

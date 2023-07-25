@@ -156,8 +156,6 @@ def put_project(db: Session = Depends(get_db)) -> dict:
                                 "success": False,
                                 "error": f'Could not upload file into S3: {filename}'
                             }
-                    #     response.update(responseDocuments_list)
-                    # print(response)
 
                     final_response = {
                             "project": project_response,
@@ -177,8 +175,6 @@ def put_project(db: Session = Depends(get_db)) -> dict:
                     "msg": "Error fetching data",
                     "data": r["error"]
                 }
-
-            # response.update({"documents": responseDocuments_list})
         
             response_list.append(final_response)
     else:
