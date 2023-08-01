@@ -92,6 +92,7 @@ class Plataforma(Start):
 
         status = "draft"
         isActive = True
+        projectReadiness = False
 
         graphql_variables = {
             "id": id,
@@ -99,7 +100,8 @@ class Plataforma(Start):
             "description": description,
             "categoryID": categoryID,
             "isActive": isActive,
-            "status": status
+            "status": status,
+            "projectReadiness": projectReadiness
             }
 
         response = self.post('ProjectMutation', graphql_variables)

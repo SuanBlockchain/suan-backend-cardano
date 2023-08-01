@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 import pandas as pd
 
 from suantrazabilidadapi.db.dblib import get_db
-from suantrazabilidadapi.utils.graphqlClass import Plataforma, S3Files
+from suantrazabilidadapi.utils.projectClass import Plataforma, S3Files
 from suantrazabilidadapi.kobo.manager import Manager
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.db.models import dbmodels
@@ -34,7 +34,7 @@ def get_item_from_graphql(command_name: pydantic_schemas.Form) -> dict:
 @router.post(
         "/plataforma/",
         status_code=200,
-        summary="Put register data in Plataforma for related projects",
+        summary="Put registered data in Plataforma for related projects",
         response_description="Succesfully project created"
         )
 def put_project(db: Session = Depends(get_db)) -> dict:
@@ -78,7 +78,6 @@ def put_project(db: Session = Depends(get_db)) -> dict:
         plataforma = Plataforma()
 
         s3_msgs = []
-        responseDocuments_list = []
         final_response = {}
         response_list = []
 
@@ -87,7 +86,9 @@ def put_project(db: Session = Depends(get_db)) -> dict:
             r = plataforma.getProjects(project_id)
 
             if r["success"] == True:
-            
+                
+                # This assumes that the project does not exists at all. If project exists in Dynamo the update process is ignored.
+                #TODO: Create an endpoint to update registries for existing projects.
                 if r["data"]["data"]["getProduct"] is None:
 
                     # Values specific to the project table
@@ -122,7 +123,8 @@ def put_project(db: Session = Depends(get_db)) -> dict:
                                 # Special treatment to file type data
                                 fileJson[featureName_list[index]] = v
                             else:
-                                print("Nothing to update in the dictionary")
+                                # Fill the generic productFeatures non existing in reference table
+                                filtered_data["GLOBAL_TOKEN_NAME"] = project_id
 
                             if fixed_index != 0:
                                 filtered_data.update(someJson_dict)
