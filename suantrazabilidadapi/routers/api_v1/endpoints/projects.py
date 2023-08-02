@@ -123,8 +123,8 @@ def put_project(db: Session = Depends(get_db)) -> dict:
                                 # Special treatment to file type data
                                 fileJson[featureName_list[index]] = v
                             else:
-                                # Fill the generic productFeatures non existing in reference table
-                                filtered_data["GLOBAL_TOKEN_NAME"] = project_id
+                                print("Nothing to update")
+                                
 
                             if fixed_index != 0:
                                 filtered_data.update(someJson_dict)
@@ -132,6 +132,8 @@ def put_project(db: Session = Depends(get_db)) -> dict:
                         except ValueError:
                             next
                     
+                    # Fill the generic productFeatures non existing in reference table
+                    filtered_data["GLOBAL_TOKEN_NAME"] = f'SUAN-{project_id}'
                     responseFeatures = plataforma.createFeatures(project_id, filtered_data)
 
                     # Handle attachments
