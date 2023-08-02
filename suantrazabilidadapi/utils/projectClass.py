@@ -12,6 +12,7 @@ from suantrazabilidadapi.core.config import config
 class Start:
     headers = {'Content-Type': 'application/json'}
     ROOT = pathlib.Path(__file__).resolve().parent.parent
+    plataformaSecrets = config(section="plataforma")
 
     def delete_file(self, file_path: str):
         try:
@@ -24,11 +25,10 @@ class Start:
 
 @dataclass()
 class Plataforma(Start):
-    graphqlSecrets = config(section="plataforma")
 
     def __post_init__(self):
-        self.graphqlEndpoint = self.graphqlSecrets["endpoint"]
-        self.awsAppSyncApiKey = self.graphqlSecrets["key"]
+        self.graphqlEndpoint = self.plataformaSecrets["endpoint"]
+        self.awsAppSyncApiKey = self.plataformaSecrets["key"]
         self.headers["x-api-key"] = self.awsAppSyncApiKey
 
     def post(self, operation_name: str, graphql_variables: dict) -> dict:
@@ -135,10 +135,17 @@ class S3Files(Start):
 
     def __post_init__(self):
         self.profile_name: str = "suan"
+        self.aws_access_key_id = self.plataformaSecrets["aws_access_key_id"]
+        self.aws_secret_access_key = self.plataformaSecrets["aws_secret_access_key"]
+
 
     def upload_file(self, bucket_name: str, project_id: int, file_name: str) -> bool:
 
-        session = boto3.Session(profile_name=self.profile_name)
+        # session = boto3.Session(profile_name=self.profile_name)
+        session = boto3.Session(
+            aws_access_key_id=self.aws_access_key_id,
+            aws_secret_access_key=self.aws_secret_access_key
+        )
         s3_client = session.client('s3')
         file_path = f'{self.ROOT}/utils/files/{file_name}'
         s3_key = f'public/{project_id}/{file_name}'
