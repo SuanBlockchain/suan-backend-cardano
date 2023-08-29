@@ -60,16 +60,31 @@ class DbService:
             if sheet_name not in self.tables:
                 has_data = self.session.query(model_class).count() > 0
 
-            if sheet_name in self.tables or not has_data:
+            # if sheet_name in self.tables:
+                
                 instances = []
-                for item in data_list:
-                    instance = model_class(**item)
-                    instances.append(instance)
+                if has_data:
+                    for item in data_list:
+                    # Check if a record with the same values already exists in the table
+                        filter_criteria = {key: value for key, value in item.items() if not pd.isna(value)}
+                        existing_record = self.session.query(model_class).filter_by(**filter_criteria).first()
+
+                        if not existing_record:
+                            instance = model_class(**item)
+                            instances.append(instance)
+                    msg = f'Added {len(instances)} new records to {sheet_name}'
+                else:
+                    for item in data_list:
+                        instance = model_class(**item)
+                        instances.append(instance)
+                    msg = f'Table {sheet_name} succesfully updated with new data'
+
                 self.session.add_all(instances)
                 self.session.flush()
-                msg = f'Data updated succesfully in postgresQL for table: {sheet_name}'
+
                 try:
                     self.session.commit()
+                    print(msg)
                 except SQLAlchemyError as e:
                     self.session.rollback()
                     msg = f'An error occurred during the database commit:", {str(e)} for table: {class_name}'
@@ -82,17 +97,12 @@ class DbService:
                 if max_id is not None:
                     self.session.execute(text(f"SELECT setval('{sequence_name}', {max_id}, true)"))
                 self.session.close()
-                
+
             else:
 
-                msg = f'Data already exists in postgresQl for table: {sheet_name}'
+                msg = f'Could not find table name: {sheet_name}'
             
             msgs.append(msg)
-
-        
-            
-        
-        
 
         return msgs
 

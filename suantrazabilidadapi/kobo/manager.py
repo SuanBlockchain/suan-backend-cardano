@@ -19,6 +19,9 @@ class Manager():
 
 
     def __post_init__(self) -> None:
+        self.SUANBLOCKCHAIN = "suanblockchain"
+        self.desc_name_1 = "revision"
+        self.desc_name_2 = "version"
         self.url = self.url.rstrip("/")
         self.api_version = self.api_version
         if self.api_version != 2:
@@ -82,4 +85,20 @@ class Manager():
         kform = self._create_koboform(form)
 
         return kform
+    
+    def filter_form(self, forms) -> list:
+     
+        form_list = []
+
+        for form in forms:
+
+            deployment_active = form.metadata["deployment__active"]
+            has_deployment = form.metadata["has_deployment"]
+            owner = form.metadata["owner"]
+            name = form.metadata["name"]
+            # Filter forms active, deployed and owner username = 'suanblockchain'
+            if deployment_active and has_deployment and owner == self.SUANBLOCKCHAIN and self.desc_name_1 in name and self.desc_name_2 in name:
+                form_list.append(form)
+
+        return form_list
     

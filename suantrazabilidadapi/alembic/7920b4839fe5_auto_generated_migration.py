@@ -1,8 +1,8 @@
 """Auto-generated migration
 
-Revision ID: 4e4bc6161022
+Revision ID: 7920b4839fe5
 Revises: 
-Create Date: 2023-06-14 17:13:02.642355
+Create Date: 2023-08-29 16:07:40.360959
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '4e4bc6161022'
+revision = '7920b4839fe5'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -80,6 +80,12 @@ def upgrade() -> None:
     sa.Column('A_image', sa.Text(), nullable=True),
     sa.Column('A_geotrace_name', sa.Text(), nullable=True),
     sa.Column('A_polygone_name', sa.Text(), nullable=True),
+    sa.Column('B_ruta', sa.Text(), nullable=True),
+    sa.Column('B_esquema', sa.Text(), nullable=True),
+    sa.Column('C_cobertura', sa.Text(), nullable=True),
+    sa.Column('C_tipo', sa.Text(), nullable=True),
+    sa.Column('C_parcelared', sa.Text(), nullable=True),
+    sa.Column('C_parcelaplant', sa.Text(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('kobo_data_avJvoP4AH7Kj2LgVrdwdpj',
@@ -89,7 +95,10 @@ def upgrade() -> None:
     sa.Column('A_postulante_name', sa.Text(), nullable=True),
     sa.Column('A_postulante_doctype', sa.Text(), nullable=True),
     sa.Column('A_postulante_id', sa.Text(), nullable=True),
+    sa.Column('A_postulante_email', sa.Text(), nullable=True),
     sa.Column('A_asset_names', sa.Text(), nullable=True),
+    sa.Column('A_description', sa.Text(), nullable=True),
+    sa.Column('A_category', sa.Text(), nullable=True),
     sa.Column('A_vereda', sa.Text(), nullable=True),
     sa.Column('A_municipio', sa.Text(), nullable=True),
     sa.Column('A_matricula', sa.Text(), nullable=True),

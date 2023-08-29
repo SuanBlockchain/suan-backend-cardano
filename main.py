@@ -49,7 +49,7 @@ async def root():
         "<html>"
         "<body style='padding: 10px;'>"
         "<h1>Bienvenidos al API de Suan Trazabilidad</h1>"
-        "<iframe src='https://ee.kobotoolbox.org/i/32SQGf9l' width='800' height='600'></iframe>"
+        "<iframe src='https://kf.kobotoolbox.org/#/forms/avJvoP4AH7Kj2LgVrdwdpj' width='800' height='600'></iframe>"
     "<div>"
         "Check the docs: <a href='/docs'>here</a>"
         "</div>"
@@ -58,6 +58,7 @@ async def root():
     )
 
     return HTMLResponse(content=body)
+
 
 @suantrazabilidad.on_event("startup")
 async def startup_event() -> None:
