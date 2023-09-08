@@ -3,6 +3,7 @@ from configparser import ConfigParser
 
 from pydantic import AnyHttpUrl, BaseSettings, EmailStr, validator
 from typing import List, Union
+import os
 
 
 # Project Directories
@@ -43,6 +44,7 @@ def config(config_path: str = f'{ROOT}/credentials.local.ini', section: str = ""
     if parser.has_section(section):
         params = parser.items(section)
         for param in params:
+            os.environ[param[0]] = param[1]
             db[param[0]] = param[1]
     else:
         raise Exception(

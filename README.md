@@ -22,48 +22,25 @@ poetry add <dependency>
 
 ### Steps to start the application for the first time
 
-1. Use alembic to setup the database
+- Locally
 
-```shell
-poetry add alembic
+1. Clone the repo
+2. Install dependencies with Poetry
+4. Copy credentials.ini and rename it credentials.local.ini. Update the env values. 
+    - Update the env values
+    - Pay attention to ENABLE_LOCAL_ENDPOINTS env variable. If you want to make changes in forms tables set to True.
+3. Start the application using main.py file
+    - Once the application is run, it creates the first tables project and Principalform and update records from the excel file attached in utils/data.
+4. Use /kobo/forms/upgrade and /kobo/data/upgrade endpoints to create form tables with data from kobo for all existing forms in kobo or /data/upgrade/{form_id}/ for only form_id
+    - This form tables are alembic based versionning
 
-alembic init alembic
-````
-> Additional commands for alembic are: 
-```shell
-alembic revision --autogenerate -m "Creation of tables"
+### Steps to changes made on forms
 
-alembic upgrade head
+1. Reflect the change in the excel file found in utils/data.
+2. Start the application using main.py file
+3. Use previous kobo upgrades endpoints to make the updates.
 
-alembic downgrade -1 # downgrade to previous version
-alembic downgrade head # drop tables
-```
-
-2. Start the application locally or with docker or with copilot
-
-The aplication creates empty tables for principalform and projects but no alembic versionning is performed
-
-3. Create kobo form tables using the api endpoint
-
-Use /kobo/forms/upgrade endpoint to create form tables
-
-4. Update tables with data
-
-Use /kobo/data/upgrade/ endpoint to create data records in form tables
-
-5. Copy the credentials.ini file, rename it as credentials.local.ini, make updates accordingly
-
-> When running in docker change ENABLE_LOCAL_ENDPOINTS to False.
-
-
-3. Update tables
-
-- Use IntegracionKobo.xlsx file to update the table sctructure for kobo data tables or in dbmodels.py to manually change the data schema for Projects or PrincipalForm tables.
-
-- Run again alembic
-
-- Restart the application
-
+> ***Caution***: When running in docker set ENABLE_LOCAL_ENDPOINTS to False, to avoid the use of kobo form upgrades that lead to uncontrolled versions in the postgresql database.
 
 ### Use of docker
 
@@ -101,3 +78,20 @@ Create new environment
     copilot env ls
 
 http://suant-Publi-15HX2LGTWJYAV-1336239482.us-east-1.elb.amazonaws.com
+
+### Alembic useful commands
+
+```shell
+poetry add alembic
+
+alembic init alembic
+````
+> Additional commands for alembic are: 
+```shell
+alembic revision --autogenerate -m "Creation of tables"
+
+alembic upgrade head
+
+alembic downgrade -1 # downgrade to previous version
+alembic downgrade head # drop tables
+```

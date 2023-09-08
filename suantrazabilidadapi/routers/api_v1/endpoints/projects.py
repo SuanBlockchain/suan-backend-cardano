@@ -15,10 +15,10 @@ router = APIRouter()
 @router.get(
         "/get-projects/{command_name}",
         status_code=200,
-        summary="Get project info from Plataforma",
+        summary="Get project info from Plataforma Postgresql database",
         response_description="Project data info"
         )
-def get_item_from_graphql(command_name: pydantic_schemas.Form) -> dict:
+def get_projects_from_kobo(command_name: pydantic_schemas.Form) -> dict:
 
     if command_name == "registro":
         form_id = "avJvoP4AH7Kj2LgVrdwdpj"

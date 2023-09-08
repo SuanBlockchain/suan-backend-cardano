@@ -1,5 +1,6 @@
 from typing import Union
 from dataclasses import dataclass, field
+import os
 
 
 import requests
@@ -26,7 +27,8 @@ class Manager():
         self.api_version = self.api_version
         if self.api_version != 2:
             raise ValueError("The value of 'api_version' has to be: 2")
-        self.token = self.kobo_tokens_dict["kobo_token"]
+        # self.token = self.kobo_tokens_dict["kobo_token"]
+        self.token = os.getenv('kobo_token')
         self.headers: dict = {"Authorization": f"Token {self.token}"}
         self._assets = None
 

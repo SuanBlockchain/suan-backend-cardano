@@ -27,8 +27,10 @@ class Start:
 class Plataforma(Start):
 
     def __post_init__(self):
-        self.graphqlEndpoint = self.plataformaSecrets["endpoint"]
-        self.awsAppSyncApiKey = self.plataformaSecrets["key"]
+        # self.graphqlEndpoint = self.plataformaSecrets["endpoint"]
+        self.graphqlEndpoint = os.getenv('endpoint')
+        # self.awsAppSyncApiKey = self.plataformaSecrets["key"]
+        self.awsAppSyncApiKey = os.getenv('key')
         self.headers["x-api-key"] = self.awsAppSyncApiKey
 
     def post(self, operation_name: str, graphql_variables: dict) -> dict:

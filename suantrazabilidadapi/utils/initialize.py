@@ -11,9 +11,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import SQLAlchemyError
 
 from alembic.config import Config
-from alembic import command
-from alembic.script import ScriptDirectory
-from alembic.util import CommandError
 import os
 from sqlalchemy.engine.reflection import Inspector
 
@@ -26,7 +23,8 @@ class DbService:
     params = config(section="postgresql")
 
     # Perform the Alembic upgrade
-    conn_string = f"postgresql://{params['user']}:{params['password']}@{params['host']}:{params['port']}/{params['database']}"
+    # conn_string = f"postgresql://{params['user']}:{params['password']}@{params['host']}:{params['port']}/{params['database']}"
+    conn_string = f"postgresql://{os.getenv('user')}:{os.getenv('password')}@{os.getenv('host')}:{os.getenv('port')}/{os.getenv('database')}"
 
     alembic_cfg = Config("suantrazabilidadapi/alembic.ini")
     alembic_cfg.set_main_option("script_location", "suantrazabilidadapi/alembic")

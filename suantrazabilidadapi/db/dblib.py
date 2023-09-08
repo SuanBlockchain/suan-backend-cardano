@@ -2,6 +2,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
 
 from suantrazabilidadapi.core.config import config
 
@@ -12,7 +13,7 @@ params = config(section="postgresql")
 
 # connect to the PostgreSQL server
 print("Connecting to the PostgreSQL database...")
-conn_string = f"postgresql://{params['user']}:{params['password']}@{params['host']}:{params['port']}/{params['database']}"
+conn_string = f"postgresql://{os.getenv('user')}:{os.getenv('password')}@{os.getenv('host')}:{os.getenv('port')}/{os.getenv('database')}"
 engine = create_engine(conn_string, connect_args={}, future=True)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
