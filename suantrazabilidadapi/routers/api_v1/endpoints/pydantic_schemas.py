@@ -64,7 +64,10 @@ class TokenData(BaseModel):
 ############################
 # Wallet section definition
 ############################
-
+class Mnemonics(int, Enum):
+    twelve: int = 12
+    fifteen: int = 15
+    twenty_four: int = 24
 
 class KeyCreate(BaseModel):
     name: Union[str, None]
