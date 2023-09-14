@@ -4,6 +4,7 @@ from cardanopythonlib import keys, base
 import json
 import os
 import pathlib
+import binascii
 
 from pycardano import *
 from blockfrost import ApiUrls
@@ -19,14 +20,14 @@ chain_context = BlockFrostChainContext(
 
 """Preparation"""
 # Define the root directory where images and keys will be stored.
-PROJECT_ROOT = ".priv"
+PROJECT_ROOT = "suantrazabilidadapi"
 root = pathlib.Path(PROJECT_ROOT)
 
 # Create the directory if it doesn't exist
 root.mkdir(parents=True, exist_ok=True)
 
-mainWalletName = "SuanMasterSigningKeys#"
-key_dir = root / f'wallets/{mainWalletName}'
+# mainWalletName = "SuanMasterSigningKeys#"
+key_dir = root / f'.priv/wallets'
 key_dir.mkdir(exist_ok=True)
 
 def remove_file(path: str, name: str) -> None:
@@ -155,6 +156,7 @@ async def createWallet():
         ########################
         payment_skey, payment_vkey = load_or_create_key_pair(key_dir, "payment")
         address = Address(payment_vkey.hash(), network=NETWORK)
+        print(address)
 
         ########################
         """3. Create the script and policy"""
@@ -230,12 +232,13 @@ async def createWallet():
         builder.auxiliary_data = auxiliary_data
 
         # Calculate the minimum amount of lovelace that need to hold the NFT we are going to mint
-        # min_val = min_lovelace(
-        #     chain_context, output=TransactionOutput(destination_address, Value(0, my_nft))
-        # )
+        min_val = min_lovelace(
+            chain_context, output=TransactionOutput(destination_address, Value(0, my_nft_alternative))
+        )
 
         # Send the NFT to our own address + 500 ADA
-        builder.add_output(TransactionOutput(destination_address, Value(500000000, my_nft_alternative)))
+        builder.add_output(TransactionOutput(destination_address, Value(min_val, my_nft_alternative)))
+        builder.add_output(TransactionOutput(destination_address, Value(500000000)))
 
         # Create final signed transaction
         signed_tx = builder.build_and_sign([payment_skey], change_address=address)
@@ -244,6 +247,8 @@ async def createWallet():
         # Submit signed transaction to the network
         chain_context.submit_tx(signed_tx)
 
-        return {"mnemonic": mnemonic_words, "signed_tx": signed_tx.to_cbor_hex()}
+        ####################################################
+
+        return {"mnemonic": mnemonic_words}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
