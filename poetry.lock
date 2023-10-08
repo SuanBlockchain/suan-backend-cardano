@@ -21,6 +21,60 @@ typing-extensions = ">=4"
 tz = ["python-dateutil"]
 
 [[package]]
+name = "amazon-ion"
+version = "0.9.3"
+description = "A Python implementation of Amazon Ion."
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "amazon.ion-0.9.3-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:6ba5606a5c0f16afd13773f73ff936d4b0f4e6e2b5923a422e7d559ea4b3c180"},
+    {file = "amazon.ion-0.9.3-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:25b40c70607bb303d60bc3d66b20dc255ed87366159f9f042e3c1990022e5fe5"},
+    {file = "amazon.ion-0.9.3-cp310-cp310-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:fbc818a4a705293dba93f55b6b8a2266fc1b94250d5732e42039a54bb1dbf498"},
+    {file = "amazon.ion-0.9.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:08977fcf2d14e19e0c10814070df131d15f8825b581f98b025a3f8dd34a2f345"},
+    {file = "amazon.ion-0.9.3-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:a99cb3e6a67eea0f88d96122291b046edbe3f0a2a86f5a9e12487b59403754ee"},
+    {file = "amazon.ion-0.9.3-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:ce5ed6088bf8b104172208e9b49b2e475ae04a9b2e9dd9c0b1260d90c3a20975"},
+    {file = "amazon.ion-0.9.3-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:76215cf9c9c001551ed2427a8c0eb4c8a3bfb229d0d70f54f263ada8b0ec99c4"},
+    {file = "amazon.ion-0.9.3-cp310-cp310-win_amd64.whl", hash = "sha256:71e65a15565ef98e3c52567d8fcd690baa2fbbf343816722e5febcda453468c4"},
+    {file = "amazon.ion-0.9.3-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:d57027f48958f7086a30f901627f0794707476aba0188735c912f63e1e45bf6f"},
+    {file = "amazon.ion-0.9.3-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:963fd1f596a7aa5e2037aa6a3a6d71f196841fa63ec608a57020f15dd9d7665e"},
+    {file = "amazon.ion-0.9.3-cp36-cp36m-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a86ff2e348d5a85cfcc7d4386c0c371959955f4378eda057fb29bd1e3332a6d8"},
+    {file = "amazon.ion-0.9.3-cp36-cp36m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3696ad85c2f4fad536f1f39b48effc3bddc6ed5875d3402e168344c6dd66f4e3"},
+    {file = "amazon.ion-0.9.3-cp36-cp36m-musllinux_1_1_aarch64.whl", hash = "sha256:fe45a20ff48b9bf83c22928e67195b88ff4eb99ea256e1804630bcb374c65a81"},
+    {file = "amazon.ion-0.9.3-cp36-cp36m-musllinux_1_1_i686.whl", hash = "sha256:18f21ec3dee782aa7eb4a7a5ece1bd8c6d4d693e149eb27ef0ebb8da8fea574c"},
+    {file = "amazon.ion-0.9.3-cp36-cp36m-musllinux_1_1_x86_64.whl", hash = "sha256:6f4a720dbad6cb285ed6b4012b547341299a75bf797c5378023b5d2436cfbc82"},
+    {file = "amazon.ion-0.9.3-cp36-cp36m-win_amd64.whl", hash = "sha256:531243bba48f3a024dff14e8fd87ab176ca2cb0fa1c9bf34fe53f80b5b8f3e79"},
+    {file = "amazon.ion-0.9.3-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:c1dcfc295f7f8765e72211af7ce337aa925ca1573257a9e621592e6ee03b4b9e"},
+    {file = "amazon.ion-0.9.3-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5f146ec3a111a5dff8a3c1ed685cd3389b389d22a4a360ea8a395b5636a4f567"},
+    {file = "amazon.ion-0.9.3-cp37-cp37m-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:b513fd1146ca789940ad00072f06321c79b5bd67ebeca0b538d989c7ada8e3a2"},
+    {file = "amazon.ion-0.9.3-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f0ce6d3055ae8e0c85964a73ba608853e9120c998080459a67a10f13c1a32d0d"},
+    {file = "amazon.ion-0.9.3-cp37-cp37m-musllinux_1_1_aarch64.whl", hash = "sha256:1ea6947736e5aa0f922a6fe0922260a60ef70a8c22eaebb734ea49046ef349a4"},
+    {file = "amazon.ion-0.9.3-cp37-cp37m-musllinux_1_1_i686.whl", hash = "sha256:f7a6bcdbc0c0349ff128fbbca3e00ec54a80099f77112128e7589f5c451db18f"},
+    {file = "amazon.ion-0.9.3-cp37-cp37m-musllinux_1_1_x86_64.whl", hash = "sha256:c095422c2f45ed8d05fc308cb6821d5240c708e66c8893ca4983f66b5124aee7"},
+    {file = "amazon.ion-0.9.3-cp37-cp37m-win_amd64.whl", hash = "sha256:a46338a234157d18dc85bcaeec48dd35ddff640c1ab41696958c37219d9d4323"},
+    {file = "amazon.ion-0.9.3-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:46a77f11adde58ee93ee84781d4b9311c16bd108ce767d1e0ffcc5809b957568"},
+    {file = "amazon.ion-0.9.3-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:622e756ff61a6465b236c31da753fcf6c800be88fc0c5feb34e9db1bbc55a7ed"},
+    {file = "amazon.ion-0.9.3-cp38-cp38-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:7e295d691db61796cfa4f624b48775b10a792eae4d6b5b2f149e29979320e2e3"},
+    {file = "amazon.ion-0.9.3-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1aeb0606e729f2f825e4ef311b61189e7f8bf418ce0083d5291ff987fd110372"},
+    {file = "amazon.ion-0.9.3-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:ed4e896d1e4844ef8e1765a1344300e3f28e97fe34ce8fbfcfb25e1f660aeb5e"},
+    {file = "amazon.ion-0.9.3-cp38-cp38-musllinux_1_1_i686.whl", hash = "sha256:c4aac4ff3505d37e5bcfbdf0b904e3513bd724a35ee966f5f8ad3542360cb41d"},
+    {file = "amazon.ion-0.9.3-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:bc9eced8216293f312d915729684ee439a4f04854ad2763436b5420ba8c7ca7d"},
+    {file = "amazon.ion-0.9.3-cp38-cp38-win_amd64.whl", hash = "sha256:2cbbf3f26499e1dba209055b05105b184b602474acaa5afb2afb3707d980d04f"},
+    {file = "amazon.ion-0.9.3-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:0e445da716c1d64e70785dc549fcfe3aadfc7fa8b3d519b9de86fa3bc00c18e6"},
+    {file = "amazon.ion-0.9.3-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7953c0df152adec30b03cf366ae814ec14857c8a98dc124e884d20e628c47135"},
+    {file = "amazon.ion-0.9.3-cp39-cp39-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:0339e6cdb22029bcfd9d4a30edd1ab8f2dcf753d17fb6804c7f4514585748c93"},
+    {file = "amazon.ion-0.9.3-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:86c3fc493470647b471cee46640bf7b8ee316177af46a7a1adb2c85bf33c7f3c"},
+    {file = "amazon.ion-0.9.3-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:8ccca1bb01d90b573852ef377e2b57541ab8763e71253ac05269adfe8e961205"},
+    {file = "amazon.ion-0.9.3-cp39-cp39-musllinux_1_1_i686.whl", hash = "sha256:8ef3e76b1bcaa2f2ac8fc6c3ace03dfc455e52fa391132b97163b53f866e7e30"},
+    {file = "amazon.ion-0.9.3-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:8d8c6a7a86cf19067be056f722a061a140000f5f5a1b07b710e08114a847285e"},
+    {file = "amazon.ion-0.9.3-cp39-cp39-win_amd64.whl", hash = "sha256:18ded1cff347b9cec0ead69191f2cca05e67167ac0daff78e9c8820b4c6f25b1"},
+    {file = "amazon.ion-0.9.3.tar.gz", hash = "sha256:7ababc123414c57031ab16503cae1b403e56df9135f69f390567a4fea329d3c6"},
+]
+
+[package.dependencies]
+six = "*"
+
+[[package]]
 name = "anyio"
 version = "3.6.2"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
@@ -869,6 +923,21 @@ files = [
 ]
 
 [[package]]
+name = "ionhash"
+version = "1.2.1"
+description = "Python implementation of Amazon Ion Hash"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "ionhash-1.2.1.tar.gz", hash = "sha256:5d4756109c90cdc07be7b2ad88ec5bba2f44cab06a5e41d707f72735b0eb6c5d"},
+]
+
+[package.dependencies]
+"amazon.ion" = ">=0.5"
+six = "*"
+
+[[package]]
 name = "jmespath"
 version = "1.0.1"
 description = "JSON Matching Expressions"
@@ -1382,6 +1451,23 @@ docs = ["sphinx (>=1.6.5)", "sphinx-rtd-theme"]
 tests = ["hypothesis (>=3.27.0)", "pytest (>=3.2.1,!=3.3.0)"]
 
 [[package]]
+name = "pyqldb"
+version = "3.2.3"
+description = "Python driver for Amazon QLDB"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pyqldb-3.2.3.tar.gz", hash = "sha256:ebe04f552148e6f85d3e212cd7c21c2823a08793685a8d81e1dd50f8cc38e62d"},
+]
+
+[package.dependencies]
+"amazon.ion" = ">=0.7.0,<=0.9.3"
+boto3 = ">=1.17.5,<2"
+botocore = ">=1.20.5,<2"
+ionhash = ">=1.2.1,<2"
+
+[[package]]
 name = "pytest"
 version = "7.3.1"
 description = "pytest: simple powerful testing with Python"
@@ -1685,4 +1771,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "db75c18423a6271c6fbc83be2dcaba7f66e556420a07483189b4c34d35425605"
+content-hash = "6434c7946571bababed0f75ec44a80d531eefb2353e3813d832ec8f03591186a"

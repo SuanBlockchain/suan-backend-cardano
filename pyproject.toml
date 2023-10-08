@@ -23,6 +23,7 @@ numpy = "^1.24.3"
 boto3 = "^1.28.6"
 pycardano = "^0.9.0"
 cardanopythonlib = "^1.2"
+pyqldb = "^3.2.3"
 
 
 [tool.poetry.group.dev.dependencies]
