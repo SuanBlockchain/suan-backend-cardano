@@ -31,6 +31,20 @@ query getProjects ($projectId: ID!) {
         }
     }
 
+query getWallets ($walletId: ID!) {
+  getWallet(id: $walletId) {
+    id
+    isAdmin
+    isSelected
+    name
+    password
+    seed
+    status
+    updatedAt
+    userID
+  }
+}
+
 mutation ProjectMutation ($id: ID!, $name: String!, $description: String!, $categoryID: ID!, $isActive: Boolean!, $status: String!, $projectReadiness: Boolean!) {
         createProduct(input: {id: $id, name: $name, description: $description, categoryID: $categoryID, isActive: $isActive, status: $status, projectReadiness: $projectReadiness}) {
             id
@@ -50,3 +64,9 @@ mutation DocumentMutation ($productFeatureID: ID!, $url: AWSURL!, $isApproved: B
         id
     }
     }
+
+mutation WalletMutation ($id: ID!, $isAdmin: Boolean!, $isSelected: Boolean!, $name: String!, $password: String!, $seed: String!, $status: String!, $userID: ID!) {
+  createWallet(input: {id: $id, isAdmin: $isAdmin, isSelected: $isSelected, name: $name, password: $password, seed: $seed, status: $status, userID: $userID}) {
+    id
+  }
+}

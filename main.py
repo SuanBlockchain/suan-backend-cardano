@@ -1,13 +1,13 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from suantrazabilidadapi.db.models import dbmodels
-from suantrazabilidadapi.db.dblib import engine
+# from suantrazabilidadapi.db.models import dbmodels
+# from suantrazabilidadapi.db.dblib import engine
 
 from suantrazabilidadapi.routers.api_v1.api import api_router
 from suantrazabilidadapi.core.config import settings
 
 from fastapi.responses import HTMLResponse
-from suantrazabilidadapi.utils.initialize import DbService
+# from suantrazabilidadapi.utils.initialize import DbService
 
 
 
@@ -60,12 +60,12 @@ async def root():
     return HTMLResponse(content=body)
 
 
-@suantrazabilidad.on_event("startup")
-async def startup_event() -> None:
-    dbmodels.Base.metadata.create_all(bind=engine)
-    msg = DbService()._addFirstData()
-    print(msg)
-    print("Application startup")
+# @suantrazabilidad.on_event("startup")
+# async def startup_event() -> None:
+#     dbmodels.Base.metadata.create_all(bind=engine)
+#     msg = DbService()._addFirstData()
+#     print(msg)
+#     print("Application startup")
 
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)

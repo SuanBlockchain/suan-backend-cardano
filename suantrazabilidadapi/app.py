@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from .db.models import dbmodels
-from .db.dblib import engine
+# from .db.models import dbmodels
+# from .db.dblib import engine
 
 from .routers.api_v1.api import api_router
 from .core.config import settings
@@ -16,7 +16,7 @@ title = "Suan Trazabilidad API"
 version = "0.0.1"
 contact = {"name": "Suan"}
 
-dbmodels.Base.metadata.create_all(bind=engine)
+# dbmodels.Base.metadata.create_all(bind=engine)
 
 suantrazabilidad = FastAPI(
     title=title,

@@ -64,10 +64,37 @@ class TokenData(BaseModel):
 ############################
 # Wallet section definition
 ############################
+
 class Mnemonics(int, Enum):
     twelve: int = 12
     fifteen: int = 15
+    eigthteen: int = 18
+    twenty_one: int = 21
     twenty_four: int = 24
+
+class WalletStatus(str, Enum):
+    active = "active"
+    inactive = "inactive"
+
+class Wallet(BaseModel):
+    walletName: Union[str, None]
+    save_flag: bool = True
+    userID: str
+    isAdmin: bool = False
+    isSelected: bool = True
+    status: WalletStatus = "active"
+    # created_at: datetime
+    # updated_at: datetime
+
+
+class WalletCreate(Wallet):
+    passphrase: str
+    size: Mnemonics = 24
+
+class WalletResponse(BaseModel):
+    walletId: str
+    mnemonics: List[str]
+
 
 class KeyCreate(BaseModel):
     name: Union[str, None]
