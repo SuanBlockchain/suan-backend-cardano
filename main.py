@@ -4,9 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 # from suantrazabilidadapi.db.dblib import engine
 
 from suantrazabilidadapi.routers.api_v1.api import api_router
-from suantrazabilidadapi.core.config import settings
+from suantrazabilidadapi.core.config import settings, config
 
 from fastapi.responses import HTMLResponse
+from dotenv import load_dotenv
+load_dotenv()
 # from suantrazabilidadapi.utils.initialize import DbService
 
 
@@ -44,12 +46,12 @@ suantrazabilidad.add_middleware(
 
 @suantrazabilidad.get("/")
 async def root():
+    wallet = config(section="wallet")
     """Basic HTML response."""
     body = (
         "<html>"
         "<body style='padding: 10px;'>"
         "<h1>Bienvenidos al API de Suan Trazabilidad</h1>"
-        "<iframe src='https://kf.kobotoolbox.org/#/forms/avJvoP4AH7Kj2LgVrdwdpj' width='800' height='600'></iframe>"
     "<div>"
         "Check the docs: <a href='/docs'>here</a>"
         "</div>"
@@ -58,14 +60,6 @@ async def root():
     )
 
     return HTMLResponse(content=body)
-
-
-# @suantrazabilidad.on_event("startup")
-# async def startup_event() -> None:
-#     dbmodels.Base.metadata.create_all(bind=engine)
-#     msg = DbService()._addFirstData()
-#     print(msg)
-#     print("Application startup")
 
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)

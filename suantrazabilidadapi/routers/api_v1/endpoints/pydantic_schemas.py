@@ -178,6 +178,11 @@ class Mint(SimpleSend):
     #     assert isinstance(value, UUID4), "Script_id field must be a valid UUID4"
     #     return value
 
+############################
+# Source section definition
+############################
+class SourceName(str, Enum):
+    balance = "balance"
 
 ############################
 # Script section definition

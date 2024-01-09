@@ -4,9 +4,10 @@ from dataclasses import dataclass
 import requests
 import os
 import json
+import importlib
+from base64 import b16encode
 
 from suantrazabilidadapi.core.config import config
-from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 
 @dataclass()
 class Start:
@@ -19,11 +20,11 @@ class Start:
 class Plataforma(Start):
 
     def __post_init__(self):
-        # self.graphqlEndpoint = self.plataformaSecrets["endpoint"]
         self.graphqlEndpoint = os.getenv('endpoint')
-        # self.awsAppSyncApiKey = self.plataformaSecrets["key"]
         self.awsAppSyncApiKey = os.getenv('key')
         self.headers["x-api-key"] = self.awsAppSyncApiKey
+        koios_api_module = importlib.import_module("koios_api")
+        self.koios_api = koios_api_module
 
     def post(self, operation_name: str, graphql_variables: dict) -> dict:
 
@@ -65,4 +66,21 @@ class Plataforma(Start):
 
         response = self.post('WalletMutation', values)
         return response
+    
+    def getAddressInfo(self, address: list[str]) -> list[dict]:
+        
+        address_response = self.koios_api.get_address_info(address)
+        asset_response = self.koios_api.get_address_assets(address)
+        
+        # # Group data2 by "address" key
+        for item in address_response:
+            assets = []
+            for asset in asset_response:
+                if asset["address"] == item["address"]:
+                    assets.append(dict(map(lambda item: (item[0], bytes.fromhex(item[1]).decode("utf-8")) if item[0] == "asset_name" else item, filter(lambda item: item[0] != "address", asset.items()))))
+
+            
+            item["assets"] = assets
+
+        return address_response
     

@@ -14,7 +14,7 @@ from blockfrost import ApiUrls
 
 class Constants:
     NETWORK = Network.TESTNET
-    BLOCK_FROST_PROJECT_ID = "previewp0ZkXTGqxYc7wcjUllmcPQPpZmUAGCCU"
+    BLOCK_FROST_PROJECT_ID = os.getenv('block_frost_project_id')
     PROJECT_ROOT = "suantrazabilidadapi"
     ROOT = pathlib.Path(PROJECT_ROOT)
     KEY_DIR = ROOT / f'.priv/wallets'
@@ -72,14 +72,14 @@ def get_password_hash(password):
 router = APIRouter()
 
 @router.post(
-    "/create-wallet/",
+    "/simple-send/",
     status_code=200,
-    summary="Create wallet, fund wallet with NFT token to access Sandbox marketplace",
-    response_description="Response with mnemonics and cardano cli keys",
+    summary="Simple send lovelace to one destination address",
+    response_description="Response with mnemonics and wallet id",
     # response_model=List[str],
 )
 
-async def createWallet(wallet: pydantic_schemas.WalletCreate):
+async def simpleSend(wallet: pydantic_schemas.WalletCreate):
     try:
         
         ########################
@@ -103,6 +103,7 @@ async def createWallet(wallet: pydantic_schemas.WalletCreate):
         child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
 
         payment_verification_key = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
+        destination_address = Address(payment_part=payment_verification_key.hash(), network=Network.TESTNET)
         wallet_id = payment_verification_key.hash()
 
         wallet_id = binascii.hexlify(wallet_id.payload).decode('utf-8')
@@ -128,7 +129,8 @@ async def createWallet(wallet: pydantic_schemas.WalletCreate):
                         "password": hashed_passphrase,
                         "seed": seed,
                         "status": wallet.status,
-                        "userID": userID
+                        "userID": userID,
+                        # "address": destination_address,
                     }
                     responseWallet = Plataforma().createWallet(variables)
                     if responseWallet["success"] == True:
@@ -156,79 +158,79 @@ async def createWallet(wallet: pydantic_schemas.WalletCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get(
-    "/mylib-create-wallet/",
-    status_code=200,
-    summary="Create wallet, fund wallet with NFT token to access Sandbox marketplace",
-    response_description="Response with mnemonics and cardano cli keys",
-    # response_model=List[str],
-)
+# @router.get(
+#     "/mylib-create-wallet/",
+#     status_code=200,
+#     summary="Create wallet, fund wallet with NFT token to access Sandbox marketplace",
+#     response_description="Response with mnemonics and cardano cli keys",
+#     # response_model=List[str],
+# )
 
-async def mylibCreateWallet():
-    try:
-        wallet = keys.Keys()
-        allKeys = wallet.deriveAllKeys("temp",24, False)
-        payment_addr = allKeys["payment_addr"]
+# async def mylibCreateWallet():
+#     try:
+#         wallet = keys.Keys()
+#         allKeys = wallet.deriveAllKeys("temp",24, False)
+#         payment_addr = allKeys["payment_addr"]
 
-        node = base.Node()
+#         node = base.Node()
         
-        mainWalletName = "SuanMasterSigningKeys#"
-        with open(f'{node.KEYS_FILE_PATH}/{mainWalletName}/{mainWalletName}.json', 'r') as file:
-            walletContent = json.load(file)
+#         mainWalletName = "SuanMasterSigningKeys#"
+#         with open(f'{node.KEYS_FILE_PATH}/{mainWalletName}/{mainWalletName}.json', 'r') as file:
+#             walletContent = json.load(file)
 
-        hash_verification_key = walletContent["hash_verification_key"]
+#         hash_verification_key = walletContent["hash_verification_key"]
 
-        tokenName = "SandboxSuanAccess1"
-        type = "all"
-        hashes = [hash_verification_key]
-        slot = node.query_tip_exec()["slot"] + 20000
-        parameters = {
-            "type": type,
-            "hashes": hashes,
-            "purpose": "mint"
-        }
-        multisig_script, policyID = node.create_simple_script(parameters)
-        script_file_path = node.MINT_FOLDER
+#         tokenName = "SandboxSuanAccess1"
+#         type = "all"
+#         hashes = [hash_verification_key]
+#         slot = node.query_tip_exec()["slot"] + 20000
+#         parameters = {
+#             "type": type,
+#             "hashes": hashes,
+#             "purpose": "mint"
+#         }
+#         multisig_script, policyID = node.create_simple_script(parameters)
+#         script_file_path = node.MINT_FOLDER
 
-        address_destin_tokens = [
-            {
-                "address": payment_addr,
-                "tokens": [
-                    {
-                        "name": tokenName,
-                        "amount": 1,
-                        "policyID": policyID
-                    }
-                ]
-            }
-        ]
+#         address_destin_tokens = [
+#             {
+#                 "address": payment_addr,
+#                 "tokens": [
+#                     {
+#                         "name": tokenName,
+#                         "amount": 1,
+#                         "policyID": policyID
+#                     }
+#                 ]
+#             }
+#         ]
 
-        mint = {
-            "action": "mint",
-            "tokens": [
-                {"name": tokenName, "amount": 1, "policyID": policyID},
-            ],
-        }
-        tx_file_path = node.TRANSACTION_PATH_FILE
+#         mint = {
+#             "action": "mint",
+#             "tokens": [
+#                 {"name": tokenName, "amount": 1, "policyID": policyID},
+#             ],
+#         }
+#         tx_file_path = node.TRANSACTION_PATH_FILE
 
-        metadata = {"1337": {"Title": "Token NFT SandBox", "description": "NFT con acceso a marketplace en Sandbox" }}
-        params = {
-            "address_origin": walletContent["payment_addr"],
-            "metadata": metadata,
-            "address_destin": address_destin_tokens,
-            "mint": mint,
-        }
-        response = node.build_tx_components(params)
-        file_exists = os.path.exists(tx_file_path + "/tx.draft")
+#         metadata = {"1337": {"Title": "Token NFT SandBox", "description": "NFT con acceso a marketplace en Sandbox" }}
+#         params = {
+#             "address_origin": walletContent["payment_addr"],
+#             "metadata": metadata,
+#             "address_destin": address_destin_tokens,
+#             "mint": mint,
+#         }
+#         response = node.build_tx_components(params)
+#         file_exists = os.path.exists(tx_file_path + "/tx.draft")
 
-        remove_file(script_file_path, "/" + policyID + ".script")
-        remove_file(script_file_path, "/" + policyID + ".policyid")
-        remove_file(tx_file_path, "/tx_metadata.json")
-        remove_file(tx_file_path, "/tx.draft")
+#         remove_file(script_file_path, "/" + policyID + ".script")
+#         remove_file(script_file_path, "/" + policyID + ".policyid")
+#         remove_file(tx_file_path, "/tx_metadata.json")
+#         remove_file(tx_file_path, "/tx.draft")
 
-        return response
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+#         return response
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail=str(e))
     
 
 # @router.get(

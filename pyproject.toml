@@ -8,11 +8,8 @@ packages = [{include = "suan_trazabilidad"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-alembic = "^1.10.4"
 pydantic = {extras = ["email"], version = "^1.10.7"}
-psycopg2-binary = "^2.9.6"
 python-decouple = "^3.8"
-psycopg2 = "^2.9.6"
 requests = "^2.30.0"
 fastapi = "^0.95.1"
 uvicorn = "^0.22.0"
@@ -25,6 +22,8 @@ pycardano = "^0.9.0"
 cardanopythonlib = "^1.2"
 pyqldb = "^3.2.3"
 passlib = "^1.7.4"
+koios-api = "^1.1.0.0"
+python-dotenv = "^1.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
