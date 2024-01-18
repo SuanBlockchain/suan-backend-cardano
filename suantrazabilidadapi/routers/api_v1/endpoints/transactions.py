@@ -5,7 +5,7 @@ from suantrazabilidadapi.utils.plataforma import Plataforma
 
 import os
 import pathlib
-import cbor2
+import json
 
 from pycardano import *
 from blockfrost import ApiUrls
@@ -111,6 +111,7 @@ async def buildTx(send: pydantic_schemas.BuildTx):
                 final_response = {
                     "success": True,
                     "msg": f'Tx Build',
+                    "build_tx": str(build_body),
                     "cbor": str(build_body.to_cbor_hex())
                 }
         else:
