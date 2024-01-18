@@ -39,9 +39,9 @@ memory: 2048
 
 # Optional fields for more advanced use-cases.
 #
-# variables:                    # Pass environment variables as key value pairs.
-#   LOG_LEVEL: info
-#
+variables:                    # Pass environment variables as key value pairs.
+  CARDANO_NET: preview
+
 # tags:                         # Pass tags as key value pairs.
 #   project: project-name
 #

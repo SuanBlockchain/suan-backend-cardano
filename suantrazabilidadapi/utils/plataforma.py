@@ -5,7 +5,7 @@ import requests
 import os
 import json
 import importlib
-from base64 import b16encode
+from typing import Union
 
 from suantrazabilidadapi.core.config import config
 
@@ -26,7 +26,7 @@ class Plataforma(Start):
         koios_api_module = importlib.import_module("koios_api")
         self.koios_api = koios_api_module
 
-    def post(self, operation_name: str, graphql_variables: dict) -> dict:
+    def post(self, operation_name: str, graphql_variables: Union[dict, None] = None) -> dict:
 
         with open(f'{self.ROOT}/graphql/queries.graphql', 'r') as file:
             graphqlQueries = file.read()
@@ -52,15 +52,18 @@ class Plataforma(Start):
         
         return response
 
-    def getWallets(self, walletId: str) -> dict:
+    def getWallet(self, walletId: str) -> dict:
         # try:
         graphql_variables = {
             "walletId": walletId
         }
 
-        data = self.post('getWallets', graphql_variables)
+        data = self.post('getWallet', graphql_variables)
 
         return data
+    
+    def listWallets(self) -> dict:
+        return self.post('listWallets')
     
     def createWallet(self, values) -> list[dict]:
 

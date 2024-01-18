@@ -3,11 +3,9 @@ from cardanopythonlib import keys, base
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma
 
-import json
 import os
 import pathlib
-import binascii
-from passlib.context import CryptContext
+import cbor2
 
 from pycardano import *
 from blockfrost import ApiUrls
@@ -20,9 +18,6 @@ class Constants:
     KEY_DIR = ROOT / f'.priv/wallets'
     ENCODING_LENGHT_MAPPING = {12: 128, 15: 160, 18: 192, 21: 224, 24:256}
 
-# Copy your BlockFrost project ID below. Go to https://blockfrost.io/ for more information.
-
-NETWORK = Constants.NETWORK
 
 chain_context = BlockFrostChainContext(
     project_id=Constants.BLOCK_FROST_PROJECT_ID,
@@ -41,19 +36,13 @@ root.mkdir(parents=True, exist_ok=True)
 key_dir = Constants.KEY_DIR
 key_dir.mkdir(exist_ok=True)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def remove_file(path: str, name: str) -> None:
-    if os.path.exists(path+name):
-        os.remove(path+name)
-
-# Load payment keys or create them if they don't exist
 def load_or_create_key_pair(base_dir, base_name):
     skey_path = base_dir / f"{base_name}.skey"
     vkey_path = base_dir / f"{base_name}.vkey"
 
     if skey_path.exists():
         skey = PaymentSigningKey.load(str(skey_path))
+        PaymentSigningKey.from_primitive()
         vkey = PaymentVerificationKey.from_signing_key(skey)
     else:
         key_pair = PaymentKeyPair.generate()
@@ -63,100 +52,161 @@ def load_or_create_key_pair(base_dir, base_name):
         vkey = key_pair.verification_key
     return skey, vkey
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
 router = APIRouter()
 
 @router.post(
-    "/simple-send/",
-    status_code=200,
-    summary="Simple send lovelace to one destination address",
-    response_description="Response with mnemonics and wallet id",
+    "/build-tx/",
+    status_code=201,
+    summary="Build the transaction off-chain for validation before signing",
+    response_description="Response with transaction details and in cborhex format",
     # response_model=List[str],
 )
 
-async def simpleSend(wallet: pydantic_schemas.WalletCreate):
+async def buildTx(send: pydantic_schemas.BuildTx):
     try:
-        
+
         ########################
         """1. Get wallet info"""
         ########################
-        size = wallet.size
-        save_flag = wallet.save_flag
-        userID = wallet.userID
-        passphrase = wallet.passphrase
-
-        strength = Constants.ENCODING_LENGHT_MAPPING.get(size, None)
-        if strength is None:
-            strength = 256
-
-        ########################
-        """2. Generate new wallet"""
-        ########################
-        mnemonic_words = HDWallet.generate_mnemonic(strength=strength)
-        hdwallet = HDWallet.from_mnemonic(mnemonic_words, passphrase=passphrase)
-
-        child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-
-        payment_verification_key = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
-        destination_address = Address(payment_part=payment_verification_key.hash(), network=Network.TESTNET)
-        wallet_id = payment_verification_key.hash()
-
-        wallet_id = binascii.hexlify(wallet_id.payload).decode('utf-8')
-
-        seed = binascii.hexlify(hdwallet._seed).decode('utf-8')
-
-        ########################
-        """3. Store wallet info"""
-        ########################
-        # Check if wallet Id already exists in database
-        r = Plataforma().getWallets(wallet_id)
-        if r["success"] == True:
-            if r["data"]["data"]["getWallet"] is None:
-                # It means that wallet does not exist in database, so update database if save_flag is True
-                if save_flag:
-                    # Hash passphrase
-                    hashed_passphrase = get_password_hash(passphrase)
-                    variables = {
-                        "id": wallet_id,
-                        "isAdmin": wallet.isAdmin,
-                        "isSelected": wallet.isSelected,
-                        "name": wallet.walletName,
-                        "password": hashed_passphrase,
-                        "seed": seed,
-                        "status": wallet.status,
-                        "userID": userID,
-                        # "address": destination_address,
-                    }
-                    responseWallet = Plataforma().createWallet(variables)
-                    if responseWallet["success"] == True:
-                        final_response = {"success": True, "msg": f'Wallet created', "data": {"mnemonic": mnemonic_words, "wallet_id": wallet_id}}
-                    else:
-                        final_response = {"success": False, "msg": f'Problems created the wallet', "data": responseWallet["error"]}
-                else:
-                    final_response = {"success": True, "msg": f'Wallet created but not stored in Database', "data": {"mnemonic": mnemonic_words, "wallet_id": wallet_id}}
-
-            else:
+        r = Plataforma().getWallet(send.wallet_id)
+        if r["data"].get("data", None) is not None:
+            walletInfo = r["data"]["data"]["getWallet"]
+            if walletInfo is None:
                 final_response = {
                     "success": True,
-                    "msg": f'Wallet with id: {wallet_id} already exists in DynamoDB',
+                    "msg": f'Wallet with id: {send.wallet_id} does not exist in DynamoDB',
                     "data": r["data"]
                 }
+            else:
+                ########################
+                """2. Build transaction"""
+                ########################
+                # Create a transaction builder
+                builder = TransactionBuilder(chain_context)
+
+                # Add user own address as the input address
+                builder.add_input_address(walletInfo["address"])
+
+                must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
+                # Since an InvalidHereAfter
+                builder.ttl = must_before_slot.after
+
+                if send.metadata != {}:
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata(send.metadata)))
+                    # Set transaction metadata
+                    builder.auxiliary_data = auxiliary_data
+                addresses = send.addresses
+                for address in addresses:
+                    # Calculate the minimum amount of lovelace that need to be transfer in the utxo
+                    min_val = min_lovelace(
+                        chain_context, output=TransactionOutput(address.address, Value(0))
+                    )
+                    if address.lovelace is None:
+                        builder.add_output(TransactionOutput(address, Value(min_val)))
+                    else:
+                        builder.add_output(TransactionOutput.from_primitive([address.address, address.lovelace]))
+
+                build_body = builder.build(change_address=walletInfo["address"])
+                # print(build_body.to_cbor())
+                print(build_body.hash())
+                # print(build_body.to_cbor_hex())
+                # data = Transaction(build_tx, TransactionWitnessSet())
+                
+                final_response = {
+                    "success": True,
+                    "msg": f'Tx Build',
+                    "data": str(build_body),
+                    "cbor": str(build_body.to_cbor())
+                }
         else:
-            final_response = {
-                "success": False,
-                "msg": "Error fetching data",
-                "data": r["error"]
-            }
+
+            if r["success"] == True:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["data"]["errors"]
+                }
+            else:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["error"]
+                }
+        
+        
+
 
         return final_response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/sign-submit", status_code=201, summary="Sign and submit transaction in cborhex format", response_description="Response with transaction submission confirmation")
+
+async def signSubmit(signSubmit: pydantic_schemas.SignSubmit):
+    try:
+
+        ########################
+        """1. Get wallet info"""
+        ########################
+        r = Plataforma().getWallet(signSubmit.wallet_id)
+        if r["data"].get("data", None) is not None:
+            walletInfo = r["data"]["data"]["getWallet"]
+            if walletInfo is None:
+                final_response = {
+                    "success": True,
+                    "msg": f'Wallet with id: {signSubmit.wallet_id} does not exist in DynamoDB',
+                    "data": r["data"]
+                }
+            else:
+                ########################
+                """2. Build transaction"""
+                ########################
+                seed = walletInfo["seed"] 
+                hdwallet = HDWallet.from_seed(seed)
+                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+                spend_public_key = child_hdwallet.public_key
+                payment_skey = SigningKey.from_primitive(spend_public_key)
+                spend_vk = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
+                print(spend_vk.hash())
+                # spend_vk = PaymentExtendedVerificationKey.from_signing_key(payment_skey)
+
+                # spend_vk1 = VerificationKey(PaymentKeyPair.from_signing_key(payment_skey).verification_key.payload)
+                
+                # tx = Transaction.from_cbor(signSubmit.cbor)
+                tx_body = TransactionBody.from_cbor(signSubmit.cbor)
+                primitive = tx_body.to_primitive()
+                cbor = tx_body.to_cbor()
+                cbor_hex = tx_body.to_cbor_hex()
+                signature = payment_skey.sign(signSubmit.cbor)
+                vk_witnesses = [VerificationKeyWitness(spend_vk, signature)]
+                signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses))
+                # witness = TransactionWitnessSet(vkey_witnesses=vk_witnesses) 
+                # tx.transaction_witness_set = witness
+                # print(tx.to_cbor_hex())
+                chain_context.submit_tx(signed_tx)
+                tx_id = tx_body.hash().hex()
+                final_response = {
+                    "success": True,
+                    "msg": "Tx submitted to the blockchain",
+                    "tx_id": tx_id
+                }
+
+        else:
+            if r["success"] == True:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["data"]["errors"]
+                }
+            else:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["error"]
+                }
+        return final_response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # @router.get(
 #     "/mylib-create-wallet/",
@@ -328,7 +378,7 @@ async def simpleSend(wallet: pydantic_schemas.WalletCreate):
 #         # builder.ttl = must_before_slot.after
 
 #         # Set nft we want to mint
-#         builder.mint = my_nft_alternative
+        # builder.mint = my_nft_alternative
 
 #         # Set native script
 #         builder.native_scripts = native_scripts

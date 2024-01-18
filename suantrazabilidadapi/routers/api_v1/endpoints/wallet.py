@@ -12,21 +12,11 @@ from pycardano import *
 
 class Constants:
     NETWORK = Network.TESTNET
-    BLOCK_FROST_PROJECT_ID = os.getenv('block_frost_project_id')
     PROJECT_ROOT = "suantrazabilidadapi"
     ROOT = pathlib.Path(PROJECT_ROOT)
     KEY_DIR = ROOT / f'.priv/wallets'
-    ENCODING_LENGHT_MAPPING = {12: 128, 15: 160, 18: 192, 21: 224, 24:256}
+    ENCODING_LENGHT_MAPPING = {"12": 128, "15": 160, "18": 192, "21": 224, "24":256}
 
-# Copy your BlockFrost project ID below. Go to https://blockfrost.io/ for more information.
-
-
-"""Preparation"""
-# Define the root directory where images and keys will be stored.
-# chain_context = BlockFrostChainContext(
-#     project_id=Constants.BLOCK_FROST_PROJECT_ID,
-#     base_url=ApiUrls.preview.value,
-# )
 
 # Create the directory if it doesn't exist
 Constants.ROOT.mkdir(parents=True, exist_ok=True)
@@ -65,39 +55,142 @@ def get_password_hash(password):
 
 router = APIRouter()
 
+@router.get("/get-wallets/", status_code=200,
+summary="Get all the wallets registered in Plataforma",
+    response_description="Wallet details",)
+
+async def getWallets():
+    """Get all the wallets registered in Plataforma
+    """
+    try:
+        r = Plataforma().listWallets()
+        if r["data"].get("data", None) is not None:
+            wallet_list = r["data"]["data"]["listWallets"]["items"]
+            if wallet_list == []:
+                final_response = {
+                    "success": True,
+                    "msg": 'No wallets present in the table',
+                    "data": r["data"]
+                }
+            else:
+                final_response = {
+                    "success": True,
+                    "msg": 'List of wallets',
+                    "data": wallet_list
+                }
+        else:
+            if r["success"] == True:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["data"]["errors"]
+                }
+            else:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["error"]
+                }
+        
+        return final_response
+
+
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/get-wallet-by-id/", status_code=200,
+summary="Get the wallet with specific id as registered in Plataforma",
+    response_description="Wallet details",)
+
+async def getWalletById(wallet_id: str):
+    """Get the wallet with specific id as registered in Plataforma
+    """
+    try:
+        r = Plataforma().getWallet(wallet_id)
+        if r["data"].get("data", None) is not None:
+            walletInfo = r["data"]["data"]["getWallet"]
+            if walletInfo is None:
+                final_response = {
+                    "success": True,
+                    "msg": f'Wallet with id: {wallet_id} does not exist in DynamoDB',
+                    "data": r["data"]
+                }
+            else:
+                final_response = {
+                    "success": True,
+                    "msg": 'Wallet info',
+                    "data": walletInfo
+                }
+
+        else:
+            if r["success"] == True:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["data"]["errors"]
+                }
+            else:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["error"]
+                }
+        
+        return final_response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post(
+    "/generate-words/",
+    status_code=201,
+    summary="Generate mnemonics with different word extensions",
+    response_description="Response with mnemonics",
+    # response_model=List[str],
+)
+
+async def generateWords(size: pydantic_schemas.Words):
+    try:
+        strength = Constants.ENCODING_LENGHT_MAPPING.get(size, None)
+        if strength is None:
+            strength = 256
+        
+        return HDWallet.generate_mnemonic(strength=strength)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post(
     "/create-wallet/",
     status_code=201,
     summary="Create wallet for internal use in Marketplace",
-    response_description="Response with mnemonics and wallet id",
+    response_description="Response with wallet id",
     # response_model=List[str],
 )
 
-async def createWallet(wallet: pydantic_schemas.WalletCreate):
+async def createWallet(wallet: pydantic_schemas.Wallet):
     try:
         
         ########################
         """1. Get wallet info"""
         ########################
-        size = wallet.size
+        
         save_flag = wallet.save_flag
         userID = wallet.userID
         passphrase = wallet.passphrase
-
-        strength = Constants.ENCODING_LENGHT_MAPPING.get(size, None)
-        if strength is None:
-            strength = 256
-
+        mnemonic_words = wallet.words
         ########################
         """2. Generate new wallet"""
         ########################
-        mnemonic_words = HDWallet.generate_mnemonic(strength=strength)
-        hdwallet = HDWallet.from_mnemonic(mnemonic_words, passphrase=passphrase)
+        hdwallet = HDWallet.from_mnemonic(mnemonic_words)
 
         child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
 
         payment_verification_key = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
-        destination_address = Address(payment_part=payment_verification_key.hash(), network=Network.TESTNET)
+        staking_verification_key = StakeVerificationKey.from_primitive(child_hdwallet.public_key)
+
+        address = Address(payment_part=payment_verification_key.hash(), staking_part=staking_verification_key.hash(), network=Network.TESTNET)
+
         wallet_id = payment_verification_key.hash()
 
         wallet_id = binascii.hexlify(wallet_id.payload).decode('utf-8')
@@ -108,13 +201,13 @@ async def createWallet(wallet: pydantic_schemas.WalletCreate):
         """3. Store wallet info"""
         ########################
         # Check if wallet Id already exists in database
-        r = Plataforma().getWallets(wallet_id)
+        r = Plataforma().getWallet(wallet_id)
         if r["success"] == True:
             if r["data"]["data"]["getWallet"] is None:
                 # It means that wallet does not exist in database, so update database if save_flag is True
+                hashed_passphrase = get_password_hash(passphrase)
                 if save_flag:
                     # Hash passphrase
-                    hashed_passphrase = get_password_hash(passphrase)
                     variables = {
                         "id": wallet_id,
                         "isAdmin": wallet.isAdmin,
@@ -124,15 +217,27 @@ async def createWallet(wallet: pydantic_schemas.WalletCreate):
                         "seed": seed,
                         "status": wallet.status,
                         "userID": userID,
-                        # "address": destination_address,
+                        "address": str(address),
                     }
                     responseWallet = Plataforma().createWallet(variables)
                     if responseWallet["success"] == True:
-                        final_response = {"success": True, "msg": f'Wallet created', "data": {"mnemonic": mnemonic_words, "wallet_id": wallet_id}}
+                        final_response = {"success": True, "msg": f'Wallet created', "data": {
+                            "name": wallet.walletName,
+                            "password": hashed_passphrase,
+                            "wallet_id": wallet_id,
+                            "status": wallet.status,
+                            "address": str(address)
+                        }}
                     else:
-                        final_response = {"success": False, "msg": f'Problems created the wallet', "data": responseWallet["error"]}
+                        final_response = {"success": False, "msg": f'Problems creating the wallet', "data": responseWallet["error"]}
                 else:
-                    final_response = {"success": True, "msg": f'Wallet created but not stored in Database', "data": {"mnemonic": mnemonic_words, "wallet_id": wallet_id}}
+                    final_response = {"success": True, "msg": f'Wallet created but not stored in Database', "data": {
+                            "name": wallet.walletName,
+                            "password": hashed_passphrase,
+                            "wallet_id": wallet_id,
+                            "status": wallet.status,
+                            "address": str(address)
+                    }}
 
             else:
                 final_response = {
@@ -164,9 +269,7 @@ async def queryWallet(command_name: pydantic_schemas.SourceName, address: list[s
 
     try:
         if command_name == "balance":
-            responseAddress = Plataforma().getAddressInfo(address)
-
-            return responseAddress
+            return Plataforma().getAddressInfo(address)
 
      
     except ValueError as e:

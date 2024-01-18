@@ -65,12 +65,12 @@ class TokenData(BaseModel):
 # Wallet section definition
 ############################
 
-class Mnemonics(int, Enum):
-    twelve: int = 12
-    fifteen: int = 15
-    eigthteen: int = 18
-    twenty_one: int = 21
-    twenty_four: int = 24
+class Words(str, Enum):
+    twelve: str = "12"
+    fifteen: str = "15"
+    eigthteen: str = "18"
+    twenty_one: str = "21"
+    twenty_four: str = "24"
 
 class WalletStatus(str, Enum):
     active = "active"
@@ -83,13 +83,8 @@ class Wallet(BaseModel):
     isAdmin: bool = False
     isSelected: bool = True
     status: WalletStatus = "active"
-    # created_at: datetime
-    # updated_at: datetime
-
-
-class WalletCreate(Wallet):
     passphrase: str
-    size: Mnemonics = 24
+    words: str
 
 class WalletResponse(BaseModel):
     walletId: str
@@ -127,37 +122,40 @@ class NodeCommandName(str, Enum):
 
 class AddressDestin(BaseModel):
     address: str
-    amount: int
+    lovelace: Optional[int] = None
 
 
-class SimpleSend(BaseModel):
+class BuildTx(BaseModel):
     wallet_id: str
-    address_destin: list[AddressDestin]
+    addresses: list[AddressDestin]
     metadata: Union[dict, None] = None
-    witness: int = 1
 
 
 class Tokens(BaseModel):
     name: str
     amount: int
 
+class SignSubmit(BaseModel):
+    wallet_id: str
+    cbor: str
 
-class BuildTx(BaseModel):
-    address_origin: str
-    address_destin: list[AddressDestin]
-    metadata: Union[dict, None] = None
-    script_id: str = ""
-    mint: Union[list[Tokens], None] = None
-    witness: int = 1
 
-    @validator("script_id", always=True)
-    def chekc_script_id(cls, value):
-        try:
-            if value != "":
-                uuid.UUID(value)
-        except ValidationError as e:
-            print(e)
-        return value
+# class BuildTx(BaseModel):
+#     address_origin: str
+#     address_destin: list[AddressDestin]
+#     metadata: Union[dict, None] = None
+#     script_id: str = ""
+#     mint: Union[list[Tokens], None] = None
+#     witness: int = 1
+
+#     @validator("script_id", always=True)
+#     def chekc_script_id(cls, value):
+#         try:
+#             if value != "":
+#                 uuid.UUID(value)
+#         except ValidationError as e:
+#             print(e)
+#         return value
 
 
 class SimpleSign(BaseModel):
@@ -169,9 +167,9 @@ class SignCommandName(str, Enum):
     txfile = "txfile"
 
 
-class Mint(SimpleSend):
-    script_id: str
-    tokens: list[Tokens]
+# class Mint(BuildTx):
+#     script_id: str
+#     tokens: list[Tokens]
 
     # @validator("script_id", always=True)
     # def chekc_script_id(cls, value):

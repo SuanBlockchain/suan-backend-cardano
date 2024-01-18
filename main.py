@@ -46,7 +46,6 @@ suantrazabilidad.add_middleware(
 
 @suantrazabilidad.get("/")
 async def root():
-    wallet = config(section="wallet")
     """Basic HTML response."""
     body = (
         "<html>"

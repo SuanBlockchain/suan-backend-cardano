@@ -4,9 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 # from .db.dblib import engine
 
 from .routers.api_v1.api import api_router
-from .core.config import settings
+from .core.config import settings, config
 
 from fastapi.responses import HTMLResponse
+from dotenv import load_dotenv
+load_dotenv()
 
 
 database_flag = "postgresql"  # Other option could be dynamodb
