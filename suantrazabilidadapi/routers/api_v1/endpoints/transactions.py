@@ -107,16 +107,11 @@ async def buildTx(send: pydantic_schemas.BuildTx):
                         builder.add_output(TransactionOutput.from_primitive([address.address, address.lovelace]))
 
                 build_body = builder.build(change_address=walletInfo["address"])
-                # print(build_body.to_cbor())
-                print(build_body.hash())
-                # print(build_body.to_cbor_hex())
-                # data = Transaction(build_tx, TransactionWitnessSet())
                 
                 final_response = {
                     "success": True,
                     "msg": f'Tx Build',
-                    "data": str(build_body),
-                    "cbor": str(build_body.to_cbor())
+                    "cbor": str(build_body.to_cbor_hex())
                 }
         else:
 
@@ -133,9 +128,6 @@ async def buildTx(send: pydantic_schemas.BuildTx):
                     "data": r["error"]
                 }
         
-        
-
-
         return final_response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -164,26 +156,19 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit):
                 seed = walletInfo["seed"] 
                 hdwallet = HDWallet.from_seed(seed)
                 child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-                spend_public_key = child_hdwallet.public_key
-                payment_skey = SigningKey.from_primitive(spend_public_key)
-                spend_vk = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
-                print(spend_vk.hash())
-                # spend_vk = PaymentExtendedVerificationKey.from_signing_key(payment_skey)
 
-                # spend_vk1 = VerificationKey(PaymentKeyPair.from_signing_key(payment_skey).verification_key.payload)
-                
-                # tx = Transaction.from_cbor(signSubmit.cbor)
-                tx_body = TransactionBody.from_cbor(signSubmit.cbor)
-                primitive = tx_body.to_primitive()
-                cbor = tx_body.to_cbor()
-                cbor_hex = tx_body.to_cbor_hex()
-                signature = payment_skey.sign(signSubmit.cbor)
+                payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+
+                spend_vk = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
+
+                cbor_hex = signSubmit.cbor
+                tx_body = TransactionBody.from_cbor(cbor_hex)
+
+                signature = payment_skey.sign(tx_body.hash())
                 vk_witnesses = [VerificationKeyWitness(spend_vk, signature)]
                 signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses))
-                # witness = TransactionWitnessSet(vkey_witnesses=vk_witnesses) 
-                # tx.transaction_witness_set = witness
-                # print(tx.to_cbor_hex())
-                chain_context.submit_tx(signed_tx)
+
+                chain_context.submit_tx(signed_tx.to_cbor())
                 tx_id = tx_body.hash().hex()
                 final_response = {
                     "success": True,
