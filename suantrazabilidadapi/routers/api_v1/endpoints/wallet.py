@@ -6,7 +6,6 @@ from suantrazabilidadapi.utils.plataforma import Plataforma
 import os
 import pathlib
 import binascii
-from passlib.context import CryptContext
 
 from pycardano import *
 
@@ -24,8 +23,6 @@ Constants.ROOT.mkdir(parents=True, exist_ok=True)
 # mainWalletName = "SuanMasterSigningKeys#"
 key_dir = Constants.KEY_DIR
 key_dir.mkdir(exist_ok=True)
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def remove_file(path: str, name: str) -> None:
     if os.path.exists(path+name):
@@ -46,12 +43,6 @@ def load_or_create_key_pair(base_dir, base_name):
         skey = key_pair.signing_key
         vkey = key_pair.verification_key
     return skey, vkey
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
 
 router = APIRouter()
 
@@ -177,7 +168,7 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         
         save_flag = wallet.save_flag
         userID = wallet.userID
-        passphrase = wallet.passphrase
+        # passphrase = wallet.passphrase
         mnemonic_words = wallet.words
         ########################
         """2. Generate new wallet"""
@@ -205,37 +196,26 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         if r["success"] == True:
             if r["data"]["data"]["getWallet"] is None:
                 # It means that wallet does not exist in database, so update database if save_flag is True
-                hashed_passphrase = get_password_hash(passphrase)
+                # hashed_passphrase = get_password_hash(passphrase)
                 if save_flag:
                     # Hash passphrase
                     variables = {
                         "id": wallet_id,
-                        "isAdmin": wallet.isAdmin,
-                        "isSelected": wallet.isSelected,
-                        "name": wallet.walletName,
-                        "password": hashed_passphrase,
                         "seed": seed,
-                        "status": wallet.status,
                         "userID": userID,
                         "address": str(address),
                     }
                     responseWallet = Plataforma().createWallet(variables)
                     if responseWallet["success"] == True:
                         final_response = {"success": True, "msg": f'Wallet created', "data": {
-                            "name": wallet.walletName,
-                            "password": hashed_passphrase,
                             "wallet_id": wallet_id,
-                            "status": wallet.status,
                             "address": str(address)
                         }}
                     else:
                         final_response = {"success": False, "msg": f'Problems creating the wallet', "data": responseWallet["error"]}
                 else:
                     final_response = {"success": True, "msg": f'Wallet created but not stored in Database', "data": {
-                            "name": wallet.walletName,
-                            "password": hashed_passphrase,
                             "wallet_id": wallet_id,
-                            "status": wallet.status,
                             "address": str(address)
                     }}
 

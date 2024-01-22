@@ -1,15 +1,12 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-# from suantrazabilidadapi.db.models import dbmodels
-# from suantrazabilidadapi.db.dblib import engine
 
 from suantrazabilidadapi.routers.api_v1.api import api_router
-from suantrazabilidadapi.core.config import settings, config
+from suantrazabilidadapi.core.config import settings
 
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 load_dotenv()
-# from suantrazabilidadapi.utils.initialize import DbService
 
 
 

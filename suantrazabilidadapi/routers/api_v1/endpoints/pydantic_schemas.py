@@ -77,13 +77,8 @@ class WalletStatus(str, Enum):
     inactive = "inactive"
 
 class Wallet(BaseModel):
-    walletName: Union[str, None]
     save_flag: bool = True
     userID: str
-    isAdmin: bool = False
-    isSelected: bool = True
-    status: WalletStatus = "active"
-    passphrase: str
     words: str
 
 class WalletResponse(BaseModel):
