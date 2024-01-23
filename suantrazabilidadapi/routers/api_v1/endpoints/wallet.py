@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException
-# from cardanopythonlib import keys, base
+from fastapi import APIRouter, HTTPException, Security
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma
+from suantrazabilidadapi.utils.security import get_api_key
 
 import os
 import pathlib
@@ -50,7 +50,7 @@ router = APIRouter()
 summary="Get all the wallets registered in Plataforma",
     response_description="Wallet details",)
 
-async def getWallets():
+async def getWallets(api_key: str = Security(get_api_key)):
     """Get all the wallets registered in Plataforma
     """
     try:

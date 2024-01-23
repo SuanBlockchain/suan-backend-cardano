@@ -24,6 +24,7 @@ pyqldb = "^3.2.3"
 passlib = "^1.7.4"
 koios-api = "^1.1.0.0"
 python-dotenv = "^1.0.0"
+python-multipart = "^0.0.6"
 
 
 [tool.poetry.group.dev.dependencies]
