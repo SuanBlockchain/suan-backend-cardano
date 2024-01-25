@@ -1,19 +1,21 @@
-from fastapi.security import OAuth2PasswordBearer, APIKeyHeader, APIKeyQuery
-from fastapi import APIRouter, Depends, HTTPException, status, Security
+from fastapi.security import APIKeyHeader
+from fastapi import HTTPException, status, Security
 
-from typing import Annotated
+import secrets
+from suantrazabilidadapi.core.config import config
+import os
 
-API_KEYS = [
-    "9d207bf0-10f5-4d8f-a479-22ff5aeff8d1",
-    "f47d4a2c-24cf-4745-937e-620a5963c0b8",
-    "b7061546-75e8-444b-a2c4-f19655d07eb8",
-]
+security = config(section="security")
+graphqlEndpoint = os.getenv('endpoint')
 
-api_key_query = APIKeyQuery(name="api-key", auto_error=False)
+API_KEYS = {
+        "datos": os.getenv("data_api_key"),
+        "plataforma": os.getenv("platform_api_key")
+    }
+
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
 def get_api_key(
-    api_key_query: str = Security(api_key_query),
     api_key_header: str = Security(api_key_header),
 ) -> str:
     """Retrieve and validate an API key from the query parameters or HTTP header.
@@ -28,14 +30,16 @@ def get_api_key(
     Raises:
         HTTPException: If the API key is invalid or missing.
     """
-    if api_key_query in API_KEYS:
-        return api_key_query
-    if api_key_header in API_KEYS:
+    if api_key_header in API_KEYS.values():
         return api_key_header
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or missing API Key",
     )
+
+def generate_api_key():
+    # Generate a random 32-character string using secrets.token_urlsafe()
+    return secrets.token_urlsafe(32)
 
 
 

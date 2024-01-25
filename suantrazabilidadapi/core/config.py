@@ -39,7 +39,7 @@ def config(config_path: str = f'{ROOT}/credentials.local.ini', section: str = ""
     # read config file
     parser.read(config_path)
 
-    # get section, default to postgresql
+    # get section
     db = {}
     if parser.has_section(section):
         params = parser.items(section)

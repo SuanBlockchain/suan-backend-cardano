@@ -28,7 +28,6 @@ poetry add <dependency>
 2. Install dependencies with Poetry
 4. Copy credentials.ini and rename it credentials.local.ini. Update the env values. 
     - Update the env values
-    - Pay attention to ENABLE_LOCAL_ENDPOINTS env variable. If you want to make changes in forms tables set to True.
 3. Start the application using main.py file
     - Once the application is run, it creates the first tables project and Principalform and update records from the excel file attached in utils/data.
 4. Use /kobo/forms/upgrade and /kobo/data/upgrade endpoints to create form tables with data from kobo for all existing forms in kobo or /data/upgrade/{form_id}/ for only form_id
@@ -39,8 +38,6 @@ poetry add <dependency>
 1. Reflect the change in the excel file found in utils/data.
 2. Start the application using main.py file
 3. Use previous kobo upgrades endpoints to make the updates.
-
-> ***Caution***: When running in docker set ENABLE_LOCAL_ENDPOINTS to False, to avoid the use of kobo form upgrades that lead to uncontrolled versions in the postgresql database.
 
 ### Use of docker
 

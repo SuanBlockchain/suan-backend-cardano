@@ -1,24 +1,18 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-# from .db.models import dbmodels
-# from .db.dblib import engine
 
 from .routers.api_v1.api import api_router
-from .core.config import settings, config
+from .core.config import settings
+from.utils.security import generate_api_key
 
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 load_dotenv()
 
-
-database_flag = "postgresql"  # Other option could be dynamodb
-
 description = "Este API facilita la integración de datos con proyectos forestales para mejorar su trazabilidad - Suan"
 title = "Suan Trazabilidad API"
 version = "0.0.1"
 contact = {"name": "Suan"}
-
-# dbmodels.Base.metadata.create_all(bind=engine)
 
 suantrazabilidad = FastAPI(
     title=title,
@@ -60,6 +54,10 @@ async def root():
 
     return HTMLResponse(content=body)
 
+@suantrazabilidad.get("/generate-api-key")
+async def get_new_api_key():
+    api_key = generate_api_key()
+    return {"api_key": api_key}
 
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)
