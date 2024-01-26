@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Security
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma
-from suantrazabilidadapi.utils.security import get_api_key
 
 import os
 import pathlib
@@ -20,7 +19,6 @@ class Constants:
 # Create the directory if it doesn't exist
 Constants.ROOT.mkdir(parents=True, exist_ok=True)
 
-# mainWalletName = "SuanMasterSigningKeys#"
 key_dir = Constants.KEY_DIR
 key_dir.mkdir(exist_ok=True)
 
@@ -50,7 +48,7 @@ router = APIRouter()
 summary="Get all the wallets registered in Plataforma",
     response_description="Wallet details",)
 
-async def getWallets(api_key: str = Security(get_api_key)):
+async def getWallets():
     """Get all the wallets registered in Plataforma
     """
     try:
@@ -94,7 +92,7 @@ async def getWallets(api_key: str = Security(get_api_key)):
 summary="Get the wallet with specific id as registered in Plataforma",
     response_description="Wallet details",)
 
-async def getWalletById(wallet_id: str):
+async def getWalletById(wallet_id: str, ):
     """Get the wallet with specific id as registered in Plataforma
     """
     try:
@@ -140,7 +138,7 @@ async def getWalletById(wallet_id: str):
     # response_model=List[str],
 )
 
-async def generateWords(size: pydantic_schemas.Words):
+async def generateWords(size: pydantic_schemas.Words, ):
     try:
         strength = Constants.ENCODING_LENGHT_MAPPING.get(size, None)
         if strength is None:
@@ -159,7 +157,7 @@ async def generateWords(size: pydantic_schemas.Words):
     # response_model=List[str],
 )
 
-async def createWallet(wallet: pydantic_schemas.Wallet):
+async def createWallet(wallet: pydantic_schemas.Wallet, ):
     try:
         
         ########################
@@ -241,7 +239,7 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
 summary="query data depending on the input command",
     response_description="Response from the wallet",)
 
-async def queryWallet(command_name: pydantic_schemas.SourceName, address: list[str]):
+async def queryWallet(command_name: pydantic_schemas.SourceName, address: list[str], ):
     """Returns the info as per command name requested \n
     **command_name**: Choose the option to retreive wallet info.
     addr_test1vqkge7txl2vdw26efyv7cytjl8l6n8678kz09agc0r34pdss0xtmp
