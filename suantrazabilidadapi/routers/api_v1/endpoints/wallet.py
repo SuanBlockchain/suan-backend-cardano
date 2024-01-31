@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Security
+from fastapi import APIRouter, HTTPException
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma
 

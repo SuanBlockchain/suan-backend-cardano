@@ -1,64 +1,9 @@
 from enum import Enum
 from typing import List, Union, Optional
 from datetime import datetime
-from pydantic import UUID4, ValidationError
-import uuid
+from pydantic import UUID4, constr
 
 from pydantic import BaseModel, validator
-
-
-############################
-# Project section definition
-############################
-
-
-class ProjectBase(BaseModel):
-    suanid: str
-    name: str
-    description: str
-    categoryid: str 
-    status: str
-
-    class Config:
-        orm_mode = True
-
-class Form(str, Enum):
-    registro = "registro"
-
-
-# class KoboFormId(str, Enum):
-#     parcelas = "parcelas"
-#     caracterizacion = "caracterizacion"
-#     postulacion = "postulacion"
-############################
-# User section definition
-############################
-class UserBase(BaseModel):
-    username: str
-
-
-class User(UserBase):
-    id: UUID4
-    id_wallet: Optional[str] = None
-    is_verified: bool
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        orm_mode = True
-
-
-class UserCreate(UserBase):
-    password: str
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-
-class TokenData(BaseModel):
-    username: Union[str, None] = None
 
 
 ############################
@@ -98,17 +43,9 @@ class KeyRecover(BaseModel):
     save_flag: bool = True
 
 
-# class KeyResponse(BaseModel):
-#     save_flag: bool
-#     id: UUID4
-#     wallet_name: str
-#     mnemonic:
-
-
 ############################
 # Transaction section definition
 ############################
-
 
 class NodeCommandName(str, Enum):
     utxos = "utxos"
@@ -133,6 +70,66 @@ class Tokens(BaseModel):
 class SignSubmit(BaseModel):
     wallet_id: str
     cbor: str
+
+############################
+# Datos section definition
+############################
+
+class CatastroStringModel(BaseModel):
+    id_catastral: str
+
+    @validator("id_catastral", always=True)
+    def check_id_catastral(cls, value):
+        if len(value) not in [20, 30]:
+            raise ValueError("The id_catastral must have either 20 or 30 characters")
+        return value
+
+# class Script(BaseModel):
+#     name: str
+#     type: str = "all"
+#     required: int = 0
+#     hashes: List[str]
+#     type_time: str = ""
+#     slot: int = 0
+
+#     @validator("type", always=True)
+#     def check_type(cls, value):
+#         if value not in ("sig", "all", "any", "atLeast"):
+#             raise ValueError("type must be: sig, all, any or atLeast ")
+#         return value
+
+############################
+# User section definition
+############################
+class UserBase(BaseModel):
+    username: str
+
+
+class User(UserBase):
+    id: UUID4
+    id_wallet: Optional[str] = None
+    is_verified: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: Union[str, None] = None
+
+
+
 
 
 # class BuildTx(BaseModel):

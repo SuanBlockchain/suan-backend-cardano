@@ -133,7 +133,7 @@ async def buildTx(send: pydantic_schemas.BuildTx):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/sign-submit", status_code=201, summary="Sign and submit transaction in cborhex format", response_description="Response with transaction submission confirmation")
+@router.post("/sign-submit/", status_code=201, summary="Sign and submit transaction in cborhex format", response_description="Response with transaction submission confirmation")
 
 async def signSubmit(signSubmit: pydantic_schemas.SignSubmit):
     try:
@@ -164,6 +164,7 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit):
 
                 cbor_hex = signSubmit.cbor
                 tx_body = TransactionBody.from_cbor(cbor_hex)
+
 
                 signature = payment_skey.sign(tx_body.hash())
                 vk_witnesses = [VerificationKeyWitness(spend_vk, signature)]
