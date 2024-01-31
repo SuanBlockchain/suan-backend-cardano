@@ -86,4 +86,10 @@ class Plataforma(Start):
             item["assets"] = assets
 
         return address_response
+
+    def getUtxoInfo(self, utxo: list[str], extended: bool=False) -> list[dict]:
+
+        utxo_info = self.koios_api.get_utxo_info(utxo, extended)
+        return utxo_info
+
     

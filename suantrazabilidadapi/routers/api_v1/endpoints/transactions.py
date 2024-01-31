@@ -107,12 +107,22 @@ async def buildTx(send: pydantic_schemas.BuildTx):
                         builder.add_output(TransactionOutput.from_primitive([address.address, address.lovelace]))
 
                 build_body = builder.build(change_address=walletInfo["address"])
+
+                transaction_id_list = []
+                for utxo in build_body.inputs:
+                    transaction_id = f'{utxo.to_cbor_hex()[6:70]}#{utxo.index}'
+                    transaction_id_list.append(transaction_id)
+
+                utxo_list_info = Plataforma().getUtxoInfo(transaction_id_list, True)
+
                 
                 final_response = {
                     "success": True,
                     "msg": f'Tx Build',
                     "build_tx": str(build_body),
-                    "cbor": str(build_body.to_cbor_hex())
+                    "cbor": str(build_body.to_cbor_hex()),
+                    "tx_id": str(build_body.id),
+                    "utxos_info": utxo_list_info
                 }
         else:
 
