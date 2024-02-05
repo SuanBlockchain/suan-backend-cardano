@@ -6,4 +6,4 @@ from .endpoints import data
 
 api_router = APIRouter()
 
-api_router.include_router(data.router, prefix="/data", tags=["Datos"], )
+api_router.include_router(data.router, prefix="/data", tags=["Datos"], dependencies=[Security(get_api_key)])
