@@ -1,15 +1,15 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers.api_v1.api import api_router
-from .core.config import settings
-from.utils.security import generate_api_key
+from suantrazabilidadapi.routers.api_v1.api import api_router
+from suantrazabilidadapi.core.config import settings
+from suantrazabilidadapi.utils.security import generate_api_key
 
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 load_dotenv()
 
-description = "Este API facilita la integración de datos con proyectos forestales para mejorar su trazabilidad - Suan"
+description = "Este API es el backend de la wallet de Plataforma - Suan"
 title = "Suan Trazabilidad API"
 version = "0.0.1"
 contact = {"name": "Suan"}

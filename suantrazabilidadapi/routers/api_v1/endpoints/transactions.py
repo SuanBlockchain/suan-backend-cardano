@@ -1,11 +1,9 @@
 from fastapi import APIRouter, HTTPException
-from cardanopythonlib import keys, base
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma
 
 import os
 import pathlib
-import json
 
 from pycardano import *
 from blockfrost import ApiUrls
@@ -108,6 +106,9 @@ async def buildTx(send: pydantic_schemas.BuildTx):
 
                 build_body = builder.build(change_address=walletInfo["address"])
 
+                # Processing the tx body
+                format_body = Plataforma().formatTxBody(build_body)
+
                 transaction_id_list = []
                 for utxo in build_body.inputs:
                     transaction_id = f'{utxo.to_cbor_hex()[6:70]}#{utxo.index}'
@@ -119,9 +120,8 @@ async def buildTx(send: pydantic_schemas.BuildTx):
                 final_response = {
                     "success": True,
                     "msg": f'Tx Build',
-                    "build_tx": str(build_body),
+                    "build_tx": format_body,
                     "cbor": str(build_body.to_cbor_hex()),
-                    "tx_id": str(build_body.id),
                     "utxos_info": utxo_list_info
                 }
         else:

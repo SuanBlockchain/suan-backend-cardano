@@ -7,6 +7,8 @@ import json
 import importlib
 from typing import Union
 
+from pycardano import *
+
 from suantrazabilidadapi.core.config import config
 
 @dataclass()
@@ -26,7 +28,7 @@ class Plataforma(Start):
         koios_api_module = importlib.import_module("koios_api")
         self.koios_api = koios_api_module
 
-    def post(self, operation_name: str, graphql_variables: Union[dict, None] = None) -> dict:
+    def _post(self, operation_name: str, graphql_variables: Union[dict, None] = None) -> dict:
 
         with open(f'{self.ROOT}/graphql/queries.graphql', 'r') as file:
             graphqlQueries = file.read()
@@ -52,22 +54,29 @@ class Plataforma(Start):
         
         return response
 
+    def _nullDict(self, dictionary: dict) -> dict:
+
+        for k, v in dictionary.items():
+            if v is None:
+                dictionary[k] = ""
+
+        return dictionary
+
     def getWallet(self, walletId: str) -> dict:
-        # try:
         graphql_variables = {
             "walletId": walletId
         }
 
-        data = self.post('getWallet', graphql_variables)
+        data = self._post('getWallet', graphql_variables)
 
         return data
     
     def listWallets(self) -> dict:
-        return self.post('listWallets')
+        return self._post('listWallets')
     
     def createWallet(self, values) -> list[dict]:
 
-        response = self.post('WalletMutation', values)
+        response = self._post('WalletMutation', values)
         return response
     
     def getAddressInfo(self, address: list[str]) -> list[dict]:
@@ -92,4 +101,63 @@ class Plataforma(Start):
         utxo_info = self.koios_api.get_utxo_info(utxo, extended)
         return utxo_info
 
-    
+    def formatTxBody(self, txBody: TransactionBody) -> dict:
+        """_summary_
+
+        Args:
+            txBody (TransactionBody): _description_
+
+        Returns:
+            dict: dictionary with transaction body fields formatted
+        """
+
+        utxoInputs = { index: f'{input.transaction_id.payload.hex()}#{input.index}' for index, input in enumerate(txBody.inputs)}
+
+        utxoOutputs = {}
+        for index, output in enumerate(txBody.outputs):
+            
+            multi_asset = {}
+            for k, v in output.amount.multi_asset.data.items():
+                assets = { assetName.payload: value for assetName, value in v.data.items()}
+                multi_asset[k.to_cbor_hex()] = assets
+
+            utxoOutputs[index] = {
+                "address": output.address.encode(),
+                "amount": {
+                    "coin": output.amount.coin,
+                    "multi_asset": multi_asset
+                },
+                "lovelace": output.lovelace,
+                "script": output.script,
+                "datum": output.datum,
+                "datum_hash": output.datum_hash,
+            }
+
+        utxoOutputs = { k: self._nullDict(v) for k, v in utxoOutputs.items() }
+
+        formatTxBody = {
+
+            "auxiliary_data_hash": txBody.auxiliary_data_hash
+            ,"certificates": txBody.certificates
+            ,"collateral": txBody.collateral
+            ,"collateral_return": txBody.collateral_return
+            ,"fee": txBody.fee
+            ,"tx_id": txBody.id.payload.hex()
+            ,"inputs": utxoInputs
+            ,"outputs": utxoOutputs
+            ,"mint": txBody.mint
+            ,"network_id": txBody.network_id
+            ,"reference_inputs": txBody.reference_inputs
+            ,"required_signers": txBody.required_signers
+            ,"script_data_hash": txBody.script_data_hash
+            ,"total_collateral": txBody.total_collateral
+            ,"ttl": txBody.ttl
+            ,"update": txBody.update
+            ,"validity_start": txBody.validity_start
+            ,"withdraws": txBody.withdraws
+
+        }
+
+        formatTxBody = self._nullDict(formatTxBody)
+
+        return formatTxBody

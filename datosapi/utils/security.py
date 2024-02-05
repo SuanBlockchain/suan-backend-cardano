@@ -1,15 +1,14 @@
 from fastapi.security import APIKeyHeader
 from fastapi import HTTPException, status, Security
 
-import secrets
-from suantrazabilidadapi.core.config import config
+from datosapi.core.config import config
 import os
 
 security = config(section="security")
 graphqlEndpoint = os.getenv('endpoint')
 
 API_KEYS = {
-        "platform": os.getenv("platform_api_key")
+        "data": os.getenv("data_api_key")
     }
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
@@ -28,34 +27,10 @@ def get_api_key(
     Raises:
         HTTPException: If the API key is invalid or missing.
     """
-    key = API_KEYS["platform"]
+    key = API_KEYS["data"]
     if api_key_header == key:
         return api_key_header
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or missing API Key",
     )
-
-def generate_api_key():
-    # Generate a random 32-character string using secrets.token_urlsafe()
-    return secrets.token_urlsafe(32)
-
-
-
-
-
-
-
-
-
-
-
-
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# router = APIRouter()
-
-# @router.get("/items/")
-# async def read_items(token: Annotated[str, Depends(oauth2_scheme)]):
-#     return {"token": token}
-
