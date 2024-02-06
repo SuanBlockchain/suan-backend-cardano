@@ -17,6 +17,17 @@ dev = ["aiounittest (==1.4.1)", "attribution (==1.6.2)", "black (==23.3.0)", "co
 docs = ["sphinx (==6.1.3)", "sphinx-mdinclude (==0.5.3)"]
 
 [[package]]
+name = "airflow"
+version = "0.6"
+description = "Placeholder for the old Airflow package"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "airflow-0.6.tar.gz", hash = "sha256:a54d363e92af87c2ff40ac4c22944106cb8afbc2d8d09aba85e390b68ba01d97"},
+]
+
+[[package]]
 name = "alembic"
 version = "1.13.1"
 description = "A database migration tool for SQLAlchemy."
@@ -3376,4 +3387,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "dacf4beea9c5fa31128ffdf9b13b7e8f439a30fe7b69736fd11d88179cbff626"
+content-hash = "8907ca4196bb50ecce82fbd1d75dc88e0778ff302667716926f1fc1081159c3c"

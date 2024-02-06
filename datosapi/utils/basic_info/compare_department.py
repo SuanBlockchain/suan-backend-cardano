@@ -25,4 +25,9 @@ def compare_files(department_file: str = f"{ROOT}/basic_info/department.json"):
 
 
 if __name__ == "__main__":
-    compare_files.serve(name="get-department")
+    compare_files.from_source(
+        source= "https://github.com/larestrepo/suan-trazabilidad/tree/feature_workflow", entrypoint= "./datosapi/utils/basic_info/compare_department.py:compare_files"
+    ).deploy(
+        name="get-department", cron="0 0 * * *", tags=["department", "data"], version="department/data", description="Call endpoint to update the department mapping data",
+        work_pool_name="my-managed-pool"
+    )
