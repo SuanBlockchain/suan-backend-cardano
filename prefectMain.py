@@ -22,8 +22,6 @@ if __name__ == "__main__":
         work_pool_name="my-managed-pool", 
     )
 
-
-
 # import time
 # from prefect import flow, serve
 
