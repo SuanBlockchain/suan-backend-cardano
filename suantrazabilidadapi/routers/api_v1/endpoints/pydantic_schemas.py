@@ -1,7 +1,14 @@
 from enum import Enum
 from typing import List, Union, Optional, Annotated
+<<<<<<< HEAD
 from pydantic import constr
 from typing import Dict
+=======
+from datetime import datetime
+from pydantic import UUID4, constr
+>>>>>>> transaction with metadata
+
+from fastapi import Query
 
 from pydantic import BaseModel, validator
 
@@ -12,12 +19,17 @@ from .examples import *
 # Wallet section definition
 ############################
 
+<<<<<<< HEAD
 class walletCommandName(str, Enum):
     id = "id"
     address = "address"
 
 class walletQueryParam(BaseModel):
     query_param: str
+=======
+class SourceName(str, Enum):
+    balance = "balance"
+>>>>>>> transaction with metadata
 
 class Words(str, Enum):
     twelve: str = "12"
@@ -64,6 +76,7 @@ class AddressDestin(BaseModel):
     lovelace: Optional[int] = 0
     multiAsset: Optional[list[Dict[str, Dict[str, int]]]] = None
 
+<<<<<<< HEAD
     @validator("address", always=True)
     def check_address(cls, value):
         if not value.startswith("addr_"):
@@ -97,32 +110,36 @@ class TokenGenesis(BaseModel):
     tokenName: str
     metadata: dict
     tokenAmount: int
+=======
+class Metadata(BaseModel):
+    metadata: List[Annotated[str, constr(max_length=64)]]
 
-class Tokens(BaseModel):
-    name: str
-    amount: int
+class BuildTx(Metadata):
+    wallet_id: str
+    addresses: list[AddressDestin]
+>>>>>>> transaction with metadata
+
 
 class SignSubmit(Metadata):
+<<<<<<< HEAD
     wallet_id: str
     cbor: str
 
 class PurchaseSignSubmit(BaseModel):
+=======
+>>>>>>> transaction with metadata
     wallet_id: str
     cbor: str
     metadata: dict
 
-############################
-# Datos section definition
-############################
 
-class CatastroStringModel(BaseModel):
-    id_catastral: str
-
-    @validator("id_catastral", always=True)
-    def check_id_catastral(cls, value):
-        if len(value) not in [20, 30]:
-            raise ValueError("The id_catastral must have either 20 or 30 characters")
-        return value
+############################
+# User section definition
+############################
+    
+# class Tokens(BaseModel):
+#     name: str
+#     amount: int
 
 # class Script(BaseModel):
 #     name: str
@@ -137,10 +154,14 @@ class CatastroStringModel(BaseModel):
 #         if value not in ("sig", "all", "any", "atLeast"):
 #             raise ValueError("type must be: sig, all, any or atLeast ")
 #         return value
+<<<<<<< HEAD
 
 ############################
 # User section definition
 ############################
+=======
+    
+>>>>>>> transaction with metadata
 # class UserBase(BaseModel):
 #     username: str
 
@@ -211,6 +232,10 @@ class CatastroStringModel(BaseModel):
 ############################
 # Source section definition
 ############################
+<<<<<<< HEAD
+=======
+
+>>>>>>> transaction with metadata
 
 ############################
 # Script section definition
