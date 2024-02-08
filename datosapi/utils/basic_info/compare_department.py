@@ -21,6 +21,7 @@ def compare_files(department_file: str = f"{ROOT}/basic_info/department.json"):
     if json1 == json2:
         print("Department info has not changed since last request")
     else:
+        #TODO: write the result in an S3 file for consumption
         print(f"Department info has changed, update local file¡¡")
 
 

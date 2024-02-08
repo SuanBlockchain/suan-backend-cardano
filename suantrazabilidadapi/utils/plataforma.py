@@ -137,7 +137,7 @@ class Plataforma(Start):
 
         formatTxBody = {
 
-            "auxiliary_data_hash": txBody.auxiliary_data_hash
+            "auxiliary_data_hash": txBody.auxiliary_data_hash.payload.hex()
             ,"certificates": txBody.certificates
             ,"collateral": txBody.collateral
             ,"collateral_return": txBody.collateral_return

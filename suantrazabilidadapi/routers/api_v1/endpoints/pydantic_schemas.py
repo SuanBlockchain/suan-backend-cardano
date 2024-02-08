@@ -1,7 +1,9 @@
 from enum import Enum
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Annotated
 from datetime import datetime
 from pydantic import UUID4, constr
+
+from fastapi import Query
 
 from pydantic import BaseModel, validator
 
@@ -9,6 +11,9 @@ from pydantic import BaseModel, validator
 ############################
 # Wallet section definition
 ############################
+
+class SourceName(str, Enum):
+    balance = "balance"
 
 class Words(str, Enum):
     twelve: str = "12"
@@ -56,33 +61,26 @@ class AddressDestin(BaseModel):
     address: str
     lovelace: Optional[int] = None
 
+class Metadata(BaseModel):
+    metadata: List[Annotated[str, constr(max_length=64)]]
 
-class BuildTx(BaseModel):
+class BuildTx(Metadata):
     wallet_id: str
     addresses: list[AddressDestin]
-    metadata: Union[dict, None] = None
 
 
-class Tokens(BaseModel):
-    name: str
-    amount: int
-
-class SignSubmit(BaseModel):
+class SignSubmit(Metadata):
     wallet_id: str
     cbor: str
 
-############################
-# Datos section definition
-############################
 
-class CatastroStringModel(BaseModel):
-    id_catastral: str
-
-    @validator("id_catastral", always=True)
-    def check_id_catastral(cls, value):
-        if len(value) not in [20, 30]:
-            raise ValueError("The id_catastral must have either 20 or 30 characters")
-        return value
+############################
+# User section definition
+############################
+    
+# class Tokens(BaseModel):
+#     name: str
+#     amount: int
 
 # class Script(BaseModel):
 #     name: str
@@ -97,36 +95,33 @@ class CatastroStringModel(BaseModel):
 #         if value not in ("sig", "all", "any", "atLeast"):
 #             raise ValueError("type must be: sig, all, any or atLeast ")
 #         return value
-
-############################
-# User section definition
-############################
-class UserBase(BaseModel):
-    username: str
+    
+# class UserBase(BaseModel):
+#     username: str
 
 
-class User(UserBase):
-    id: UUID4
-    id_wallet: Optional[str] = None
-    is_verified: bool
-    created_at: datetime
-    updated_at: datetime
+# class User(UserBase):
+#     id: UUID4
+#     id_wallet: Optional[str] = None
+#     is_verified: bool
+#     created_at: datetime
+#     updated_at: datetime
 
-    class Config:
-        orm_mode = True
-
-
-class UserCreate(UserBase):
-    password: str
+#     class Config:
+#         orm_mode = True
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+# class UserCreate(UserBase):
+#     password: str
 
 
-class TokenData(BaseModel):
-    username: Union[str, None] = None
+# class Token(BaseModel):
+#     access_token: str
+#     token_type: str
+
+
+# class TokenData(BaseModel):
+#     username: Union[str, None] = None
 
 
 
@@ -150,13 +145,13 @@ class TokenData(BaseModel):
 #         return value
 
 
-class SimpleSign(BaseModel):
-    wallets_ids: list[str]
+# class SimpleSign(BaseModel):
+#     wallets_ids: list[str]
 
 
-class SignCommandName(str, Enum):
-    cborhex = "cborhex"
-    txfile = "txfile"
+# class SignCommandName(str, Enum):
+#     cborhex = "cborhex"
+#     txfile = "txfile"
 
 
 # class Mint(BuildTx):
@@ -171,8 +166,7 @@ class SignCommandName(str, Enum):
 ############################
 # Source section definition
 ############################
-class SourceName(str, Enum):
-    balance = "balance"
+
 
 ############################
 # Script section definition
