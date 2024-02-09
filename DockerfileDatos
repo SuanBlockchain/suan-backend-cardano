@@ -17,7 +17,9 @@ COPY --from=requirements-stage /tmp/requirements.txt /codeDatos/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /codeDatos/requirements.txt
 
 COPY ./datosapi /codeDatos/datosapi
+COPY ./datos.py /codeDatos/datos.py
 
 EXPOSE 80
 
-CMD ["uvicorn", "datosapi.app:datos", "--host", "0.0.0.0", "--port", "80"]
+# CMD ["uvicorn", "datosapi.app:datos", "--host", "0.0.0.0", "--port", "80"]
+CMD ["python3", "datos.py"]

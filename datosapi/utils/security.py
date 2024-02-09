@@ -1,7 +1,8 @@
 from fastapi.security import APIKeyHeader
 from fastapi import HTTPException, status, Security
 
-from datosapi.core.config import config
+# from core.config import config
+from ..core.config import config
 import os
 
 security = config(section="security")
