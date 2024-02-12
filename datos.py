@@ -8,10 +8,10 @@ from fastapi.responses import HTMLResponse
 
 from datosapi.routers.api_v1.api import api_router
 from datosapi.core.config import settings
-from datosapi.scheduler import app as rocketryapp
+from datosapi.app.main import app as rocketryapp
 
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
 ########################
 # FastAPI declaration section

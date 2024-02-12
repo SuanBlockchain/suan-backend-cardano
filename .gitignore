@@ -173,3 +173,6 @@ files/
 temp.py
 temp_pycardano.py
 suantrazabilidadapi/policy.id
+logs.csv
+temp2.py
+datosapi/app/basic_info/department.json
