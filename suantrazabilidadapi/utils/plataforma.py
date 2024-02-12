@@ -78,28 +78,6 @@ class Plataforma(Start):
 
         response = self._post('WalletMutation', values)
         return response
-    
-    def getAddressInfo(self, address: list[str]) -> list[dict]:
-        
-        address_response = self.koios_api.get_address_info(address)
-        asset_response = self.koios_api.get_address_assets(address)
-        
-        # # Group data2 by "address" key
-        for item in address_response:
-            assets = []
-            for asset in asset_response:
-                if asset["address"] == item["address"]:
-                    assets.append(dict(map(lambda item: (item[0], bytes.fromhex(item[1]).decode("utf-8")) if item[0] == "asset_name" else item, filter(lambda item: item[0] != "address", asset.items()))))
-
-            
-            item["assets"] = assets
-
-        return address_response
-
-    def getUtxoInfo(self, utxo: list[str], extended: bool=False) -> list[dict]:
-
-        utxo_info = self.koios_api.get_utxo_info(utxo, extended)
-        return utxo_info
 
     def formatTxBody(self, txBody: TransactionBody) -> dict:
         """_summary_
@@ -161,3 +139,50 @@ class Plataforma(Start):
         formatTxBody = self._nullDict(formatTxBody)
 
         return formatTxBody
+
+
+@dataclass()
+class CardanoApi(Start):
+
+    def __post_init__(self):
+        koios_api_module = importlib.import_module("koios_api")
+        self.koios_api = koios_api_module
+
+    def getAddressInfo(self, address: Union[str, list[str]]) -> list[dict]:
+        
+        address_response = self.koios_api.get_address_info(address)
+        asset_response = self.koios_api.get_address_assets(address)
+        
+        # # Group data2 by "address" key
+        for item in address_response:
+            assets = []
+            for asset in asset_response:
+                if asset["address"] == item["address"]:
+                    assets.append(dict(map(lambda item: (item[0], bytes.fromhex(item[1]).decode("utf-8")) if item[0] == "asset_name" else item, filter(lambda item: item[0] != "address", asset.items()))))
+
+            item["assets"] = assets
+
+        return address_response
+
+    def getUtxoInfo(self, utxo: Union[str, list[str]], extended: bool=False) -> list[dict]:
+
+        utxo_info = self.koios_api.get_utxo_info(utxo, extended)
+        return utxo_info
+    
+    def getAccountTxs(self, account: str, after_block_height: int = 0) -> list:
+
+        account_txs = self.koios_api.get_account_txs(account, after_block_height)
+        tx_hashes = [tx["tx_hash"] for tx in account_txs]
+        transactions = self.koios_api.get_tx_info(tx_hashes)
+        
+        return transactions
+    
+    def get_tx_info(self, txs: Union[str, list[str]]) -> list:
+
+        return 
+    
+    def txStatus(self, txId: Union[str, list[str]]) -> list:
+
+        status_response = self.koios_api.get_tx_status(txId)
+
+        return status_response

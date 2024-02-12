@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.plataforma import Plataforma
+from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi
 
 import os
 import pathlib
+from typing import Union
 
 from pycardano import *
 from blockfrost import ApiUrls
@@ -60,7 +61,7 @@ router = APIRouter()
     # response_model=List[str],
 )
 
-async def buildTx(send: pydantic_schemas.BuildTx):
+async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
     try:
 
         ########################
@@ -114,7 +115,7 @@ async def buildTx(send: pydantic_schemas.BuildTx):
                     transaction_id = f'{utxo.to_cbor_hex()[6:70]}#{utxo.index}'
                     transaction_id_list.append(transaction_id)
 
-                utxo_list_info = Plataforma().getUtxoInfo(transaction_id_list, True)
+                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
 
                 
                 final_response = {
@@ -145,7 +146,7 @@ async def buildTx(send: pydantic_schemas.BuildTx):
 
 @router.post("/sign-submit/", status_code=201, summary="Sign and submit transaction in cborhex format", response_description="Response with transaction submission confirmation")
 
-async def signSubmit(signSubmit: pydantic_schemas.SignSubmit):
+async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
     try:
 
         ########################
@@ -204,6 +205,22 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit):
         return final_response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post(
+    "/tx_status/",
+    status_code=201,
+    summary="Get the number of block confirmations for a given transaction hash list",
+    response_description="Array of transaction confirmation counts",
+    # response_model=List[str],
+)
+
+async def txStatus(tx_hashes: Union[str, list[str]]) -> list:
+    try:
+         return CardanoApi().txStatus(tx_hashes)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 # @router.get(
 #     "/mylib-create-wallet/",

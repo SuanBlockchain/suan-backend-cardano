@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.plataforma import Plataforma
+from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi
 
 import os
 import pathlib
 import binascii
+from typing import Union
 
 from pycardano import *
 
@@ -157,7 +158,7 @@ async def generateWords(size: pydantic_schemas.Words, ):
     # response_model=List[str],
 )
 
-async def createWallet(wallet: pydantic_schemas.Wallet, ):
+async def createWallet(wallet: pydantic_schemas.Wallet):
     try:
         
         ########################
@@ -202,6 +203,7 @@ async def createWallet(wallet: pydantic_schemas.Wallet, ):
                         "seed": seed,
                         "userID": userID,
                         "address": str(address),
+                        # "stake_address": stake_address, #TODO: include stake-address in schema
                     }
                     responseWallet = Plataforma().createWallet(variables)
                     if responseWallet["success"] == True:
@@ -234,21 +236,30 @@ async def createWallet(wallet: pydantic_schemas.Wallet, ):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/query-address/", status_code=201,
+summary="Given an address or a list of address obtain the details",
+    response_description="Get address info - balance, associated stake address (if any) and UTxO set for given addresses",)
 
-@router.post("/query-wallet/{command_name}/", status_code=201,
-summary="query data depending on the input command",
-    response_description="Response from the wallet",)
-
-async def queryWallet(command_name: pydantic_schemas.SourceName, address: list[str], ):
-    """Returns the info as per command name requested \n
-    **command_name**: Choose the option to retreive wallet info.
-    addr_test1vqkge7txl2vdw26efyv7cytjl8l6n8678kz09agc0r34pdss0xtmp
+async def queryAddress(address: Union[str, list[str]] ):
+    """Get address info - balance, associated stake address (if any) and UTxO set for given addresses \n
     """
-
     try:
-        if command_name == "balance":
-            return Plataforma().getAddressInfo(address)
+        return CardanoApi().getAddressInfo(address)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.post("/account-tx/", status_code=201,
+    summary="Get a list of all Txs for a given stake address (account)",
+    response_description="Get a list of all Txs for a given stake address (account)")
 
-     
+async def accountTx(stake: str, after_block_height: int = 0):
+    """Get a list of all Txs for a given stake address (account) \n
+    """
+    try:
+        accountTxs = CardanoApi().getAccountTxs(stake, after_block_height)
+
+
+
+        return accountTxs
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

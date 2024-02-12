@@ -171,8 +171,6 @@ class SignCommandName(str, Enum):
 ############################
 # Source section definition
 ############################
-class SourceName(str, Enum):
-    balance = "balance"
 
 ############################
 # Script section definition
