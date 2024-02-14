@@ -93,7 +93,7 @@ async def getWallets():
 summary="Get the wallet with specific id as registered in Plataforma",
     response_description="Wallet details",)
 
-async def getWalletById(wallet_id: str, ):
+async def getWalletById(wallet_id: str):
     """Get the wallet with specific id as registered in Plataforma
     """
     try:
@@ -180,6 +180,7 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         staking_verification_key = StakeVerificationKey.from_primitive(child_hdwallet.public_key)
 
         address = Address(payment_part=payment_verification_key.hash(), staking_part=staking_verification_key.hash(), network=Network.TESTNET)
+        stake_address = Address(payment_part=None, staking_part=staking_verification_key.hash(), network=Network.TESTNET)
 
         wallet_id = payment_verification_key.hash()
 
@@ -203,20 +204,22 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
                         "seed": seed,
                         "userID": userID,
                         "address": str(address),
-                        # "stake_address": stake_address, #TODO: include stake-address in schema
+                        "stake_address": str(stake_address)
                     }
                     responseWallet = Plataforma().createWallet(variables)
                     if responseWallet["success"] == True:
                         final_response = {"success": True, "msg": f'Wallet created', "data": {
                             "wallet_id": wallet_id,
-                            "address": str(address)
+                            "address": str(address),
+                            "stake_address": str(stake_address)
                         }}
                     else:
                         final_response = {"success": False, "msg": f'Problems creating the wallet', "data": responseWallet["error"]}
                 else:
                     final_response = {"success": True, "msg": f'Wallet created but not stored in Database', "data": {
                             "wallet_id": wallet_id,
-                            "address": str(address)
+                            "address": str(address),
+                            "stake_address": str(stake_address)
                     }}
 
             else:

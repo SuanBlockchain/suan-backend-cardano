@@ -97,7 +97,7 @@ class Plataforma(Start):
             multi_asset = {}
             for k, v in output.amount.multi_asset.data.items():
                 assets = { assetName.payload: value for assetName, value in v.data.items()}
-                multi_asset[k.to_cbor_hex()] = assets
+                multi_asset[k.to_cbor_hex()[4:]] = assets
 
             utxoOutputs[index] = {
                 "address": output.address.encode(),

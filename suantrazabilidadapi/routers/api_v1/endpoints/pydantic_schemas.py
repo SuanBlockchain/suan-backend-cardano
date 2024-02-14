@@ -1,7 +1,8 @@
 from enum import Enum
 from typing import List, Union, Optional
 from datetime import datetime
-from pydantic import UUID4, constr
+from pydantic import UUID4
+from typing import Dict
 
 from pydantic import BaseModel, validator
 
@@ -46,15 +47,36 @@ class KeyRecover(BaseModel):
 ############################
 # Transaction section definition
 ############################
-
-class NodeCommandName(str, Enum):
-    utxos = "utxos"
-    balance = "balance"
+    
+# class MultiAsset(BaseModel):
+#     policyId: Dict[str, int]
 
 
 class AddressDestin(BaseModel):
     address: str
-    lovelace: Optional[int] = None
+    lovelace: Optional[int] = 0
+    multiAsset: Optional[list[Dict[str, Dict[str, int]]]] = []
+
+    @validator("address", always=True)
+    def check_address(cls, value):
+        if not value.startswith("addr_"):
+            raise ValueError("Address must not start with addr_")
+
+        return value
+
+    @validator("lovelace", always=True)
+    def check_lovelace(cls, value):
+        if value < 0:
+            raise ValueError("Lovelace must be positive")
+        return value
+
+    @validator("multiAsset", always=True)
+    def check_multiAsset(cls, value):
+        if not isinstance(value, list):
+            raise ValueError("MultiAsset must be a list")
+        # elif not all(isinstance(item, MultiAsset) for item in value):
+        #     raise ValueError("MultiAsset must be a list of MultiAsset objects")
+        return value
 
 
 class BuildTx(BaseModel):
