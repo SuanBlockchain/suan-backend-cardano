@@ -1,10 +1,11 @@
 from enum import Enum
-from typing import List, Union, Optional
-from datetime import datetime
-from pydantic import UUID4
+from typing import List, Union, Optional, Annotated
+from pydantic import constr
 from typing import Dict
 
 from pydantic import BaseModel, validator
+
+from .examples import *
 
 
 ############################
@@ -47,10 +48,9 @@ class KeyRecover(BaseModel):
 ############################
 # Transaction section definition
 ############################
-    
-# class MultiAsset(BaseModel):
-#     policyId: Dict[str, int]
 
+class Metadata(BaseModel):
+    metadata: List[Annotated[str, constr(max_length=64)]]
 
 class AddressDestin(BaseModel):
     address: str
@@ -74,22 +74,51 @@ class AddressDestin(BaseModel):
     def check_multiAsset(cls, value):
         if not isinstance(value, list):
             raise ValueError("MultiAsset must be a list")
-        # elif not all(isinstance(item, MultiAsset) for item in value):
-        #     raise ValueError("MultiAsset must be a list of MultiAsset objects")
         return value
 
 
-class BuildTx(BaseModel):
+class BuildTx(Metadata):
     wallet_id: str
     addresses: list[AddressDestin]
-    metadata: Union[dict, None] = None
+
+    class Config:
+        schema_extra = {
+            "example": buildTxExample
+        }
+
+    # model_config = {
+    #     "json_schema_extra": {
+    #         "examples": [
+    #              {
+    #             "wallet_id": "45565413c8c24ae16e726145c2b9ba00d96d78ff374a519531c2bc3d",
+    #             "addresses": [
+    #                 {
+    #                     "address": "addr_test1qzrfa2rjtq3ky6shssmw5jj4f03qg7jvmcfkwnn77f38jxrmc4fy0srznhncjyz55t80r0tg2ptjf2hk5eut4c087ujqd8j3yl",
+    #                     "lovelace": 0,
+    #                     "multiAsset": [
+    #                         {
+    #                         "e0b33937400326885f7186e2725a84786266ec1eb06d397680233f80": {
+    #                             "MAYZ": 2000
+    #                         },
+    #                             "8726ae04e47a9d651336da628998eda52c7b4ab0a4f86deb90e51d83": {
+    #                             "ProyectoSand": 1
+    #                             }
+    #                         }
+    #                     ]
+    #                 }
+    #             ],
+    #             "metadata": {}
+    #         }
+    #         ]
+    #     }
+    # }
 
 
 class Tokens(BaseModel):
     name: str
     amount: int
 
-class SignSubmit(BaseModel):
+class SignSubmit(Metadata):
     wallet_id: str
     cbor: str
 
@@ -123,32 +152,32 @@ class CatastroStringModel(BaseModel):
 ############################
 # User section definition
 ############################
-class UserBase(BaseModel):
-    username: str
+# class UserBase(BaseModel):
+#     username: str
 
 
-class User(UserBase):
-    id: UUID4
-    id_wallet: Optional[str] = None
-    is_verified: bool
-    created_at: datetime
-    updated_at: datetime
+# class User(UserBase):
+#     id: UUID4
+#     id_wallet: Optional[str] = None
+#     is_verified: bool
+#     created_at: datetime
+#     updated_at: datetime
 
-    class Config:
-        orm_mode = True
-
-
-class UserCreate(UserBase):
-    password: str
+#     class Config:
+#         orm_mode = True
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+# class UserCreate(UserBase):
+#     password: str
 
 
-class TokenData(BaseModel):
-    username: Union[str, None] = None
+# class Token(BaseModel):
+#     access_token: str
+#     token_type: str
+
+
+# class TokenData(BaseModel):
+#     username: Union[str, None] = None
 
 
 
@@ -172,13 +201,13 @@ class TokenData(BaseModel):
 #         return value
 
 
-class SimpleSign(BaseModel):
-    wallets_ids: list[str]
+# class SimpleSign(BaseModel):
+#     wallets_ids: list[str]
 
 
-class SignCommandName(str, Enum):
-    cborhex = "cborhex"
-    txfile = "txfile"
+# class SignCommandName(str, Enum):
+#     cborhex = "cborhex"
+#     txfile = "txfile"
 
 
 # class Mint(BuildTx):

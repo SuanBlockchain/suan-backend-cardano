@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi
 
 import os
 import pathlib
-from typing import Union
+from typing import Union, Annotated
 
 from pycardano import *
 from blockfrost import ApiUrls
@@ -90,8 +90,10 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
-                if send.metadata != {}:
-                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata(send.metadata)))
+                if send.metadata is not None:
+                    # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
+
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [send.metadata]}})))
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
                 addresses = send.addresses
@@ -136,7 +138,8 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                     "msg": f'Tx Build',
                     "build_tx": format_body,
                     "cbor": str(build_body.to_cbor_hex()),
-                    "utxos_info": utxo_list_info
+                    "utxos_info": utxo_list_info,
+                    "tx_size": len(build_body.to_cbor())
                 }
         else:
 
@@ -157,7 +160,7 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sign-submit/", status_code=201, summary="Sign and submit transaction in cborhex format", response_description="Response with transaction submission confirmation")
 
@@ -194,7 +197,8 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
 
                 signature = payment_skey.sign(tx_body.hash())
                 vk_witnesses = [VerificationKeyWitness(spend_vk, signature)]
-                signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses))
+                auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [signSubmit.metadata]}})))
+                signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses), auxiliary_data=auxiliary_data)
 
                 chain_context.submit_tx(signed_tx.to_cbor())
                 tx_id = tx_body.hash().hex()
@@ -218,8 +222,9 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
                     "data": r["error"]
                 }
         return final_response
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handling other types of exceptions
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post(
     "/tx-status/",
