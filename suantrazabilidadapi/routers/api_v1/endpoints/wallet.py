@@ -43,6 +43,14 @@ def load_or_create_key_pair(base_dir, base_name):
         vkey = key_pair.verification_key
     return skey, vkey
 
+def is_valid_hex_string(s: str) -> bool:
+    try:
+        int(s, 16)
+        return len(s) % 2 == 0  # Check if the length is even (each byte is represented by two characters)
+    except ValueError:
+        return False
+
+
 router = APIRouter()
 
 @router.get("/get-wallets/", status_code=200,
@@ -89,47 +97,98 @@ async def getWallets():
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/get-wallet-by-id/", status_code=200,
-summary="Get the wallet with specific id as registered in Plataforma",
+@router.get("/get-wallet/{command_name}", status_code=200,
+summary="Get the wallet with specific id or address as registered in Plataforma",
     response_description="Wallet details",)
 
-async def getWalletById(wallet_id: str):
+# async def getWallet(query_param: pydantic_schemas.walletQueryParam, ):
+async def getWallet(command_name: pydantic_schemas.walletCommandName, query_param: str):
     """Get the wallet with specific id as registered in Plataforma
     """
     try:
-        r = Plataforma().getWallet(wallet_id)
-        if r["data"].get("data", None) is not None:
-            walletInfo = r["data"]["data"]["getWallet"]
-            if walletInfo is None:
-                final_response = {
-                    "success": True,
-                    "msg": f'Wallet with id: {wallet_id} does not exist in DynamoDB',
-                    "data": r["data"]
-                }
-            else:
-                final_response = {
-                    "success": True,
-                    "msg": 'Wallet info',
-                    "data": walletInfo
-                }
 
-        else:
-            if r["success"] == True:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["data"]["errors"]
-                }
+        if command_name == "id":
+            # Validate the address
+            if not is_valid_hex_string(query_param):
+                raise TypeError()
+            
+            r = Plataforma().getWallet(command_name, query_param)
+
+            if r["data"].get("data", None) is not None:
+                walletInfo = r["data"]["data"]["getWallet"]
+                    
+                if walletInfo is None:
+                    final_response = {
+                        "success": True,
+                        "msg": f'Wallet with id: {query_param} does not exist in DynamoDB',
+                        "data": r["data"]
+                    }
+                else:
+                    final_response = {
+                        "success": True,
+                        "msg": 'Wallet info',
+                        "data": walletInfo
+                    }
+
             else:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["error"]
-                }
-        
+                if r["success"] == True:
+                    final_response = {
+                        "success": False,
+                        "msg": "Error fetching data",
+                        "data": r["data"]["errors"]
+                    }
+                else:
+                    final_response = {
+                        "success": False,
+                        "msg": "Error fetching data",
+                        "data": r["error"]
+                    }
+
+        elif command_name == "address":
+            # Validate the address
+            Address.decode(query_param)._infer_address_type()
+
+            r = Plataforma().getWallet(command_name, query_param)
+            
+            if r["data"].get("data", None) is not None:
+                walletInfo = r["data"]["data"]["listWallets"]
+                    
+                if walletInfo["items"] == []:
+                    final_response = {
+                        "success": True,
+                        "msg": f'Wallet with address: {query_param} does not exist in DynamoDB',
+                        "data": r["data"]
+                    }
+                else:
+                    final_response = {
+                        "success": True,
+                        "msg": 'Wallet info',
+                        "data": walletInfo
+                    }
+
+            else:
+                if r["success"] == True:
+                    final_response = {
+                        "success": False,
+                        "msg": "Error fetching data",
+                        "data": r["data"]["errors"]
+                    }
+                else:
+                    final_response = {
+                        "success": False,
+                        "msg": "Error fetching data",
+                        "data": r["error"]
+                    }
+            
         return final_response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except TypeError as e:
+        msg = f"Input parameter not valid for address type or id type"
+        raise HTTPException(status_code=500, detail=msg)
+    except Exception as e:
+        msg = f'Error with the endpoint'
+        raise HTTPException(status_code=500, detail=msg)
 
 @router.post(
     "/generate-words/",
@@ -255,14 +314,57 @@ async def queryAddress(address: Union[str, list[str]] ):
     summary="Get a list of all Txs for a given stake address (account)",
     response_description="Get a list of all Txs for a given stake address (account)")
 
-async def accountTx(stake: str, after_block_height: int = 0):
+async def accountTx(stake: str, after_block_height: int = 0, skip: int = 0, limit: int = 10):
     """Get a list of all Txs for a given stake address (account) \n
     """
     try:
         accountTxs = CardanoApi().getAccountTxs(stake, after_block_height)
 
+        total_count = len(accountTxs)
+        page_size = limit 
+        
+        current_page = (skip / page_size) + 1
+        total_pages = int(total_count / page_size) + 1
 
+        # if skip < total_count:
+        #     if limit >= total_count:
+        #         limit = total_count
+        #         next_skip = ""
+        #         prev_skip = limit - skip
+            
+        #     if current_page <= total_pages:
+        #         next_skip = skip + limit
+        #         if next_skip >= total_count:
+        #             next_skip = total_count - skip
+        #         prev_skip = limit - skip
 
-        return accountTxs
+        #     if skip == 0:
+        #         prev_skip = ""
+
+        #     if next_skip == "":
+        #         next_msg = ""
+        #     else:
+        #         next_msg = f"/api/v1/wallet/account-tx/?stake={stake}&after_block_height={after_block_height}&skip={next_skip}&limit={limit}"
+
+        #     if prev_skip == "":
+        #         prev_msg = ""
+        #     else:
+        #         prev_msg = f"/api/v1/wallet/account-tx/?stake={stake}&after_block_height={after_block_height}&skip={prev_skip}&limit={limit}"
+
+        data = accountTxs[skip : skip + limit]
+
+        result = {
+            "data": data,
+            "total_count": total_count,
+            "current_page": current_page,
+            "page_size": page_size,
+            # "links": {
+            #     "next": next_msg,
+            #     "prev": prev_msg
+            # }
+        }
+        # else:
+        #     raise HTTPException(status_code=400, detail=f"skip size: {skip} cannot be higher than total items: {total_count}")
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

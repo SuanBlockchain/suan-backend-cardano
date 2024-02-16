@@ -37,7 +37,6 @@ suantrazabilidad.add_middleware(
 # Start of the endpoints
 ##################################################################
 
-
 @suantrazabilidad.get("/")
 async def root():
     """Basic HTML response."""

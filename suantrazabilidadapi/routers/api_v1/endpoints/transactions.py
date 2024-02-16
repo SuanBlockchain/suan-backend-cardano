@@ -41,7 +41,6 @@ def load_or_create_key_pair(base_dir, base_name):
 
     if skey_path.exists():
         skey = PaymentSigningKey.load(str(skey_path))
-        PaymentSigningKey.from_primitive()
         vkey = PaymentVerificationKey.from_signing_key(skey)
     else:
         key_pair = PaymentKeyPair.generate()
@@ -240,3 +239,102 @@ async def txStatus(tx_hashes: Union[str, list[str]]) -> list:
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+@router.get(
+    "/send-access-token/",
+    status_code=201,
+    summary="Get the token to access Suan Marketplace",
+    response_description="Confirmation of token sent to provided address",
+    # response_model=List[str],
+)
+
+async def sendAccessToken(destinAddress: str):
+    try:
+
+        ########################
+        """1. Obtain the MasterKey to pay and mint"""
+        ########################
+        payment_skey, payment_vkey = load_or_create_key_pair(key_dir, "payment")
+        address = Address(payment_vkey.hash(), network=Constants.NETWORK)
+        print(address)
+        ########################
+        """3. Create the script and policy"""
+        ########################
+        # A policy that requires a signature from the policy key we generated above
+        pub_key_policy = ScriptPubkey(payment_vkey.hash())
+        # A time policy that disallows token minting after 10000 seconds from last block
+        # must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
+        # Combine two policies using ScriptAll policy
+        policy = ScriptAll([pub_key_policy])
+        # Calculate policy ID, which is the hash of the policy
+        policy_id = policy.hash()
+        print(f"Policy ID: {policy_id}")
+        with open(root / "policy.id", "a+") as f:
+            f.truncate(0)
+            f.write(str(policy_id))
+        # Create the final native script that will be attached to the transaction
+        native_scripts = [policy]
+        ########################
+        """Define NFT"""
+        ########################
+        tokenName = b"SandboxSuanAccess1"
+        my_nft_alternative = MultiAsset.from_primitive(
+            {
+                policy_id.payload: {
+                    tokenName: 1,  
+                }
+            }
+        )
+        ########################
+        """Create metadata"""
+        ########################
+        metadata = {
+            721: {  
+                policy_id.payload.hex(): {
+                    tokenName: {
+                        "description": "NFT con acceso a marketplace en Sandbox",
+                        "name": "Token NFT SandBox",
+                    },
+                }
+            }
+        }
+        # Place metadata in AuxiliaryData, the format acceptable by a transaction.
+        auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata(metadata)))
+        """Build transaction"""
+        # Create a transaction builder
+        builder = TransactionBuilder(chain_context)
+        # Add our own address as the input address
+        builder.add_input_address(address)
+        # Since an InvalidHereAfter rule is included in the policy, we must specify time to live (ttl) for this transaction
+        # builder.ttl = must_before_slot.after
+        # Set nft we want to mint
+        builder.mint = my_nft_alternative
+        # Set native script
+        builder.native_scripts = native_scripts
+        # Set transaction metadata
+        builder.auxiliary_data = auxiliary_data
+        # Calculate the minimum amount of lovelace that need to hold the NFT we are going to mint
+        min_val = min_lovelace(
+            chain_context, output=TransactionOutput(destinAddress, Value(0, my_nft_alternative))
+        )
+        # Send the NFT to our own address + 500 ADA
+        builder.add_output(TransactionOutput(destinAddress, Value(min_val, my_nft_alternative)))
+        builder.add_output(TransactionOutput(destinAddress, Value(50000000)))
+        # Create final signed transaction
+        signed_tx = builder.build_and_sign([payment_skey], change_address=address)
+        # Submit signed transaction to the network
+        tx_id = signed_tx.transaction_body.hash().hex()
+        chain_context.submit_tx(signed_tx)
+        ####################################################
+        final_response = {
+                "success": True,
+                "msg": "Tx submitted to the blockchain",
+                "tx_id": tx_id
+            }
+        return final_response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    except Exception as e:
+        # Handling other types of exceptions
+        raise HTTPException(status_code=500, detail=str(e))

@@ -31,12 +31,22 @@ query getProjects ($projectId: ID!) {
         }
     }
 
-query getWallet ($walletId: ID!) {
+query getWalletById ($walletId: ID!) {
   getWallet(id: $walletId) {
     id
     seed
     userID
     address
+  }
+}
+
+query getWalletByAddress ($address: String!) {
+  listWallets(filter: {address: {eq: $address}}) {
+    items {
+      id
+      name
+      userID
+    }
   }
 }
 

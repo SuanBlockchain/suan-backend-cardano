@@ -12,6 +12,15 @@ from .examples import *
 # Wallet section definition
 ############################
 
+class walletCommandName(str, Enum):
+    id = "id"
+    address = "address"
+
+class walletQueryParam(BaseModel):
+    query_param: str
+
+    
+
 class Words(str, Enum):
     twelve: str = "12"
     fifteen: str = "15"

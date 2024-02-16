@@ -62,12 +62,21 @@ class Plataforma(Start):
 
         return dictionary
 
-    def getWallet(self, walletId: str) -> dict:
-        graphql_variables = {
-            "walletId": walletId
-        }
+    def getWallet(self, command_name: str, query_param: str) -> dict:
 
-        data = self._post('getWallet', graphql_variables)
+        if command_name == "id":
+            graphql_variables = {
+                "walletId": query_param
+            }
+
+            data = self._post('getWalletById', graphql_variables)
+
+        elif command_name == "address":
+            graphql_variables = {
+                "address": query_param
+            }
+
+            data = self._post("getWalletByAddress", graphql_variables)
 
         return data
     
