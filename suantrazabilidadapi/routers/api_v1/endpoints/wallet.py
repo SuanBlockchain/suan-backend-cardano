@@ -251,7 +251,7 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         """3. Store wallet info"""
         ########################
         # Check if wallet Id already exists in database
-        r = Plataforma().getWallet(wallet_id)
+        r = Plataforma().getWallet("id", wallet_id)
         if r["success"] == True:
             if r["data"]["data"]["getWallet"] is None:
                 # It means that wallet does not exist in database, so update database if save_flag is True
@@ -314,7 +314,7 @@ async def queryAddress(address: Union[str, list[str]] ):
     summary="Get a list of all Txs for a given stake address (account)",
     response_description="Get a list of all Txs for a given stake address (account)")
 
-async def accountTx(stake: str, after_block_height: int = 0, skip: int = 0, limit: int = 10):
+async def accountTx(stake: str, after_block_height: int = 0, skip: int = 0, limit: int = 10, all: bool = False):
     """Get a list of all Txs for a given stake address (account) \n
     """
     try:
@@ -326,32 +326,39 @@ async def accountTx(stake: str, after_block_height: int = 0, skip: int = 0, limi
         current_page = (skip / page_size) + 1
         total_pages = int(total_count / page_size) + 1
 
-        # if skip < total_count:
-        #     if limit >= total_count:
-        #         limit = total_count
-        #         next_skip = ""
-        #         prev_skip = limit - skip
-            
-        #     if current_page <= total_pages:
-        #         next_skip = skip + limit
-        #         if next_skip >= total_count:
-        #             next_skip = total_count - skip
-        #         prev_skip = limit - skip
+        if all:
+            data = accountTxs
+            current_page = 1
+            page_size = total_count
+        else:
 
-        #     if skip == 0:
-        #         prev_skip = ""
 
-        #     if next_skip == "":
-        #         next_msg = ""
-        #     else:
-        #         next_msg = f"/api/v1/wallet/account-tx/?stake={stake}&after_block_height={after_block_height}&skip={next_skip}&limit={limit}"
+            # if skip < total_count:
+            #     if limit >= total_count:
+            #         limit = total_count
+            #         next_skip = ""
+            #         prev_skip = limit - skip
+                
+            #     if current_page <= total_pages:
+            #         next_skip = skip + limit
+            #         if next_skip >= total_count:
+            #             next_skip = total_count - skip
+            #         prev_skip = limit - skip
 
-        #     if prev_skip == "":
-        #         prev_msg = ""
-        #     else:
-        #         prev_msg = f"/api/v1/wallet/account-tx/?stake={stake}&after_block_height={after_block_height}&skip={prev_skip}&limit={limit}"
+            #     if skip == 0:
+            #         prev_skip = ""
 
-        data = accountTxs[skip : skip + limit]
+            #     if next_skip == "":
+            #         next_msg = ""
+            #     else:
+            #         next_msg = f"/api/v1/wallet/account-tx/?stake={stake}&after_block_height={after_block_height}&skip={next_skip}&limit={limit}"
+
+            #     if prev_skip == "":
+            #         prev_msg = ""
+            #     else:
+            #         prev_msg = f"/api/v1/wallet/account-tx/?stake={stake}&after_block_height={after_block_height}&skip={prev_skip}&limit={limit}"
+
+            data = accountTxs[skip : skip + limit]
 
         result = {
             "data": data,

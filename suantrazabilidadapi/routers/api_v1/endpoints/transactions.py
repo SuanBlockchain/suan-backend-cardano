@@ -32,8 +32,6 @@ root = Constants.ROOT
 root.mkdir(parents=True, exist_ok=True)
 
 # mainWalletName = "SuanMasterSigningKeys#"
-key_dir = Constants.KEY_DIR
-key_dir.mkdir(exist_ok=True)
 
 def load_or_create_key_pair(base_dir, base_name):
     skey_path = base_dir / f"{base_name}.skey"
@@ -66,7 +64,7 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
         ########################
         """1. Get wallet info"""
         ########################
-        r = Plataforma().getWallet(send.wallet_id)
+        r = Plataforma().getWallet("id", send.wallet_id)
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]
             if walletInfo is None:
@@ -169,7 +167,7 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
         ########################
         """1. Get wallet info"""
         ########################
-        r = Plataforma().getWallet(signSubmit.wallet_id)
+        r = Plataforma().getWallet("id", signSubmit.wallet_id)
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]
             if walletInfo is None:
@@ -254,7 +252,7 @@ async def sendAccessToken(destinAddress: str):
         ########################
         """1. Obtain the MasterKey to pay and mint"""
         ########################
-        payment_skey, payment_vkey = load_or_create_key_pair(key_dir, "payment")
+        payment_skey, payment_vkey = load_or_create_key_pair(Constants.KEY_DIR, "payment")
         address = Address(payment_vkey.hash(), network=Constants.NETWORK)
         print(address)
         ########################

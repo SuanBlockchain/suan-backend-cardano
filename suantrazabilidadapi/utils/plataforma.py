@@ -183,8 +183,10 @@ class CardanoApi(Start):
         account_txs = self.koios_api.get_account_txs(account, after_block_height)
         tx_hashes = [tx["tx_hash"] for tx in account_txs]
         transactions = self.koios_api.get_tx_info(tx_hashes)
+
+        final_response = sorted(transactions, key=lambda x: x["absolute_slot"], reverse=True)
         
-        return transactions
+        return final_response
     
     def get_tx_info(self, txs: Union[str, list[str]]) -> list:
 
