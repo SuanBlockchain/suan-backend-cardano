@@ -63,6 +63,7 @@ router = APIRouter()
 
 async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
     try:
+
         ########################
         """1. Get wallet info"""
         ########################
@@ -130,22 +131,8 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                     transaction_id = f'{utxo.to_cbor_hex()[6:70]}#{utxo.index}'
                     transaction_id_list.append(transaction_id)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
                 utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
 
-=======
-                utxo_list_info = Plataforma().getUtxoInfo(transaction_id_list, True)
-                
->>>>>>> transaction with metadata
-=======
-                utxo_list_info = Plataforma().getUtxoInfo(transaction_id_list, True)
-                
-=======
-                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
-
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
                 final_response = {
                     "success": True,
                     "msg": f'Tx Build',
@@ -170,30 +157,16 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                 }
         
         return final_response
-<<<<<<< HEAD
-<<<<<<< HEAD
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-=======
-    except Exception as e:
-        # Handling other types of exceptions
->>>>>>> transaction with metadata
-=======
-    except Exception as e:
-        # Handling other types of exceptions
-=======
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sign-submit/", status_code=201, summary="Sign and submit transaction in cborhex format", response_description="Response with transaction submission confirmation")
 
 async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
     try:
+
         ########################
         """1. Get wallet info"""
         ########################
@@ -222,18 +195,7 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
                 tx_body = TransactionBody.from_cbor(cbor_hex)
 
                 signature = payment_skey.sign(tx_body.hash())
-<<<<<<< HEAD
-<<<<<<< HEAD
                 vk_witnesses = [VerificationKeyWitness(payment_vk, signature)]
-=======
-                vk_witnesses = [VerificationKeyWitness(spend_vk, signature)]
->>>>>>> transaction with metadata
-=======
-                vk_witnesses = [VerificationKeyWitness(spend_vk, signature)]
-=======
-                vk_witnesses = [VerificationKeyWitness(payment_vk, signature)]
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
                 auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [signSubmit.metadata]}})))
                 signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses), auxiliary_data=auxiliary_data)
 
@@ -262,25 +224,6 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
     except Exception as e:
         # Handling other types of exceptions
         raise HTTPException(status_code=500, detail=str(e))
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
-
-# @router.get(
-#     "/mylib-create-wallet/",
-#     status_code=200,
-#     summary="Create wallet, fund wallet with NFT token to access Sandbox marketplace",
-#     response_description="Response with mnemonics and cardano cli keys",
-#     # response_model=List[str],
-# )
-<<<<<<< HEAD
->>>>>>> transaction with metadata
-=======
-=======
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
 
 @router.post(
     "/tx-status/",

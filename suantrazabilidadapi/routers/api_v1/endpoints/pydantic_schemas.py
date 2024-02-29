@@ -1,23 +1,7 @@
 from enum import Enum
 from typing import List, Union, Optional, Annotated
-<<<<<<< HEAD
-<<<<<<< HEAD
 from pydantic import constr
 from typing import Dict
-=======
-from datetime import datetime
-from pydantic import UUID4, constr
->>>>>>> transaction with metadata
-=======
-from datetime import datetime
-from pydantic import UUID4, constr
-=======
-from pydantic import constr
-from typing import Dict
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
-
-from fastapi import Query
 
 from pydantic import BaseModel, validator
 
@@ -28,27 +12,12 @@ from .examples import *
 # Wallet section definition
 ############################
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-class SourceName(str, Enum):
-    balance = "balance"
-=======
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
 class walletCommandName(str, Enum):
     id = "id"
     address = "address"
 
 class walletQueryParam(BaseModel):
     query_param: str
-<<<<<<< HEAD
-=======
-class SourceName(str, Enum):
-    balance = "balance"
->>>>>>> transaction with metadata
-=======
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
 
 class Words(str, Enum):
     twelve: str = "12"
@@ -95,17 +64,6 @@ class AddressDestin(BaseModel):
     lovelace: Optional[int] = 0
     multiAsset: Optional[list[Dict[str, Dict[str, int]]]] = None
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-class Metadata(BaseModel):
-    metadata: List[Annotated[str, constr(max_length=64)]]
-
-class BuildTx(Metadata):
-    wallet_id: str
-    addresses: list[AddressDestin]
-=======
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
     @validator("address", always=True)
     def check_address(cls, value):
         if not value.startswith("addr_"):
@@ -139,48 +97,32 @@ class TokenGenesis(BaseModel):
     tokenName: str
     metadata: dict
     tokenAmount: int
-<<<<<<< HEAD
-=======
-class Metadata(BaseModel):
-    metadata: List[Annotated[str, constr(max_length=64)]]
 
-class BuildTx(Metadata):
-    wallet_id: str
-    addresses: list[AddressDestin]
->>>>>>> transaction with metadata
-=======
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
-
+class Tokens(BaseModel):
+    name: str
+    amount: int
 
 class SignSubmit(Metadata):
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
     wallet_id: str
     cbor: str
 
 class PurchaseSignSubmit(BaseModel):
-<<<<<<< HEAD
-=======
->>>>>>> transaction with metadata
-=======
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
     wallet_id: str
     cbor: str
     metadata: dict
 
+############################
+# Datos section definition
+############################
 
-############################
-# User section definition
-############################
-    
-# class Tokens(BaseModel):
-#     name: str
-#     amount: int
+class CatastroStringModel(BaseModel):
+    id_catastral: str
+
+    @validator("id_catastral", always=True)
+    def check_id_catastral(cls, value):
+        if len(value) not in [20, 30]:
+            raise ValueError("The id_catastral must have either 20 or 30 characters")
+        return value
 
 # class Script(BaseModel):
 #     name: str
@@ -195,23 +137,10 @@ class PurchaseSignSubmit(BaseModel):
 #         if value not in ("sig", "all", "any", "atLeast"):
 #             raise ValueError("type must be: sig, all, any or atLeast ")
 #         return value
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    
-=======
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
 
 ############################
 # User section definition
 ############################
-<<<<<<< HEAD
-=======
-    
->>>>>>> transaction with metadata
-=======
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
 # class UserBase(BaseModel):
 #     username: str
 
@@ -282,16 +211,6 @@ class PurchaseSignSubmit(BaseModel):
 ############################
 # Source section definition
 ############################
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-
->>>>>>> transaction with metadata
-=======
-
-=======
->>>>>>> develop
->>>>>>> 3a0f397e0628641c2a4d1d6f3d9a6f93ffc6bebb
 
 ############################
 # Script section definition
