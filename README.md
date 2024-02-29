@@ -20,6 +20,12 @@ poetry init
 poetry add <dependency>
 ```
 
+## Or start from requirements.txt file
+```shell
+poetry add --dev $(cat requirements.txt)
+poetry install
+```
+
 ### Steps to start the application for the first time
 
 - Locally

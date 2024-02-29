@@ -42,7 +42,6 @@ async def features1(id_catastral: str):
         )
 
         URL = f'{Constants.BASE_URL}/{tableNumber}/{Constants.COMMAND}{query}{tail_options}'
-        print(URL)
 
         response = httpx.get(URL)
         response.raise_for_status()

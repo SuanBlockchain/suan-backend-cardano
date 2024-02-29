@@ -5,11 +5,12 @@ import requests
 import os
 import json
 import importlib
-from typing import Union
+from typing import Union, Optional
 
 from pycardano import *
 
 from suantrazabilidadapi.core.config import config
+from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 
 @dataclass()
 class Start:
@@ -62,12 +63,21 @@ class Plataforma(Start):
 
         return dictionary
 
-    def getWallet(self, walletId: str) -> dict:
-        graphql_variables = {
-            "walletId": walletId
-        }
+    def getWallet(self, command_name: str, query_param: str) -> dict:
 
-        data = self._post('getWallet', graphql_variables)
+        if command_name == "id":
+            graphql_variables = {
+                "walletId": query_param
+            }
+
+            data = self._post('getWalletById', graphql_variables)
+
+        elif command_name == "address":
+            graphql_variables = {
+                "address": query_param
+            }
+
+            data = self._post("getWalletByAddress", graphql_variables)
 
         return data
     
@@ -78,28 +88,6 @@ class Plataforma(Start):
 
         response = self._post('WalletMutation', values)
         return response
-    
-    def getAddressInfo(self, address: list[str]) -> list[dict]:
-        
-        address_response = self.koios_api.get_address_info(address)
-        asset_response = self.koios_api.get_address_assets(address)
-        
-        # # Group data2 by "address" key
-        for item in address_response:
-            assets = []
-            for asset in asset_response:
-                if asset["address"] == item["address"]:
-                    assets.append(dict(map(lambda item: (item[0], bytes.fromhex(item[1]).decode("utf-8")) if item[0] == "asset_name" else item, filter(lambda item: item[0] != "address", asset.items()))))
-
-            
-            item["assets"] = assets
-
-        return address_response
-
-    def getUtxoInfo(self, utxo: list[str], extended: bool=False) -> list[dict]:
-
-        utxo_info = self.koios_api.get_utxo_info(utxo, extended)
-        return utxo_info
 
     def formatTxBody(self, txBody: TransactionBody) -> dict:
         """_summary_
@@ -110,16 +98,17 @@ class Plataforma(Start):
         Returns:
             dict: dictionary with transaction body fields formatted
         """
-
+        # Format inputs
         utxoInputs = { index: f'{input.transaction_id.payload.hex()}#{input.index}' for index, input in enumerate(txBody.inputs)}
 
+        # Format outputs
         utxoOutputs = {}
         for index, output in enumerate(txBody.outputs):
             
             multi_asset = {}
             for k, v in output.amount.multi_asset.data.items():
                 assets = { assetName.payload: value for assetName, value in v.data.items()}
-                multi_asset[k.to_cbor_hex()] = assets
+                multi_asset[k.to_cbor_hex()[4:]] = assets
 
             utxoOutputs[index] = {
                 "address": output.address.encode(),
@@ -135,6 +124,22 @@ class Plataforma(Start):
 
         utxoOutputs = { k: self._nullDict(v) for k, v in utxoOutputs.items() }
 
+        # Format mint
+        mint_assets = {}
+        mint = txBody.mint
+        if mint is not None:
+            for k, v in txBody.mint.data.items():
+                mint_asset = { assetName.payload: value for assetName, value in v.data.items()}
+                mint_assets[k.to_cbor_hex()[4:]] = mint_asset
+
+        # Format signers
+        signersOutput = []
+
+        required_signers = txBody.required_signers
+        if required_signers is not None:
+
+            signersOutput = [ signers.payload.hex() for signers in txBody.required_signers]
+
         formatTxBody = {
 
             "auxiliary_data_hash": txBody.auxiliary_data_hash.payload.hex()
@@ -145,10 +150,10 @@ class Plataforma(Start):
             ,"tx_id": txBody.id.payload.hex()
             ,"inputs": utxoInputs
             ,"outputs": utxoOutputs
-            ,"mint": txBody.mint
+            ,"mint": mint_assets
             ,"network_id": txBody.network_id
             ,"reference_inputs": txBody.reference_inputs
-            ,"required_signers": txBody.required_signers
+            ,"required_signers": signersOutput
             ,"script_data_hash": txBody.script_data_hash
             ,"total_collateral": txBody.total_collateral
             ,"ttl": txBody.ttl
@@ -160,4 +165,76 @@ class Plataforma(Start):
 
         formatTxBody = self._nullDict(formatTxBody)
 
-        return formatTxBody
+        return formatTxBody 
+
+
+@dataclass()
+class CardanoApi(Start):
+
+    def __post_init__(self):
+        koios_api_module = importlib.import_module("koios_api")
+        self.koios_api = koios_api_module
+
+    def getAddressInfo(self, address: Union[str, list[str]]) -> list[dict]:
+        
+        address_response = self.koios_api.get_address_info(address)
+        asset_response = self.koios_api.get_address_assets(address)
+        
+        # # Group data2 by "address" key
+        for item in address_response:
+            assets = []
+            for asset in asset_response:
+                if asset["address"] == item["address"]:
+                    assets.append(dict(map(lambda item: (item[0], bytes.fromhex(item[1]).decode("utf-8")) if item[0] == "asset_name" else item, filter(lambda item: item[0] != "address", asset.items()))))
+
+            item["assets"] = assets
+
+        return address_response
+
+    def getUtxoInfo(self, utxo: Union[str, list[str]], extended: bool=False) -> list[dict]:
+
+        utxo_info = self.koios_api.get_utxo_info(utxo, extended)
+        return utxo_info
+    
+    def getAccountTxs(self, account: str, after_block_height: int = 0) -> list:
+
+        account_txs = self.koios_api.get_account_txs(account, after_block_height)
+        tx_hashes = [tx["tx_hash"] for tx in account_txs]
+        transactions = self.koios_api.get_tx_info(tx_hashes)
+
+        final_response = sorted(transactions, key=lambda x: x["absolute_slot"], reverse=True)
+        
+        return final_response
+    
+    def getAccountUtxos(self, account: str, skip: int, limit: int) -> list[dict]:
+
+        return self.koios_api.get_account_utxos(account, True, skip, limit)
+
+    def txStatus(self, txId: Union[str, list[str]]) -> list:
+
+        status_response = self.koios_api.get_tx_status(txId)
+
+        return status_response
+    
+@dataclass()
+class Helpers():
+
+    def __post_init__(self):
+        pass
+
+    def makeMultiAsset(self, addressesDestin: list[pydantic_schemas.AddressDestin]) -> Optional[MultiAsset]:
+        multi_asset = None
+        if addressesDestin is not []:
+
+            for address in addressesDestin:
+                multi_asset = MultiAsset()
+                if address.multiAsset:
+                    for item in address.multiAsset:
+                        for policy_id, tokens in item.items():
+                            my_asset = Asset()
+                            for name, quantity in tokens.items():
+                                my_asset.data.update({AssetName(name.encode()): quantity})
+
+                            multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
+
+        return multi_asset

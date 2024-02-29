@@ -1,12 +1,21 @@
+import asyncio
+import logging
+import uvicorn
+
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from datosapi.routers.api_v1.api import api_router
 from datosapi.core.config import settings
+from datosapi.app.main import app as rocketryapp
 
-from fastapi.responses import HTMLResponse
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
+
+########################
+# FastAPI declaration section
+########################
 
 description = "Este API facilita la integración de datos con proyectos forestales para mejorar su trazabilidad - Suan"
 title = "Suan Trazabilidad API"
@@ -31,12 +40,6 @@ datos.add_middleware(
     allow_headers=["*"],
 )
 
-
-##################################################################
-# Start of the endpoints
-##################################################################
-
-
 @datos.get("/")
 async def root():
     """Basic HTML response."""
@@ -56,11 +59,33 @@ async def root():
 datos.include_router(root_router)
 datos.include_router(api_router, prefix=settings.API_V1_STR)
 
-if __name__ == "__main__":
-    # Use this for debugging purposes only
-    # logger.warning("Running in development mode. Do not run like this in production.")
-    import uvicorn
+########################
+# New
+########################
+class Server(uvicorn.Server):
+    """Customized uvicorn.Server
+    
+    Uvicorn server overrides signals and we need to include
+    Rocketry to the signals."""
+    def handle_exit(self, sig: int, frame) -> None:
+        rocketryapp.session.shut_down()
+        return super().handle_exit(sig, frame)
 
-    uvicorn.run(
-        datos, host="0.0.0.0", port=8001, reload=False, log_level="debug"
-    )
+
+async def main():
+    "Run Rocketry and FastAPI"
+    server = Server(config=uvicorn.Config(datos, workers=1, loop="asyncio"))
+
+    api = asyncio.create_task(server.serve())
+    sched = asyncio.create_task(rocketryapp.serve())
+
+    await asyncio.wait([api, sched])
+
+if __name__ == "__main__":
+
+    # Print Rocketry's logs to terminal
+    logger = logging.getLogger("rocketry.task")
+    logger.addHandler(logging.StreamHandler())
+
+    # Run both applications
+    asyncio.run(main())

@@ -1,19 +1,35 @@
 from enum import Enum
 from typing import List, Union, Optional, Annotated
+<<<<<<< HEAD
 from datetime import datetime
 from pydantic import UUID4, constr
+=======
+from pydantic import constr
+from typing import Dict
+>>>>>>> develop
 
 from fastapi import Query
 
 from pydantic import BaseModel, validator
+
+from .examples import *
 
 
 ############################
 # Wallet section definition
 ############################
 
+<<<<<<< HEAD
 class SourceName(str, Enum):
     balance = "balance"
+=======
+class walletCommandName(str, Enum):
+    id = "id"
+    address = "address"
+
+class walletQueryParam(BaseModel):
+    query_param: str
+>>>>>>> develop
 
 class Words(str, Enum):
     twelve: str = "12"
@@ -52,26 +68,69 @@ class KeyRecover(BaseModel):
 # Transaction section definition
 ############################
 
-class NodeCommandName(str, Enum):
-    utxos = "utxos"
-    balance = "balance"
-
+class Metadata(BaseModel):
+    metadata: List[Annotated[str, constr(max_length=64)]]
 
 class AddressDestin(BaseModel):
     address: str
-    lovelace: Optional[int] = None
+    lovelace: Optional[int] = 0
+    multiAsset: Optional[list[Dict[str, Dict[str, int]]]] = None
 
+<<<<<<< HEAD
 class Metadata(BaseModel):
     metadata: List[Annotated[str, constr(max_length=64)]]
 
 class BuildTx(Metadata):
     wallet_id: str
     addresses: list[AddressDestin]
+=======
+    @validator("address", always=True)
+    def check_address(cls, value):
+        if not value.startswith("addr_"):
+            raise ValueError("Address format is not correct")
+
+        return value
+
+    @validator("lovelace", always=True)
+    def check_lovelace(cls, value):
+        if value < 0:
+            raise ValueError("Lovelace must be positive")
+        return value
+
+    @validator("multiAsset", always=True)
+    def check_multiAsset(cls, value):
+        if not isinstance(value, list):
+            raise ValueError("MultiAsset must be a list")
+        return value
+
+class BuildTx(Metadata):
+    wallet_id: str
+    addresses: list[AddressDestin]
+
+class Buy(BaseModel):
+    wallet_id: str
+    tokenName: str
+    metadata: dict[str, str]
+    tokenAmount: int
+
+class TokenGenesis(BaseModel):
+    tokenName: str
+    metadata: dict
+    tokenAmount: int
+>>>>>>> develop
 
 
 class SignSubmit(Metadata):
+<<<<<<< HEAD
+=======
     wallet_id: str
     cbor: str
+
+class PurchaseSignSubmit(BaseModel):
+>>>>>>> develop
+    wallet_id: str
+    cbor: str
+    metadata: dict
 
 
 ############################
@@ -95,7 +154,14 @@ class SignSubmit(Metadata):
 #         if value not in ("sig", "all", "any", "atLeast"):
 #             raise ValueError("type must be: sig, all, any or atLeast ")
 #         return value
+<<<<<<< HEAD
     
+=======
+
+############################
+# User section definition
+############################
+>>>>>>> develop
 # class UserBase(BaseModel):
 #     username: str
 
@@ -166,7 +232,10 @@ class SignSubmit(Metadata):
 ############################
 # Source section definition
 ############################
+<<<<<<< HEAD
 
+=======
+>>>>>>> develop
 
 ############################
 # Script section definition

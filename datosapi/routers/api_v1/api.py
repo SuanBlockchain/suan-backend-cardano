@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Security
 
-from datosapi.utils.security import get_api_key
+from ...utils.security import get_api_key
 
 from .endpoints import data
 
