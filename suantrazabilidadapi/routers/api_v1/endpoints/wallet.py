@@ -332,32 +332,6 @@ async def accountTx(stake: str, after_block_height: int = 0, skip: int = 0, limi
             page_size = total_count
         else:
 
-
-            # if skip < total_count:
-            #     if limit >= total_count:
-            #         limit = total_count
-            #         next_skip = ""
-            #         prev_skip = limit - skip
-                
-            #     if current_page <= total_pages:
-            #         next_skip = skip + limit
-            #         if next_skip >= total_count:
-            #             next_skip = total_count - skip
-            #         prev_skip = limit - skip
-
-            #     if skip == 0:
-            #         prev_skip = ""
-
-            #     if next_skip == "":
-            #         next_msg = ""
-            #     else:
-            #         next_msg = f"/api/v1/wallet/account-tx/?stake={stake}&after_block_height={after_block_height}&skip={next_skip}&limit={limit}"
-
-            #     if prev_skip == "":
-            #         prev_msg = ""
-            #     else:
-            #         prev_msg = f"/api/v1/wallet/account-tx/?stake={stake}&after_block_height={after_block_height}&skip={prev_skip}&limit={limit}"
-
             data = accountTxs[skip : skip + limit]
 
         result = {
@@ -365,13 +339,40 @@ async def accountTx(stake: str, after_block_height: int = 0, skip: int = 0, limi
             "total_count": total_count,
             "current_page": current_page,
             "page_size": page_size,
-            # "links": {
-            #     "next": next_msg,
-            #     "prev": prev_msg
-            # }
         }
-        # else:
-        #     raise HTTPException(status_code=400, detail=f"skip size: {skip} cannot be higher than total items: {total_count}")
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.post("/account-utxo/", status_code=201,
+    summary="Get a list of all UTxOs for given stake addresses (account)s",
+    response_description="Get a list of all UTxOs for given stake addresses (account)s")
+
+async def accountUtxos(stake: str, skip: int = 0, limit: int = 10, all: bool = False):
+    """Get a list of all UTxOs for given stake addresses (account)s \n
+    """
+    try:
+        if all:
+            skip = 0
+            limit = 0
+        accountUtxos = CardanoApi().getAccountUtxos(stake, skip, limit)
+
+        data = accountUtxos
+
+        total_count = len(accountUtxos)
+        page_size = limit 
+
+        if limit == 0:
+            current_page = 1
+        else:        
+            current_page = (skip / page_size) + 1
+
+        result = {
+            "data": data,
+            "total_count": total_count,
+            "current_page": current_page,
+            "page_size": page_size,
+        }
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

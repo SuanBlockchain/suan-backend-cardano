@@ -5,11 +5,12 @@ import requests
 import os
 import json
 import importlib
-from typing import Union
+from typing import Union, Optional
 
 from pycardano import *
 
 from suantrazabilidadapi.core.config import config
+from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 
 @dataclass()
 class Start:
@@ -97,9 +98,10 @@ class Plataforma(Start):
         Returns:
             dict: dictionary with transaction body fields formatted
         """
-
+        # Format inputs
         utxoInputs = { index: f'{input.transaction_id.payload.hex()}#{input.index}' for index, input in enumerate(txBody.inputs)}
 
+        # Format outputs
         utxoOutputs = {}
         for index, output in enumerate(txBody.outputs):
             
@@ -122,9 +124,25 @@ class Plataforma(Start):
 
         utxoOutputs = { k: self._nullDict(v) for k, v in utxoOutputs.items() }
 
+        # Format mint
+        mint_assets = {}
+        mint = txBody.mint
+        if mint is not None:
+            for k, v in txBody.mint.data.items():
+                mint_asset = { assetName.payload: value for assetName, value in v.data.items()}
+                mint_assets[k.to_cbor_hex()[4:]] = mint_asset
+
+        # Format signers
+        signersOutput = []
+
+        required_signers = txBody.required_signers
+        if required_signers is not None:
+
+            signersOutput = [ signers.payload.hex() for signers in txBody.required_signers]
+
         formatTxBody = {
 
-            "auxiliary_data_hash": txBody.auxiliary_data_hash
+            "auxiliary_data_hash": txBody.auxiliary_data_hash.payload.hex()
             ,"certificates": txBody.certificates
             ,"collateral": txBody.collateral
             ,"collateral_return": txBody.collateral_return
@@ -132,10 +150,10 @@ class Plataforma(Start):
             ,"tx_id": txBody.id.payload.hex()
             ,"inputs": utxoInputs
             ,"outputs": utxoOutputs
-            ,"mint": txBody.mint
+            ,"mint": mint_assets
             ,"network_id": txBody.network_id
             ,"reference_inputs": txBody.reference_inputs
-            ,"required_signers": txBody.required_signers
+            ,"required_signers": signersOutput
             ,"script_data_hash": txBody.script_data_hash
             ,"total_collateral": txBody.total_collateral
             ,"ttl": txBody.ttl
@@ -147,7 +165,7 @@ class Plataforma(Start):
 
         formatTxBody = self._nullDict(formatTxBody)
 
-        return formatTxBody
+        return formatTxBody 
 
 
 @dataclass()
@@ -188,12 +206,35 @@ class CardanoApi(Start):
         
         return final_response
     
-    def get_tx_info(self, txs: Union[str, list[str]]) -> list:
+    def getAccountUtxos(self, account: str, skip: int, limit: int) -> list[dict]:
 
-        return 
-    
+        return self.koios_api.get_account_utxos(account, True, skip, limit)
+
     def txStatus(self, txId: Union[str, list[str]]) -> list:
 
         status_response = self.koios_api.get_tx_status(txId)
 
         return status_response
+    
+@dataclass()
+class Helpers():
+
+    def __post_init__(self):
+        pass
+
+    def makeMultiAsset(self, addressesDestin: list[pydantic_schemas.AddressDestin]) -> Optional[MultiAsset]:
+        multi_asset = None
+        if addressesDestin is not []:
+
+            for address in addressesDestin:
+                multi_asset = MultiAsset()
+                if address.multiAsset:
+                    for item in address.multiAsset:
+                        for policy_id, tokens in item.items():
+                            my_asset = Asset()
+                            for name, quantity in tokens.items():
+                                my_asset.data.update({AssetName(name.encode()): quantity})
+
+                            multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
+
+        return multi_asset

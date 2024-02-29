@@ -19,8 +19,6 @@ class walletCommandName(str, Enum):
 class walletQueryParam(BaseModel):
     query_param: str
 
-    
-
 class Words(str, Enum):
     twelve: str = "12"
     fifteen: str = "15"
@@ -64,12 +62,12 @@ class Metadata(BaseModel):
 class AddressDestin(BaseModel):
     address: str
     lovelace: Optional[int] = 0
-    multiAsset: Optional[list[Dict[str, Dict[str, int]]]] = []
+    multiAsset: Optional[list[Dict[str, Dict[str, int]]]] = None
 
     @validator("address", always=True)
     def check_address(cls, value):
         if not value.startswith("addr_"):
-            raise ValueError("Address must not start with addr_")
+            raise ValueError("Address format is not correct")
 
         return value
 
@@ -85,43 +83,20 @@ class AddressDestin(BaseModel):
             raise ValueError("MultiAsset must be a list")
         return value
 
-
 class BuildTx(Metadata):
     wallet_id: str
     addresses: list[AddressDestin]
 
-    class Config:
-        schema_extra = {
-            "example": buildTxExample
-        }
+class Buy(BaseModel):
+    wallet_id: str
+    tokenName: str
+    metadata: dict[str, str]
+    tokenAmount: int
 
-    # model_config = {
-    #     "json_schema_extra": {
-    #         "examples": [
-    #              {
-    #             "wallet_id": "45565413c8c24ae16e726145c2b9ba00d96d78ff374a519531c2bc3d",
-    #             "addresses": [
-    #                 {
-    #                     "address": "addr_test1qzrfa2rjtq3ky6shssmw5jj4f03qg7jvmcfkwnn77f38jxrmc4fy0srznhncjyz55t80r0tg2ptjf2hk5eut4c087ujqd8j3yl",
-    #                     "lovelace": 0,
-    #                     "multiAsset": [
-    #                         {
-    #                         "e0b33937400326885f7186e2725a84786266ec1eb06d397680233f80": {
-    #                             "MAYZ": 2000
-    #                         },
-    #                             "8726ae04e47a9d651336da628998eda52c7b4ab0a4f86deb90e51d83": {
-    #                             "ProyectoSand": 1
-    #                             }
-    #                         }
-    #                     ]
-    #                 }
-    #             ],
-    #             "metadata": {}
-    #         }
-    #         ]
-    #     }
-    # }
-
+class TokenGenesis(BaseModel):
+    tokenName: str
+    metadata: dict
+    tokenAmount: int
 
 class Tokens(BaseModel):
     name: str
@@ -130,6 +105,11 @@ class Tokens(BaseModel):
 class SignSubmit(Metadata):
     wallet_id: str
     cbor: str
+
+class PurchaseSignSubmit(BaseModel):
+    wallet_id: str
+    cbor: str
+    metadata: dict
 
 ############################
 # Datos section definition

@@ -1,11 +1,9 @@
 from rocketry import Rocketry
 from rocketry.args import TaskLogger, Config, EnvArg
-from rocketry.log import MinimalRecord, LogRecord
+from rocketry.log import MinimalRecord
 # from redbird.repos import SQLRepo
 # from sqlalchemy import create_engine
-from redbird.repos import JSONDirectoryRepo
 from redbird.repos import CSVFileRepo
-import os
 
 from .tasks import scheduler
 
