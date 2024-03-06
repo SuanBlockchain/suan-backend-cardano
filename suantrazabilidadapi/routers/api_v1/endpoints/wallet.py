@@ -1,55 +1,13 @@
 from fastapi import APIRouter, HTTPException
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi
+from suantrazabilidadapi.utils.blockchain import Keys
+from suantrazabilidadapi.utils.generic import is_valid_hex_string, Constants
 
-import os
-import pathlib
 import binascii
 from typing import Union
 
 from pycardano import *
-
-class Constants:
-    NETWORK = Network.TESTNET
-    PROJECT_ROOT = "suantrazabilidadapi"
-    ROOT = pathlib.Path(PROJECT_ROOT)
-    KEY_DIR = ROOT / f'.priv/wallets'
-    ENCODING_LENGHT_MAPPING = {"12": 128, "15": 160, "18": 192, "21": 224, "24":256}
-
-
-# Create the directory if it doesn't exist
-Constants.ROOT.mkdir(parents=True, exist_ok=True)
-
-key_dir = Constants.KEY_DIR
-key_dir.mkdir(exist_ok=True)
-
-def remove_file(path: str, name: str) -> None:
-    if os.path.exists(path+name):
-        os.remove(path+name)
-
-# Load payment keys or create them if they don't exist
-def load_or_create_key_pair(base_dir, base_name):
-    skey_path = base_dir / f"{base_name}.skey"
-    vkey_path = base_dir / f"{base_name}.vkey"
-
-    if skey_path.exists():
-        skey = PaymentSigningKey.load(str(skey_path))
-        vkey = PaymentVerificationKey.from_signing_key(skey)
-    else:
-        key_pair = PaymentKeyPair.generate()
-        key_pair.signing_key.save(str(skey_path))
-        key_pair.verification_key.save(str(vkey_path))
-        skey = key_pair.signing_key
-        vkey = key_pair.verification_key
-    return skey, vkey
-
-def is_valid_hex_string(s: str) -> bool:
-    try:
-        int(s, 16)
-        return len(s) % 2 == 0  # Check if the length is even (each byte is represented by two characters)
-    except ValueError:
-        return False
-
 
 router = APIRouter()
 
@@ -225,8 +183,8 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         ########################
         
         save_flag = wallet.save_flag
+        save_local = wallet.save_local
         userID = wallet.userID
-        # passphrase = wallet.passphrase
         mnemonic_words = wallet.words
         ########################
         """2. Generate new wallet"""
@@ -238,14 +196,25 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         payment_verification_key = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
         staking_verification_key = StakeVerificationKey.from_primitive(child_hdwallet.public_key)
 
-        address = Address(payment_part=payment_verification_key.hash(), staking_part=staking_verification_key.hash(), network=Network.TESTNET)
+        pkh = payment_verification_key.hash()
+        address = Address(payment_part=pkh, staking_part=staking_verification_key.hash(), network=Network.TESTNET)
         stake_address = Address(payment_part=None, staking_part=staking_verification_key.hash(), network=Network.TESTNET)
 
-        wallet_id = payment_verification_key.hash()
 
-        wallet_id = binascii.hexlify(wallet_id.payload).decode('utf-8')
+        wallet_id = binascii.hexlify(pkh.payload).decode('utf-8')
 
         seed = binascii.hexlify(hdwallet._seed).decode('utf-8')
+
+        wallet_name = wallet.localName
+        if save_local:
+            wallet_name = wallet.localName
+            localKeys = {
+                "words": mnemonic_words,
+                "vkey": payment_verification_key,
+                "skey": ExtendedSigningKey.from_hdwallet(child_hdwallet)
+            }
+            skey, vkey = Keys().load_or_create_key_pair(wallet_name, localKeys=localKeys)
+        skey, vkey = Keys().load_or_create_key_pair(wallet_name)
 
         ########################
         """3. Store wallet info"""
@@ -255,7 +224,6 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         if r["success"] == True:
             if r["data"]["data"]["getWallet"] is None:
                 # It means that wallet does not exist in database, so update database if save_flag is True
-                # hashed_passphrase = get_password_hash(passphrase)
                 if save_flag:
                     # Hash passphrase
                     variables = {
@@ -277,6 +245,7 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
                 else:
                     final_response = {"success": True, "msg": f'Wallet created but not stored in Database', "data": {
                             "wallet_id": wallet_id,
+                            "seed": seed,
                             "address": str(address),
                             "stake_address": str(stake_address)
                     }}
@@ -294,6 +263,11 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
                 "data": r["error"]
             }
 
+        if save_local:
+            final_response["save_local"] = {"msg": "skey and vkey available locally", "skey": skey.to_json(), "vkey": vkey.to_json()}
+        else:
+            final_response["save_local"] = {"msg": "skey and vkey not available locally"}
+        
         return final_response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

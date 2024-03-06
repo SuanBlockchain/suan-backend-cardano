@@ -1,55 +1,17 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi, Helpers
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
+from suantrazabilidadapi.utils.generic import Constants
 
-import os
-import pathlib
 from typing import Union, Optional
 
 from pycardano import *
-from blockfrost import ApiUrls
 
 from cbor2 import loads
 
-class Constants:
-    NETWORK = Network.TESTNET
-    BLOCK_FROST_PROJECT_ID = os.getenv('block_frost_project_id')
-    PROJECT_ROOT = "suantrazabilidadapi"
-    ROOT = pathlib.Path(PROJECT_ROOT)
-    KEY_DIR = ROOT / f'.priv/wallets'
-    ENCODING_LENGHT_MAPPING = {12: 128, 15: 160, 18: 192, 21: 224, 24:256}
-    minting_wallet = os.getenv('minting_wallet')
+chain_context = CardanoNetwork().get_chain_context()
 
-
-chain_context = BlockFrostChainContext(
-    project_id=Constants.BLOCK_FROST_PROJECT_ID,
-    base_url=ApiUrls.preview.value,
-)
-
-"""Preparation"""
-# Define the root directory where images and keys will be stored.
-PROJECT_ROOT = "suantrazabilidadapi"
-root = Constants.ROOT
-
-# Create the directory if it doesn't exist
-root.mkdir(parents=True, exist_ok=True)
-
-# mainWalletName = "SuanMasterSigningKeys#"
-
-def load_or_create_key_pair(base_dir, base_name):
-    skey_path = base_dir / f"{base_name}.skey"
-    vkey_path = base_dir / f"{base_name}.vkey"
-
-    if skey_path.exists():
-        skey = PaymentSigningKey.load(str(skey_path))
-        vkey = PaymentVerificationKey.from_signing_key(skey)
-    else:
-        key_pair = PaymentKeyPair.generate()
-        key_pair.signing_key.save(str(skey_path))
-        key_pair.verification_key.save(str(vkey_path))
-        skey = key_pair.signing_key
-        vkey = key_pair.verification_key
-    return skey, vkey
 
 router = APIRouter()
 
@@ -254,9 +216,8 @@ async def sendAccessToken(destinAddress: str):
         ########################
         """1. Obtain the MasterKey to pay and mint"""
         ########################
-        payment_skey, payment_vkey = load_or_create_key_pair(Constants.KEY_DIR, "payment")
-        address = Address(payment_vkey.hash(), network=Constants.NETWORK)
-        print(address)
+        payment_skey, payment_vkey = Keys().load_or_create_key_pair("payment")
+        address = Address(payment_vkey.hash(), network=CardanoNetwork().NETWORK)
         ########################
         """3. Create the script and policy"""
         ########################
@@ -269,7 +230,7 @@ async def sendAccessToken(destinAddress: str):
         # Calculate policy ID, which is the hash of the policy
         policy_id = policy.hash()
         print(f"Policy ID: {policy_id}")
-        with open(root / "policy.id", "a+") as f:
+        with open(Constants().PROJECT_ROOT / "policy.id", "a+") as f:
             f.truncate(0)
             f.write(str(policy_id))
         # Create the final native script that will be attached to the transaction
@@ -705,7 +666,7 @@ async def minLovelace(addressDestin: pydantic_schemas.AddressDestin, datum_hash:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/tx-from-cbor/", status_code=201,
+@router.post("/tx-fee/", status_code=201,
 summary="Deserialized a transaction provided in cbor format to get the fee",
     response_description="Fee in lovelace",)
 
@@ -713,7 +674,7 @@ summary="Deserialized a transaction provided in cbor format to get the fee",
 
 async def getFeeFromCbor(txcbor: str) -> int:
 
-    """Transaaction body desisialized \n
+    """Deserialized a transaction provided in cbor format to get the fee \n
     """
     try:
         payload = bytes.fromhex(txcbor)
