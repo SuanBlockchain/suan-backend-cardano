@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi, Helpers
-from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys, Contracts
 from suantrazabilidadapi.utils.generic import Constants
 
 from typing import Union, Optional
@@ -9,9 +9,6 @@ from typing import Union, Optional
 from pycardano import *
 
 from cbor2 import loads
-
-chain_context = CardanoNetwork().get_chain_context()
-
 
 router = APIRouter()
 
@@ -25,6 +22,35 @@ router = APIRouter()
 
 async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
     try:
+
+            # Build the transaction
+
+
+    # script_hash = plutus_script_hash(plutus_script)
+    # print(script_hash)
+    # #get Keys to sign and pay
+    # payment_skey, payment_vkey = Keys().load_or_create_key_pair("payment")
+
+    # builder.add_minting_script(script=plutus_script, redeemer=Redeemer(0))
+    # builder.mint = MultiAsset.from_primitive({bytes(script_hash): {tn_bytes: 1}})
+
+    # address = Address(payment_vkey.hash(), network=CardanoNetwork().NETWORK)
+    # destinAddress = "addr_test1qzrfa2rjtq3ky6shssmw5jj4f03qg7jvmcfkwnn77f38jxrmc4fy0srznhncjyz55t80r0tg2ptjf2hk5eut4c087ujqd8j3yl"
+
+    # builder.add_input_address(address)
+
+    # min_val = min_lovelace(
+    # chain_context, output=TransactionOutput(destinAddress, Value(0, builder.mint))
+    # )
+    # builder.add_output(TransactionOutput(destinAddress, Value(min_val, builder.mint)))
+
+    # contract_vkey_hash: VerificationKeyHash = contract_vkey.hash()
+    # payment_vkey_hash: VerificationKeyHash = payment_vkey.hash()
+    # builder.required_signers = [contract_vkey_hash, payment_vkey_hash]
+
+    # signed_tx = builder.build_and_sign([contract_skey, payment_skey], change_address=address)
+    # tx_id = signed_tx.transaction_body.hash().hex()
+    # chain_context.submit_tx(signed_tx)
 
         ########################
         """1. Get wallet info"""
@@ -42,11 +68,34 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                 ########################
                 """2. Build transaction"""
                 ########################
+                chain_context = CardanoNetwork().get_chain_context()
                 # Create a transaction builder
                 builder = TransactionBuilder(chain_context)
 
                 # Add user own address as the input address
                 builder.add_input_address(walletInfo["address"])
+
+                if send.mint != {}:
+                    #Consultar en base de datosv
+                    plutus_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"build/mintSuanCo2")
+                    plutus_script, script_hash, script_address = Contracts().get_contract(f"{plutus_path}/script.cbor")
+                    builder.add_minting_script(script=plutus_script, redeemer=send.mint.redeemer)
+
+                    if send.mint.asset.policyid != script_hash.to_cbor_hex():
+                        raise ValueError(f"policyId does not match with the script provided") 
+                    
+                    tokens = { bytes(tokenName, encoding="utf-8"): q for tokenName, q in send.mint.asset["tokens"].items() }
+
+                    multiassets = { bytes(script_hash): tokens }
+                    
+                    builder.mint = MultiAsset.from_primitive(multiassets)
+                    
+                    pkh = Keys().getPkh("addr_test1qr3ur6v5wg7nyyl049jj0ggfn9vyv4tkwc7m8va50yz5m2hrc85egu3axgf7l2t9y7ssnx2cge2hva3akwemg7g9fk4qw77gs9")
+                    contract_vkey_hash: VerificationKeyHash = pkh
+                    # payment_vkey_hash: VerificationKeyHash = payment_vkey.hash()
+
+                    # builder.required_signers = [contract_vkey_hash, payment_vkey_hash]
+                    builder.required_signers = [contract_vkey_hash]
 
                 must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
                 # Since an InvalidHereAfter
@@ -161,6 +210,7 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
                 auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [signSubmit.metadata]}})))
                 signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses), auxiliary_data=auxiliary_data)
 
+                chain_context = CardanoNetwork().get_chain_context()
                 chain_context.submit_tx(signed_tx.to_cbor())
                 tx_id = tx_body.hash().hex()
                 final_response = {
@@ -262,6 +312,7 @@ async def sendAccessToken(destinAddress: str):
         # Place metadata in AuxiliaryData, the format acceptable by a transaction.
         auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata(metadata)))
         """Build transaction"""
+        chain_context = CardanoNetwork().get_chain_context()
         # Create a transaction builder
         builder = TransactionBuilder(chain_context)
         # Add our own address as the input address
@@ -299,6 +350,60 @@ async def sendAccessToken(destinAddress: str):
     except Exception as e:
         # Handling other types of exceptions
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/min-lovelace/", status_code=201,
+summary="Given utxo output details, obtain calculated min ADA required",
+    response_description="Min Ada required for the utxo in lovelace",)
+
+
+async def minLovelace(addressDestin: pydantic_schemas.AddressDestin, datum_hash: Optional[str] = None, datum: Optional[dict[str, str]] = {}, script: Optional[dict[str, str]] = {}) -> int:
+    
+    """Min Ada required for the utxo in lovelace \n
+    """
+    try:
+        address = addressDestin.address
+        # Get Multiassets
+        multiAsset = Helpers().makeMultiAsset([addressDestin])
+        # Create Value type
+        amount = Value(addressDestin.lovelace, multiAsset)
+        if not datum_hash:
+            datum_hash = None
+        if not datum:
+            datum = None
+        if not script:
+            script = None
+
+        output = TransactionOutput(address, amount, datum_hash, datum, script)
+
+        chain_context = CardanoNetwork().get_chain_context()
+        min_val = min_lovelace(chain_context, output)
+
+        return min_val
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/tx-fee/", status_code=200,
+summary="Deserialized a transaction provided in cbor format to get the fee",
+    response_description="Fee in lovelace",)
+
+async def getFeeFromCbor(txcbor: str) -> int:
+
+    """Deserialized a transaction provided in cbor format to get the fee \n
+    """
+    try:
+        payload = bytes.fromhex(txcbor)
+        value = loads(payload)
+        if isinstance(value, list):
+            fee = value[0][2]
+        else:
+            fee = value[2]
+
+        return fee
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 
 # @router.post(
 #     "/genesis-token/",
@@ -634,57 +739,3 @@ async def sendAccessToken(destinAddress: str):
 #         # Handling other types of exceptions
 #         raise HTTPException(status_code=500, detail=str(e))
 
-
-
-@router.post("/min-lovelace/", status_code=201,
-summary="Given utxo output details, obtain calculated min ADA required",
-    response_description="Min Ada required for the utxo in lovelace",)
-
-
-async def minLovelace(addressDestin: pydantic_schemas.AddressDestin, datum_hash: Optional[str] = None, datum: Optional[dict[str, str]] = {}, script: Optional[dict[str, str]] = {}) -> int:
-    
-    """Min Ada required for the utxo in lovelace \n
-    """
-    try:
-        address = addressDestin.address
-        # Get Multiassets
-        multiAsset = Helpers().makeMultiAsset([addressDestin])
-        # Create Value type
-        amount = Value(addressDestin.lovelace, multiAsset)
-        if not datum_hash:
-            datum_hash = None
-        if not datum:
-            datum = None
-        if not script:
-            script = None
-
-        output = TransactionOutput(address, amount, datum_hash, datum, script)
-
-        min_val = min_lovelace(chain_context, output)
-
-        return min_val
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@router.post("/tx-fee/", status_code=201,
-summary="Deserialized a transaction provided in cbor format to get the fee",
-    response_description="Fee in lovelace",)
-
-
-
-async def getFeeFromCbor(txcbor: str) -> int:
-
-    """Deserialized a transaction provided in cbor format to get the fee \n
-    """
-    try:
-        payload = bytes.fromhex(txcbor)
-        value = loads(payload)
-        if isinstance(value, list):
-            fee = value[0][2]
-        else:
-            fee = value[2]
-
-        return fee
-        
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))

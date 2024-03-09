@@ -61,6 +61,38 @@ query listWallets {
   }
 }
 
+query listScripts {
+  listScripts {
+    items {
+      id
+      name
+      pbk
+      cbor
+      MainnetAddr
+      Active
+      productID
+      script_category
+      script_type
+      testnetAddr
+      token_name
+    }
+  }
+}
+
+query getScriptById ($id: ID!) {
+  getScript(id: $id) {
+    id
+    MainnetAddr
+    Active
+    cbor
+    name
+    pbk
+    script_category
+    script_type
+    testnetAddr
+  }
+}
+
 mutation ProjectMutation ($id: ID!, $name: String!, $description: String!, $categoryID: ID!, $isActive: Boolean!, $status: String!, $projectReadiness: Boolean!) {
         createProduct(input: {id: $id, name: $name, description: $description, categoryID: $categoryID, isActive: $isActive, status: $status, projectReadiness: $projectReadiness}) {
             id
@@ -83,6 +115,12 @@ mutation DocumentMutation ($productFeatureID: ID!, $url: AWSURL!, $isApproved: B
 
 mutation WalletMutation ($id: ID!, $seed: String!, $userID: ID!, $address: String!, $stake_address: String!) {
   createWallet(input: {id: $id, seed: $seed, userID: $userID, address: $address, stake_address: $stake_address}) {
+    id
+  }
+}
+
+mutation ScriptMutation ($id: ID!, $Active: Boolean!, $MainnetAddr: String!, $cbor: String!, $name: String!, $pbk: [String], $script_category: String!, $script_type: String!, $testnetAddr: String!, $token_name: String ) {
+  createScript(input: {id: $id, Active: $Active, MainnetAddr: $MainnetAddr, cbor: $cbor, name: $name, pbk: $pbk, script_category: $script_category, script_type: $script_type, testnetAddr: $testnetAddr, token_name: $token_name}) {
     id
   }
 }

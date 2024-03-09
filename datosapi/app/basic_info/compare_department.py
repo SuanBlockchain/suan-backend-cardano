@@ -1,4 +1,3 @@
-import json
 import httpx
 import pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent

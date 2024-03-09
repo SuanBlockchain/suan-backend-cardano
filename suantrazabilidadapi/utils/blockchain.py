@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import os
 from blockfrost import ApiUrls
 from pathlib import PosixPath
+from typing import Union
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.utils.generic import Constants
@@ -24,6 +25,9 @@ class Keys(Constants):
         skey_path = path.joinpath(f"{wallet_name}.skey")
         vkey_path = path.joinpath(f"{wallet_name}.vkey")
 
+        skey = None
+        vkey = None
+
         if skey_path.exists():
             skey = PaymentSigningKey.load(str(skey_path))
             vkey = PaymentVerificationKey.from_signing_key(skey)
@@ -42,14 +46,27 @@ class Keys(Constants):
                     with open(mnemonics_path, 'w') as file:
                         file.write(kwargs["localKeys"]["words"])
             
-            key_pair = PaymentKeyPair.generate()
+                key_pair = PaymentKeyPair.generate()
             
-            key_pair.signing_key.save(str(skey_path))
-            key_pair.verification_key.save(str(vkey_path))
-            skey = key_pair.signing_key
-            vkey = key_pair.verification_key
+                key_pair.signing_key.save(str(skey_path))
+                key_pair.verification_key.save(str(vkey_path))
+                skey = key_pair.signing_key
+                vkey = key_pair.verification_key
+                
         return skey, vkey
 
+    def getPkh(self, wallet: str) -> str:
+        if wallet.startswith("addr"):
+            pkh = Address.decode(wallet).payment_part.to_cbor_hex()[4:]
+        else:
+            # Look for the wallet name stored in .priv/wallets folder
+            vkey = Keys().load_or_create_key_pair(wallet)[1]
+            if vkey is not None:
+                pkh: VerificationKeyHash = vkey.hash().to_cbor_hex()[4:]
+            else:
+                pkh = "wallet not found"
+        return pkh
+    
 @dataclass()
 class CardanoNetwork(Constants):
 
@@ -81,15 +98,24 @@ class Contracts(Constants):
     def __post_init__(self):
         pass
 
-    def get_contract(self, script_path: PosixPath):
+    def get_contract(self, plutusScript: Union[ScriptType, None] = None, script_path: PosixPath = ""):
         # Load script info about a contract built with opshin
-        with open(script_path) as f:
-            cbor_hex = f.read()
+        if script_path != "" and plutusScript is not None:
+            raise ValueError("Only one of script_path or plutusScript should be provided.")
+        
+        if script_path != "":
+            
+            with open(script_path) as f:
+                cbor_hex = f.read()
 
-        cbor = bytes.fromhex(cbor_hex)
+            cbor = bytes.fromhex(cbor_hex)
+            plutusScript = PlutusV2Script(cbor)
 
-        plutus_script = PlutusV2Script(cbor)
-        script_hash = plutus_script_hash(plutus_script)
-        script_address = Address(script_hash, network=self.NETWORK)
-        return plutus_script, script_hash, script_address
+        if plutusScript is not None:
+            print(plutusScript.decode())
+
+        script_hash = plutus_script_hash(plutusScript)
+        mainnet_address = Address(script_hash, network=Network.MAINNET)
+        testnet_address = Address(script_hash, network=Network.TESTNET)
+        return script_hash, mainnet_address, testnet_address
 

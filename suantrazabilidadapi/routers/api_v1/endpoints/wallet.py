@@ -66,7 +66,7 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
     try:
 
         if command_name == "id":
-            # Validate the address
+            # Validate the id
             if not is_valid_hex_string(query_param):
                 raise TypeError()
             
@@ -148,15 +148,15 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
         msg = f'Error with the endpoint'
         raise HTTPException(status_code=500, detail=msg)
 
-@router.post(
+@router.get(
     "/generate-words/",
-    status_code=201,
+    status_code=200,
     summary="Generate mnemonics with different word extensions",
     response_description="Response with mnemonics",
     # response_model=List[str],
 )
 
-async def generateWords(size: pydantic_schemas.Words, ):
+async def generateWords(size: pydantic_schemas.Words):
     try:
         strength = Constants.ENCODING_LENGHT_MAPPING.get(size, None)
         if strength is None:
@@ -284,7 +284,7 @@ async def queryAddress(address: Union[str, list[str]] ):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-@router.post("/account-tx/", status_code=201,
+@router.get("/account-tx/", status_code=200,
     summary="Get a list of all Txs for a given stake address (account)",
     response_description="Get a list of all Txs for a given stake address (account)")
 
@@ -318,7 +318,7 @@ async def accountTx(stake: str, after_block_height: int = 0, skip: int = 0, limi
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-@router.post("/account-utxo/", status_code=201,
+@router.get("/account-utxo/", status_code=200,
     summary="Get a list of all UTxOs for given stake addresses (account)s",
     response_description="Get a list of all UTxOs for given stake addresses (account)s")
 

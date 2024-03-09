@@ -1,43 +1,55 @@
 
-import pathlib
 from dataclasses import dataclass
 import requests
 import os
 import json
-import importlib
 from typing import Union, Optional
+from botocore.exceptions import ClientError
+import boto3
+import logging
+import pathlib
 
-from pycardano import *
+from pycardano import TransactionBody, MultiAsset, Asset, AssetName, ScriptHash
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
+from suantrazabilidadapi.utils.generic import Constants
+
+# @dataclass()
+# class Start:
+#     headers = {'Content-Type': 'application/json'}
+#     ROOT = pathlib.Path(__file__).resolve().parent.parent
+#     plataformaSecrets = config(section="plataforma")
+#     security = config(section="security")
+
+plataformaSecrets = config(section="plataforma")
+security = config(section="security")
 
 @dataclass()
-class Start:
-    headers = {'Content-Type': 'application/json'}
-    ROOT = pathlib.Path(__file__).resolve().parent.parent
-    plataformaSecrets = config(section="plataforma")
-
-
-@dataclass()
-class Plataforma(Start):
+class Plataforma(Constants):
 
     def __post_init__(self):
         self.graphqlEndpoint = os.getenv('endpoint')
-        self.awsAppSyncApiKey = os.getenv('key')
-        self.headers["x-api-key"] = self.awsAppSyncApiKey
-        koios_api_module = importlib.import_module("koios_api")
-        self.koios_api = koios_api_module
+        self.awsAppSyncApiKey = os.getenv('graphql_key')
+        self.HEADERS["x-api-key"] = self.awsAppSyncApiKey
+        # koios_api_module = importlib.import_module("koios_api")
+        # self.koios_api = koios_api_module
+        self.S3_BUCKET_NAME = os.getenv('s3_bucket_name')
+        self.S3_BUCKET_NAME_HIERARCHY = os.getenv('s3_bucket_name_hierarchy')
+        self.AWS_ACCESS_KEY_ID = os.getenv('aws_access_key_id')
+        self.AWS_SECRET_ACCESS_KEY = os.getenv('aws_secret_access_key')
+        # self.GRAPHQL = "graphql/queries.graphql"
+        self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/queries.graphql")
 
     def _post(self, operation_name: str, graphql_variables: Union[dict, None] = None) -> dict:
 
-        with open(f'{self.ROOT}/graphql/queries.graphql', 'r') as file:
+        with open(self.GRAPHQL, 'r') as file:
             graphqlQueries = file.read()
         try:
             rawResult = requests.post(
                 self.graphqlEndpoint,
                 json={"query": graphqlQueries, "operationName": operation_name, "variables": graphql_variables},
-                headers=self.headers
+                headers=self.HEADERS
             )
             rawResult.raise_for_status()
             data = json.loads(rawResult.content.decode("utf-8"))
@@ -88,6 +100,26 @@ class Plataforma(Start):
 
         response = self._post('WalletMutation', values)
         return response
+    
+    def createContract(self, values) -> list[dict]:
+
+        response = self._post('ScriptMutation', values)
+        return response
+
+    def getScript(self, command_name: str, query_param: str) -> dict:
+
+        if command_name == "id":
+
+            graphql_variables = {
+                "id": query_param
+            }
+
+            data = self._post('getScriptById', graphql_variables)
+
+            return data
+
+    def listScripts(self) -> dict:
+        return self._post('listScripts')
 
     def formatTxBody(self, txBody: TransactionBody) -> dict:
         """_summary_
@@ -167,18 +199,98 @@ class Plataforma(Start):
 
         return formatTxBody 
 
+    def _initializeBoto2Client(self):
+        # Upload the file
+        return boto3.client(
+            "s3",
+            region_name=self.REGION_NAME,
+            aws_access_key_id=self.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
+        )
+
+    def list_files(self, folder_path= "") -> list:
+        s3_client = self._initializeBoto2Client()
+        try:
+            response = s3_client.list_objects_v2(Bucket=self.S3_BUCKET_NAME, Prefix=folder_path)
+
+            # Extract file information from the response
+            files = []
+            for obj in response.get('Contents', []):
+                files.append(obj['Key'])
+
+            return files
+
+        except Exception as e:
+            print(f"Error listing files in S3 bucket: {e}")
+            return []
+
+    def read_file(self, file_name: str) -> dict:
+        """Upload a file to an S3 bucket
+
+        :param file_name: File to upload
+        :return: True if file was uploaded, else False
+        """
+
+        # Upload the file
+        s3_client = self._initializeBoto2Client()
+        try:
+
+            response = s3_client.get_object(Bucket = self.S3_BUCKET_NAME, Key=f"{self.S3_BUCKET_NAME_HIERARCHY}/{file_name}")
+            content = response["Body"].read().decode('utf-8')
+            return {"success": True, "content": content}
+
+        except Exception as e:
+            logging.error(e)
+            return {"success":False, "error": str(e)}
+
+    def upload_file(self, file_path: pathlib.Path) -> bool:
+        """Upload a file to an S3 bucket
+
+        :param file_name: File to upload
+        :return: True if file was uploaded, else False
+        """
+        s3_client = self._initializeBoto2Client()
+        try:
+            s3_client.upload_file(file_path, self.S3_BUCKET_NAME,  f"{self.S3_BUCKET_NAME_HIERARCHY}/{file_path.name}")
+        except ClientError as e:
+            logging.error(e)
+            return False
+        return True
+
+    def upload_folder(self, folder_path) -> dict:
+        s3_client = self._initializeBoto2Client()
+        uploaded = []
+        error = []
+        for root, dirs, files in os.walk(folder_path):
+            for file in files:
+                local_file_path = os.path.join(root, file)
+                file_name = os.path.relpath(local_file_path, folder_path).replace('\\', '/')
+                folder = root.split("/")
+                folder = os.path.join(folder[-2], folder[-1])
+                s3_key = os.path.join(self.S3_BUCKET_NAME_HIERARCHY, file_name)
+
+                try:
+                    s3_client.upload_file(local_file_path, self.S3_BUCKET_NAME, s3_key)
+                    uploaded.append(file_name)
+                    print(f"Uploaded {file_name} to S3://{self.S3_BUCKET_NAME}/{s3_key}")
+                except Exception as e:
+                    error.append(file_name)
+                    print(f"Error uploading {local_file_path} to S3: {e}")
+        
+        return {"uploaded": uploaded, "error": error}
 
 @dataclass()
-class CardanoApi(Start):
+class CardanoApi(Constants):
 
     def __post_init__(self):
-        koios_api_module = importlib.import_module("koios_api")
-        self.koios_api = koios_api_module
+        # koios_api_module = importlib.import_module("koios_api")
+        # self.koios_api = koios_api_module
+        pass
 
     def getAddressInfo(self, address: Union[str, list[str]]) -> list[dict]:
         
-        address_response = self.koios_api.get_address_info(address)
-        asset_response = self.koios_api.get_address_assets(address)
+        address_response = self.KOIOS_API.get_address_info(address)
+        asset_response = self.KOIOS_API.get_address_assets(address)
         
         # # Group data2 by "address" key
         for item in address_response:
@@ -193,14 +305,14 @@ class CardanoApi(Start):
 
     def getUtxoInfo(self, utxo: Union[str, list[str]], extended: bool=False) -> list[dict]:
 
-        utxo_info = self.koios_api.get_utxo_info(utxo, extended)
+        utxo_info = self.KOIOS_API.get_utxo_info(utxo, extended)
         return utxo_info
     
     def getAccountTxs(self, account: str, after_block_height: int = 0) -> list:
 
-        account_txs = self.koios_api.get_account_txs(account, after_block_height)
+        account_txs = self.KOIOS_API.get_account_txs(account, after_block_height)
         tx_hashes = [tx["tx_hash"] for tx in account_txs]
-        transactions = self.koios_api.get_tx_info(tx_hashes)
+        transactions = self.KOIOS_API.get_tx_info(tx_hashes)
 
         final_response = sorted(transactions, key=lambda x: x["absolute_slot"], reverse=True)
         
@@ -208,11 +320,11 @@ class CardanoApi(Start):
     
     def getAccountUtxos(self, account: str, skip: int, limit: int) -> list[dict]:
 
-        return self.koios_api.get_account_utxos(account, True, skip, limit)
+        return self.KOIOS_API.get_account_utxos(account, True, skip, limit)
 
     def txStatus(self, txId: Union[str, list[str]]) -> list:
 
-        status_response = self.koios_api.get_tx_status(txId)
+        status_response = self.KOIOS_API.get_tx_status(txId)
 
         return status_response
     

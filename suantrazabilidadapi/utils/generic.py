@@ -1,7 +1,9 @@
 import os
 import pathlib
 from pycardano import Network
+import importlib
 
+from suantrazabilidadapi.core.config import config
 
 class Constants:
     KEY_DIR: str = ".priv/wallets"
@@ -13,6 +15,10 @@ class Constants:
         NETWORK = Network.MAINNET
     else:
         NETWORK = Network.TESTNET
+    
+    HEADERS = {'Content-Type': 'application/json'}
+    KOIOS_API = importlib.import_module("koios_api")
+    REGION_NAME = "us-east-1"
 
 def is_valid_hex_string(s: str) -> bool:
     try:
