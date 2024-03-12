@@ -1,48 +1,54 @@
-from opshin.prelude import *
-from pycardano import *
+import logging
+# from opshin.prelude import 
+from pycardano import (
+    HDWallet,
+    ExtendedSigningKey,
+    Address,
+    PaymentVerificationKey
+)
 from opshin.builder import build, PlutusContract
 from fastapi import APIRouter, HTTPException
-import subprocess
 from typing import Optional
-import logging
-import os
-import shutil
 
-from suantrazabilidadapi.utils.blockchain import Keys, Contracts
-from suantrazabilidadapi.utils.generic import Constants
+from suantrazabilidadapi.utils.blockchain import Keys, CardanoNetwork
+from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string
 from suantrazabilidadapi.utils.plataforma import Plataforma
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 
 
 router = APIRouter()
 
-
-@dataclass()
-class ReferenceParams(PlutusData):
-    CONSTR_ID = 0
-    tokenName: TokenName
-    pkh: PubKeyHash
-
-@router.post("/get-pkh/", status_code=201,
+@router.post("/get-pkh/{pkh_command}", status_code=201,
 summary="From address or wallet name obtain pkh. If wallet name is provided, it has to exist locally",
     response_description="script hash",)
 
-async def getPkh(wallets: Union[str, list[str]]) -> dict:
+async def getPkh(command_name: pydantic_schemas.walletCommandName, wallet: str) -> str:
     """From address or wallet name obtain pkh. If wallet name is provided, it has to exist locally\n
     """
    
-    try:
-        pkh_dict = {}
-        if isinstance(wallets, str):
-            wallet = wallets
-            pkh = Keys().getPkh(wallets)
-        else:
-            for wallet in wallets: 
-                pkh = Keys().getPkh(wallet)
-        
-        pkh_dict[wallet] = pkh
+    try:      
+        if command_name == "address":
+            address = wallet
+            final_response = Keys().getPkh(address)
+               
+        elif command_name == "id":
+            if not is_valid_hex_string(wallet):
+                raise ValueError(f"id provided does not exist in wallet database") 
+            
+            r = Plataforma().getWallet(command_name, wallet)
 
-        return pkh_dict
+            if r["data"].get("data", None) is not None:
+                    
+                walletInfo = r["data"]["data"]["getWallet"]
+                if walletInfo is None:
+                    final_response = "Wallet not found"
+                else:
+                    address = walletInfo["address"]
+                    final_response = Keys().getPkh(address)
+            else:
+                final_response = "Error fetching wallet info"
+
+        return final_response
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -61,13 +67,13 @@ async def getScripts():
             if script_list == []:
                 final_response = {
                     "success": True,
-                    "msg": 'No wallets present in the table',
+                    "msg": 'No scripts present in the table',
                     "data": r["data"]
                 }
             else:
                 final_response = {
                     "success": True,
-                    "msg": 'List of wallets',
+                    "msg": 'List of scripts',
                     "data": script_list
                 }
         else:
@@ -89,15 +95,15 @@ async def getScripts():
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/get-contract/{script_type}", status_code=201,
-summary="Read created contract",
+@router.get("/get-script/{script_type}", status_code=200,
+summary="Read script created",
     response_description="script details")
 
-async def getScript(command_name: pydantic_schemas.contractCommandName, query_param: str) -> dict:
+async def getScript(script_type: pydantic_schemas.contractCommandName, query_param: str) -> dict:
 
-    if command_name == "id":
+    if script_type == "id":
 
-        r = Plataforma().getScript(command_name, query_param)
+        r = Plataforma().getScript(script_type, query_param)
 
         if r["data"].get("data", None) is not None:
             contractInfo = r["data"]["data"]["getScript"]
@@ -132,35 +138,62 @@ async def getScript(command_name: pydantic_schemas.contractCommandName, query_pa
     return final_response
 
 
-@router.post("/create-contract/{script_type}", status_code=201,
+@router.get("/create-contract/{script_type}", status_code=200,
 summary="From parameters build and create the smart contract",
     response_description="script details")
 
-async def createContract(scriptType: pydantic_schemas.ScriptType, pkh: str, tokenName: str = "", save_flag: bool = True, project_id: Optional[str] = None) -> dict:
+async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wallet_id: str, tokenName: str = "", save_flag: bool = True, project_id: Optional[str] = None) -> dict:
 
     """From parameters build a smart contract
     """
     try:
 
-        if scriptType == "mintSuanCO2":
+        r = Plataforma().getWallet("id", wallet_id)
+        if r["data"].get("data", None) is not None:
+            walletInfo = r["data"]["data"]["getWallet"]
+                
+            if walletInfo is None:
+                raise ValueError(f'Wallet with id: {wallet_id} does not exist in DynamoDB')
+            else:
+                # Get payment address
+                payment_address = Address.from_primitive(walletInfo["address"])
+                pkh = bytes(payment_address.payment_part)
+
+                seed = walletInfo["seed"] 
+                hdwallet = HDWallet.from_seed(seed)
+                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+
+                # payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+                # payment_verification_key = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
+
+        else:
+            raise ValueError(f'Error fetching data')
+
+        if script_type == "mintSuanCO2":
             script_name = "suanco2"
             script_fullName = f"{script_name}.py"
             scriptCategory = "PlutusV2"
             
             # Build parameters to build the SUANCO2 contract
-            params_string2 = ReferenceParams(bytes(tokenName.encode("utf-8")), bytes(pkh.encode("utf-8")))
+            # params_string2 = ReferenceParams(bytes(tokenName.encode("utf-8")), bytes(pkh.encode("utf-8")))
 
         # Get the location of the contract
         script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(script_fullName)
+
+        tn_bytes = bytes(tokenName, encoding="utf-8")
         
         # Build the contract
-        contract = build(script_path, params_string2)
+        contract = build(script_path, pkh, tn_bytes)
         plutus_contract = PlutusContract(contract)
 
         cbor_hex = plutus_contract.cbor_hex
         mainnet_address = plutus_contract.mainnet_addr
         testnet_address = plutus_contract.testnet_addr
         policy_id = plutus_contract.policy_id
+
+        logging.info(f"Build contract with policyID: {policy_id}")
+
+        ##################
 
         r = Plataforma().getScript("id", policy_id)
         if r["success"] == True:
@@ -170,15 +203,15 @@ async def createContract(scriptType: pydantic_schemas.ScriptType, pkh: str, toke
                     # Build the variables and store in DynamoDB
                     variables = {
                         "id": policy_id,
-                        "name": script_name,
+                        "name": name,
                         "MainnetAddr": mainnet_address.encode(),
                         "testnetAddr": testnet_address.encode(),
                         "cbor": cbor_hex,
-                        "pkh": pkh,
+                        "pbk": wallet_id,
                         "script_category": scriptCategory,
-                        "script_type": scriptType,
+                        "script_type": script_type,
                         "Active": True,
-                        "token_name": tokenName
+                        "token_name": tokenName,
 
                     }
                     responseScript = Plataforma().createContract(variables)

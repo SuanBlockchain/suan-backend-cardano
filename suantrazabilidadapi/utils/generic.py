@@ -3,7 +3,7 @@ import pathlib
 from pycardano import Network
 import importlib
 
-from suantrazabilidadapi.core.config import config
+# from suantrazabilidadapi.core.config import config
 
 class Constants:
     KEY_DIR: str = ".priv/wallets"

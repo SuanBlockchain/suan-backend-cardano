@@ -158,26 +158,52 @@ class Plataforma(Constants):
 
         # Format mint
         mint_assets = {}
-        mint = txBody.mint
-        if mint is not None:
+        if txBody.mint:
             for k, v in txBody.mint.data.items():
                 mint_asset = { assetName.payload: value for assetName, value in v.data.items()}
                 mint_assets[k.to_cbor_hex()[4:]] = mint_asset
 
         # Format signers
         signersOutput = []
-
-        required_signers = txBody.required_signers
-        if required_signers is not None:
+        if txBody.required_signers:
 
             signersOutput = [ signers.payload.hex() for signers in txBody.required_signers]
 
+        collateral = {}
+        if txBody.collateral:
+            collateral = { index: f'{input.transaction_id.payload.hex()}#{input.index}' for index, input in enumerate(txBody.collateral)}
+
+        collateral_return = {}
+        if txBody.collateral_return:
+            collateral_multi_asset = {}
+            for k, v in txBody.collateral_return.amount.multi_asset.data.items():
+                collateral_assets = { assetName.payload: value for assetName, value in v.data.items()}
+                collateral_multi_asset[k.to_cbor_hex()[4:]] = collateral_assets
+
+            collateral_return = {
+                "address": txBody.collateral_return.address.encode(),
+                "amount": {
+                    "coin": txBody.collateral_return.amount.coin,
+                    "multi_asset": collateral_multi_asset
+                },
+                "lovelace": txBody.collateral_return.lovelace,
+                "script": txBody.collateral_return.script,
+                "datum": txBody.collateral_return.datum,
+                "datum_hash": txBody.collateral_return.datum_hash,
+            }
+
+            collateral_return = self._nullDict(collateral_return)
+
+        script_data_hash = ""
+        if txBody.script_data_hash:
+            script_data_hash = txBody.script_data_hash.payload.hex()
+
         formatTxBody = {
 
-            "auxiliary_data_hash": txBody.auxiliary_data_hash.payload.hex()
+            "auxiliary_data_hash": txBody.auxiliary_data_hash.payload.hex() if txBody.auxiliary_data_hash else ""
             ,"certificates": txBody.certificates
-            ,"collateral": txBody.collateral
-            ,"collateral_return": txBody.collateral_return
+            ,"collateral": collateral
+            ,"collateral_return": collateral_return
             ,"fee": txBody.fee
             ,"tx_id": txBody.id.payload.hex()
             ,"inputs": utxoInputs
@@ -186,7 +212,7 @@ class Plataforma(Constants):
             ,"network_id": txBody.network_id
             ,"reference_inputs": txBody.reference_inputs
             ,"required_signers": signersOutput
-            ,"script_data_hash": txBody.script_data_hash
+            ,"script_data_hash": script_data_hash
             ,"total_collateral": txBody.total_collateral
             ,"ttl": txBody.ttl
             ,"update": txBody.update

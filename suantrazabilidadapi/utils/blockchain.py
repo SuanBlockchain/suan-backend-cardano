@@ -55,16 +55,18 @@ class Keys(Constants):
                 
         return skey, vkey
 
-    def getPkh(self, wallet: str) -> str:
-        if wallet.startswith("addr"):
-            pkh = Address.decode(wallet).payment_part.to_cbor_hex()[4:]
+    def getPkh(self, address: str) -> str:
+        if address.startswith("addr"):
+            pkh = Address.decode(address).payment_part.to_cbor_hex()[4:]
         else:
-            # Look for the wallet name stored in .priv/wallets folder
-            vkey = Keys().load_or_create_key_pair(wallet)[1]
-            if vkey is not None:
-                pkh: VerificationKeyHash = vkey.hash().to_cbor_hex()[4:]
-            else:
-                pkh = "wallet not found"
+            raise ValueError("address does not have the correct format")
+        # else:
+        #     # Look for the wallet name stored in .priv/wallets folder
+        #     vkey = Keys().load_or_create_key_pair(wallet)[1]
+        #     if vkey is not None:
+        #         pkh: VerificationKeyHash = vkey.hash().to_cbor_hex()[4:]
+        #     else:
+        #         pkh = "wallet not found"
         return pkh
     
 @dataclass()
@@ -98,24 +100,10 @@ class Contracts(Constants):
     def __post_init__(self):
         pass
 
-    def get_contract(self, plutusScript: Union[ScriptType, None] = None, script_path: PosixPath = ""):
+    def get_contract(self, cbor_hex: str):
         # Load script info about a contract built with opshin
-        if script_path != "" and plutusScript is not None:
-            raise ValueError("Only one of script_path or plutusScript should be provided.")
-        
-        if script_path != "":
-            
-            with open(script_path) as f:
-                cbor_hex = f.read()
+        cbor = bytes.fromhex(cbor_hex)
+        plutusScript = PlutusV2Script(cbor)
 
-            cbor = bytes.fromhex(cbor_hex)
-            plutusScript = PlutusV2Script(cbor)
-
-        if plutusScript is not None:
-            print(plutusScript.decode())
-
-        script_hash = plutus_script_hash(plutusScript)
-        mainnet_address = Address(script_hash, network=Network.MAINNET)
-        testnet_address = Address(script_hash, network=Network.TESTNET)
-        return script_hash, mainnet_address, testnet_address
+        return plutusScript
 

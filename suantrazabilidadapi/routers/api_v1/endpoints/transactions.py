@@ -5,8 +5,37 @@ from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys, Contracts
 from suantrazabilidadapi.utils.generic import Constants
 
 from typing import Union, Optional
+import logging
 
-from pycardano import *
+from pycardano import (
+    TransactionBuilder, 
+    Address,
+    HDWallet,
+    ExtendedSigningKey,
+    VerificationKeyHash,
+    PlutusV2Script,
+    plutus_script_hash,
+    Redeemer,
+    MultiAsset,
+    InvalidHereAfter,
+    AuxiliaryData,
+    AlonzoMetadata,
+    Metadata,
+    AssetName,
+    Asset,
+    ScriptHash,
+    Value,
+    min_lovelace,
+    TransactionOutput,
+    PaymentVerificationKey,
+    TransactionBody,
+    VerificationKeyWitness,
+    Transaction,
+    TransactionWitnessSet,
+    ScriptPubkey,
+    ScriptAll,
+    UTxO
+)
 
 from cbor2 import loads
 
@@ -21,37 +50,8 @@ router = APIRouter()
 )
 
 async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
+
     try:
-
-            # Build the transaction
-
-
-    # script_hash = plutus_script_hash(plutus_script)
-    # print(script_hash)
-    # #get Keys to sign and pay
-    # payment_skey, payment_vkey = Keys().load_or_create_key_pair("payment")
-
-    # builder.add_minting_script(script=plutus_script, redeemer=Redeemer(0))
-    # builder.mint = MultiAsset.from_primitive({bytes(script_hash): {tn_bytes: 1}})
-
-    # address = Address(payment_vkey.hash(), network=CardanoNetwork().NETWORK)
-    # destinAddress = "addr_test1qzrfa2rjtq3ky6shssmw5jj4f03qg7jvmcfkwnn77f38jxrmc4fy0srznhncjyz55t80r0tg2ptjf2hk5eut4c087ujqd8j3yl"
-
-    # builder.add_input_address(address)
-
-    # min_val = min_lovelace(
-    # chain_context, output=TransactionOutput(destinAddress, Value(0, builder.mint))
-    # )
-    # builder.add_output(TransactionOutput(destinAddress, Value(min_val, builder.mint)))
-
-    # contract_vkey_hash: VerificationKeyHash = contract_vkey.hash()
-    # payment_vkey_hash: VerificationKeyHash = payment_vkey.hash()
-    # builder.required_signers = [contract_vkey_hash, payment_vkey_hash]
-
-    # signed_tx = builder.build_and_sign([contract_skey, payment_skey], change_address=address)
-    # tx_id = signed_tx.transaction_body.hash().hex()
-    # chain_context.submit_tx(signed_tx)
-
         ########################
         """1. Get wallet info"""
         ########################
@@ -59,43 +59,44 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]
             if walletInfo is None:
-                final_response = {
-                    "success": True,
-                    "msg": f'Wallet with id: {send.wallet_id} does not exist in DynamoDB',
-                    "data": r["data"]
-                }
+                raise ValueError(f'Wallet with id: {send.wallet_id} does not exist in DynamoDB')
             else:
                 ########################
                 """2. Build transaction"""
                 ########################
                 chain_context = CardanoNetwork().get_chain_context()
+
                 # Create a transaction builder
                 builder = TransactionBuilder(chain_context)
 
                 # Add user own address as the input address
                 builder.add_input_address(walletInfo["address"])
 
-                if send.mint != {}:
-                    #Consultar en base de datosv
-                    plutus_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"build/mintSuanCo2")
-                    plutus_script, script_hash, script_address = Contracts().get_contract(f"{plutus_path}/script.cbor")
-                    builder.add_minting_script(script=plutus_script, redeemer=send.mint.redeemer)
+                # payment_address = Address.from_primitive(walletInfo["address"])
+                # pkh = bytes(payment_address.payment_part)
 
-                    if send.mint.asset.policyid != script_hash.to_cbor_hex():
-                        raise ValueError(f"policyId does not match with the script provided") 
-                    
-                    tokens = { bytes(tokenName, encoding="utf-8"): q for tokenName, q in send.mint.asset["tokens"].items() }
 
-                    multiassets = { bytes(script_hash): tokens }
-                    
-                    builder.mint = MultiAsset.from_primitive(multiassets)
-                    
-                    pkh = Keys().getPkh("addr_test1qr3ur6v5wg7nyyl049jj0ggfn9vyv4tkwc7m8va50yz5m2hrc85egu3axgf7l2t9y7ssnx2cge2hva3akwemg7g9fk4qw77gs9")
-                    contract_vkey_hash: VerificationKeyHash = pkh
-                    # payment_vkey_hash: VerificationKeyHash = payment_vkey.hash()
+                # Other method to find the utxo needed to cover transaction with Plutus script, 
+                # but I prefered to find a utxo for the collateral and input the address instead
+                # # Get input utxo
+                # utxo_to_spend = None
+                # for utxo in chain_context.utxos(payment_address):
+                #     if utxo.output.amount.coin > 3000000:
+                #         utxo_to_spend = utxo
+                #         break
+                # assert utxo_to_spend is not None, "UTxO not found to spend!"
 
-                    # builder.required_signers = [contract_vkey_hash, payment_vkey_hash]
-                    builder.required_signers = [contract_vkey_hash]
+                # builder.add_input(utxo_to_spend)
+
+                # Find a collateral UTxO
+                # non_nft_utxo = None
+                # for utxo in chain_context.utxos(payment_address):
+                #     # multi_asset should be empty for collateral utxo
+                #     if not utxo.output.amount.multi_asset and utxo.output.amount.coin >= 5000000:
+                #         non_nft_utxo = utxo
+                #         break
+                # assert isinstance(non_nft_utxo, UTxO), "No collateral UTxOs found!"
+                # builder.collaterals.append(non_nft_utxo)
 
                 must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
                 # Since an InvalidHereAfter
@@ -113,26 +114,37 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                     multi_asset = MultiAsset()
                     if address.multiAsset:
                         for item in address.multiAsset:
-                            for policy_id, tokens in item.items():
-                                my_asset = Asset()
-                                for name, quantity in tokens.items():
-                                    my_asset.data.update({AssetName(name.encode()): quantity})
-
-                                multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
+                            my_asset = Asset()
+                            for name, quantity in item.tokens.items():
+                                my_asset.data.update({AssetName(bytes(name, encoding="utf-8")): quantity})
+                            
+                            multi_asset[ScriptHash(bytes.fromhex(item.policyid))] = my_asset
                                 
                     multi_asset_value = Value(0, multi_asset)
 
                     # Calculate the minimum amount of lovelace that need to be transfered in the utxo  
                     min_val = min_lovelace(
-                        chain_context, output=TransactionOutput(address.address, multi_asset_value)
+                        chain_context, output=TransactionOutput(Address.decode(address.address), multi_asset_value)
                     )
                     if address.lovelace <= min_val:
-                        builder.add_output(TransactionOutput(address.address, Value(min_val, multi_asset)))
+                        builder.add_output(TransactionOutput(Address.decode(address.address), Value(min_val, multi_asset)))
                     else:
-                        # builder.add_output(TransactionOutput.from_primitive([address.address, address.lovelace]))
-                        builder.add_output(TransactionOutput(address.address, Value(address.lovelace, multi_asset)))
+                        builder.add_output(TransactionOutput(Address.decode(address.address), Value(address.lovelace, multi_asset)))
 
-                build_body = builder.build(change_address=walletInfo["address"])
+                # seed = walletInfo["seed"] 
+                # hdwallet = HDWallet.from_seed(seed)
+                # child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+                # payment_vk = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
+
+                # signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=address.address)
+
+                # chain_context.submit_tx(signed_tx)
+
+                # print(f"transaction id: {signed_tx.id}")
+                # print(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")
+
+                
+                build_body = builder.build(change_address=address.address, merge_change=True)
 
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
@@ -207,16 +219,27 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
 
                 signature = payment_skey.sign(tx_body.hash())
                 vk_witnesses = [VerificationKeyWitness(payment_vk, signature)]
-                auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [signSubmit.metadata]}})))
-                signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses), auxiliary_data=auxiliary_data)
+                if signSubmit.metadata is not None:
+                    # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
+
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [signSubmit.metadata]}})))
+
+                    signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses), auxiliary_data=auxiliary_data)
+                else:
+                    signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses))
 
                 chain_context = CardanoNetwork().get_chain_context()
                 chain_context.submit_tx(signed_tx.to_cbor())
                 tx_id = tx_body.hash().hex()
+
+                logging.info(f"transaction id: {tx_id}")
+                logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}")
+                
                 final_response = {
                     "success": True,
                     "msg": "Tx submitted to the blockchain",
-                    "tx_id": tx_id
+                    "tx_id": tx_id,
+                    "cardanoScan": f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}"
                 }
 
         else:
@@ -404,100 +427,184 @@ async def getFeeFromCbor(txcbor: str) -> int:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post(
+    "/mint-tokens/",
+    status_code=201,
+    summary="Build the transaction off-chain for validation before signing",
+    response_description="Response with transaction details and in cborhex format",
+    # response_model=List[str],
+)
 
-# @router.post(
-#     "/genesis-token/",
-#     status_code=201,
-#     summary="Mint the Max Supply of the tokens for a specific project",
-#     response_description="Confirmation of succesful minting",
-#     # response_model=List[str],
-# )
+async def mintTokens(send: pydantic_schemas.TokenGenesis) -> dict:
 
-# async def projectGenesisToken(token_genesis: pydantic_schemas.TokenGenesis) -> dict:
+    try:
+        ########################
+        """1. Get wallet info"""
+        ########################
+        r = Plataforma().getWallet("id", send.wallet_id)
+        if r["data"].get("data", None) is not None:
+            walletInfo = r["data"]["data"]["getWallet"]
+            if walletInfo is None:
+                raise ValueError(f'Wallet with id: {send.wallet_id} does not exist in DynamoDB')
+            else:
+                ########################
+                """2. Build transaction"""
+                ########################
+                chain_context = CardanoNetwork().get_chain_context()
 
-#     try:
-#         ########################
-#         """1. Obtain the MasterKey to pay and mint"""
-#         ########################
-#         hdwallet = HDWallet.from_mnemonic(Constants.minting_wallet)
+                # Create a transaction builder
+                builder = TransactionBuilder(chain_context)
 
-#         child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+                # Add user own address as the input address
+                builder.add_input_address(walletInfo["address"])
 
-#         payment_verification_key = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
-#         payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
-#         address = Address(payment_verification_key.hash(), network=Constants.NETWORK)
+                payment_address = Address.from_primitive(walletInfo["address"])
+                pkh = bytes(payment_address.payment_part)
 
-#         # Minting script derivation
-#         pub_key_policy = ScriptPubkey(payment_verification_key.hash())
-#         policy = ScriptAll([pub_key_policy])
-#         policy_id = policy.hash()
-#         print(f"Policy ID: {policy_id}")
 
-#         ########################
-#         """Define the token"""
-#         ########################
-#         tokenName = token_genesis.tokenName.encode('utf-8')
-#         mintAsset = MultiAsset.from_primitive(
-#             {
-#                 policy_id.payload: {
-#                     tokenName: token_genesis.tokenAmount,  
-#                 }
-#             }
-#         )
+                # Other method to find the utxo needed to cover transaction with Plutus script, 
+                # but I prefered to find a utxo for the collateral and input the address instead
+                # Get input utxo
+                # utxo_to_spend = None
+                # for utxo in chain_context.utxos(payment_address):
+                #     if utxo.output.amount.coin > 3000000:
+                #         utxo_to_spend = utxo
+                #         break
+                # assert utxo_to_spend is not None, "UTxO not found to spend!"
 
-#         ########################
-#         """2. Build transaction"""
-#         ########################
-#         # Create a transaction builder
-#         builder = TransactionBuilder(chain_context)
+                # builder.add_input(utxo_to_spend)
 
-#         must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
-#         # Since an InvalidHereAfter
-#         builder.ttl = must_before_slot.after
+                # Find a collateral UTxO
+                non_nft_utxo = None
+                for utxo in chain_context.utxos(payment_address):
+                    # multi_asset should be empty for collateral utxo
+                    if not utxo.output.amount.multi_asset and utxo.output.amount.coin >= 5000000:
+                        non_nft_utxo = utxo
+                        break
+                assert isinstance(non_nft_utxo, UTxO), "No collateral UTxOs found!"
+                builder.collaterals.append(non_nft_utxo)
 
-#         ########################
-#         """Create metadata"""
-#         ########################
-#         metadata = {
-#             721: {  
-#                 policy_id.payload.hex(): {
-#                     tokenName: token_genesis.metadata,
-#                 }
-#             }
-#         }
+                signatures = []
+                if send.mint is not None:
 
-#         auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata(metadata)))
-#         # Set transaction metadata
-#         builder.auxiliary_data = auxiliary_data
+                    tokens_bytes = { bytes(tokenName, encoding="utf-8"): q for tokenName, q in send.mint.asset.tokens.items() }
+                    signatures.append(VerificationKeyHash(pkh))
+                    
+                    #Consultar en base de datos
+                    script_id = send.mint.asset.policyid
 
-#         builder.mint = mintAsset
-#         builder.native_scripts = [policy]
+                    r = Plataforma().getScript("id", script_id)
+                    if r["data"].get("data", None) is not None:
+                        contractInfo = r["data"]["data"]["getScript"]
+                        if contractInfo is None:
+                            raise ValueError(f"Script with policyId does not exist in database")
+                        else:
+                            cbor_hex = contractInfo.get("cbor", None)
+                            cbor = bytes.fromhex(cbor_hex)
+                            plutus_script = PlutusV2Script(cbor)
+                    else:
+                        raise ValueError(f"Error fetching Script from database")
+
+                    script_hash = plutus_script_hash(plutus_script)
+                    logging.info(f"script_hash: {script_hash}")
+                    
+                    builder.add_minting_script(script=plutus_script, redeemer=Redeemer(send.mint.redeemer))
+                    
+
+                    multiassets = { bytes(script_hash): tokens_bytes }
+                    
+                    builder.mint = MultiAsset.from_primitive(multiassets)
+
+                builder.required_signers = signatures
+
+                must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
+                # Since an InvalidHereAfter
+                builder.ttl = must_before_slot.after
+
+                if send.metadata is not None:
+                    # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
+
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [send.metadata]}})))
+                    # Set transaction metadata
+                    builder.auxiliary_data = auxiliary_data
+                addresses = send.addresses
+                # multi_asset = []
+                for address in addresses:
+                    multi_asset = MultiAsset()
+                    if address.multiAsset:
+                        for item in address.multiAsset:
+                            my_asset = Asset()
+                            for name, quantity in item.tokens.items():
+                                my_asset.data.update({AssetName(bytes(name, encoding="utf-8")): quantity})
+                            
+                            multi_asset[ScriptHash(bytes.fromhex(item.policyid))] = my_asset
+                                
+                    multi_asset_value = Value(0, multi_asset)
+
+                    # Calculate the minimum amount of lovelace that need to be transfered in the utxo  
+                    min_val = min_lovelace(
+                        chain_context, output=TransactionOutput(Address.decode(address.address), multi_asset_value)
+                    )
+                    if address.lovelace <= min_val:
+                        builder.add_output(TransactionOutput(Address.decode(address.address), Value(min_val, multi_asset)))
+                    else:
+                        builder.add_output(TransactionOutput(Address.decode(address.address), Value(address.lovelace, multi_asset)))
+
+                seed = walletInfo["seed"] 
+                hdwallet = HDWallet.from_seed(seed)
+                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+                payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+
+                signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=Address.decode(address.address))
+
+                chain_context.submit_tx(signed_tx)
+
+                logging.info(f"transaction id: {signed_tx.id}")
+                logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")
+
+                # build_body = builder.build(change_address=address.address, merge_change=True)
+                build_body = signed_tx.transaction_body
+
+                # Processing the tx body
+                format_body = Plataforma().formatTxBody(build_body)
+
+                transaction_id_list = []
+                for utxo in build_body.inputs:
+                    transaction_id = f'{utxo.to_cbor_hex()[6:70]}#{utxo.index}'
+                    transaction_id_list.append(transaction_id)
+
+                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
+
+                final_response = {
+                    "success": True,
+                    "msg": f'Tx Build',
+                    "build_tx": format_body,
+                    "cbor": str(signed_tx.to_cbor_hex()),
+                    "utxos_info": utxo_list_info,
+                    "tx_size": len(build_body.to_cbor()),
+                    "tx_id": str(signed_tx.id),
+                    "cardanoScan": f"https://preview.cardanoscan.io/transaction/{signed_tx.id}"
+                }
+        else:
+
+            if r["success"] == True:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["data"]["errors"]
+                }
+            else:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["error"]
+                }
         
-#         # Add user own address as the input address
-#         builder.add_input_address(address)
-
-#         min_val = min_lovelace(
-#             chain_context, output=TransactionOutput(address, Value(0, mintAsset))
-#         )
-#         builder.add_output(TransactionOutput(address, Value(min_val, mintAsset)))
-
-#         signed_tx = builder.build_and_sign([payment_skey], change_address=address)
-#         tx_id = signed_tx.transaction_body.hash().hex()
-#         chain_context.submit_tx(signed_tx)
-
-#         final_response = {
-#             "success": True,
-#             "msg": f'Big Bang creation of tokens: {token_genesis.token_name}',
-#             "tx_id": tx_id
-#         }
-
-#         return final_response
-#     except ValueError as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-    
-#     except Exception as e:
-#         # Handling other types of exceptions
-#         raise HTTPException(status_code=500, detail=str(e))
+        return final_response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # @router.post(

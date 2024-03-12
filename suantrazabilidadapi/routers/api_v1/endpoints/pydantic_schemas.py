@@ -67,31 +67,18 @@ class KeyRecover(BaseModel):
 ############################
 
 class Asset(BaseModel):
-    policyid: str = "something"
+    policyid: str
     tokens: Dict[str, int]
-
-    @validator("policyid", always=True)
-    def check_policyid(cls,value):
-        if len(value) > 56:
-            raise ValueError("PolicyId must be of 56 characters")
-        elif not isinstance(value, str):
-            raise ValueError("PolicyId must be of type string")
 
 class AddressDestin(BaseModel):
     address: str
     lovelace: Optional[int] = 0
-    multiAsset: Optional[list[Asset]] = []
+    multiAsset: Optional[list[Asset]] = None
 
     @validator("address", always=True)
     def check_address(cls, value):
         if not value.startswith("addr"):
             raise ValueError("Address format is not correct")
-        return value
-    
-    @validator("multiAsset", always=True)
-    def check_multiAsset(cls, value):
-        if not isinstance(value, list):
-            raise ValueError("MultiAsset must be a list")
         return value
 
     @validator("lovelace", always=True)
@@ -101,26 +88,25 @@ class AddressDestin(BaseModel):
         return value
 
 class Mint(BaseModel):
-    cborScript: Optional[str]
-    asset: Optional[Asset]
+    asset: Asset
     redeemer: Optional[int] = 0
 
 
 class BuildTx(BaseModel):
     wallet_id: str
     addresses: list[AddressDestin]
-    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = []
-    mint: Union[Mint, None] = None
+    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
+
+class TokenGenesis(BaseModel):
+    wallet_id: str
+    addresses: list[AddressDestin]
+    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
+    mint: Optional[Mint] = None
 
 class Buy(BaseModel):
     wallet_id: str
     tokenName: str
     metadata: dict[str, str]
-    tokenAmount: int
-
-class TokenGenesis(BaseModel):
-    tokenName: str
-    metadata: dict
     tokenAmount: int
 
 class Tokens(BaseModel):
@@ -130,7 +116,7 @@ class Tokens(BaseModel):
 class SignSubmit(BaseModel):
     wallet_id: str
     cbor: str
-    metadata: List[Annotated[str, constr(max_length=64)]]
+    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
 
 class PurchaseSignSubmit(BaseModel):
     wallet_id: str
