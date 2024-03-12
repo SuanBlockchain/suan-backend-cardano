@@ -70,33 +70,8 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                 builder = TransactionBuilder(chain_context)
 
                 # Add user own address as the input address
-                builder.add_input_address(walletInfo["address"])
-
-                # payment_address = Address.from_primitive(walletInfo["address"])
-                # pkh = bytes(payment_address.payment_part)
-
-
-                # Other method to find the utxo needed to cover transaction with Plutus script, 
-                # but I prefered to find a utxo for the collateral and input the address instead
-                # # Get input utxo
-                # utxo_to_spend = None
-                # for utxo in chain_context.utxos(payment_address):
-                #     if utxo.output.amount.coin > 3000000:
-                #         utxo_to_spend = utxo
-                #         break
-                # assert utxo_to_spend is not None, "UTxO not found to spend!"
-
-                # builder.add_input(utxo_to_spend)
-
-                # Find a collateral UTxO
-                # non_nft_utxo = None
-                # for utxo in chain_context.utxos(payment_address):
-                #     # multi_asset should be empty for collateral utxo
-                #     if not utxo.output.amount.multi_asset and utxo.output.amount.coin >= 5000000:
-                #         non_nft_utxo = utxo
-                #         break
-                # assert isinstance(non_nft_utxo, UTxO), "No collateral UTxOs found!"
-                # builder.collaterals.append(non_nft_utxo)
+                master_address = Address.from_primitive(walletInfo["address"])
+                builder.add_input_address(master_address)
 
                 must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
                 # Since an InvalidHereAfter
@@ -109,7 +84,6 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
                 addresses = send.addresses
-                # multi_asset = []
                 for address in addresses:
                     multi_asset = MultiAsset()
                     if address.multiAsset:
@@ -131,20 +105,8 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                     else:
                         builder.add_output(TransactionOutput(Address.decode(address.address), Value(address.lovelace, multi_asset)))
 
-                # seed = walletInfo["seed"] 
-                # hdwallet = HDWallet.from_seed(seed)
-                # child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-                # payment_vk = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
-
-                # signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=address.address)
-
-                # chain_context.submit_tx(signed_tx)
-
-                # print(f"transaction id: {signed_tx.id}")
-                # print(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")
-
                 
-                build_body = builder.build(change_address=address.address, merge_change=True)
+                build_body = builder.build(change_address=master_address, merge_change=True)
 
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
@@ -456,17 +418,17 @@ async def mintTokens(send: pydantic_schemas.TokenGenesis) -> dict:
                 builder = TransactionBuilder(chain_context)
 
                 # Add user own address as the input address
-                builder.add_input_address(walletInfo["address"])
+                master_address = Address.from_primitive(walletInfo["address"])
+                builder.add_input_address(master_address)
 
-                payment_address = Address.from_primitive(walletInfo["address"])
-                pkh = bytes(payment_address.payment_part)
+                pkh = bytes(master_address.payment_part)
 
 
                 # Other method to find the utxo needed to cover transaction with Plutus script, 
                 # but I prefered to find a utxo for the collateral and input the address instead
                 # Get input utxo
                 # utxo_to_spend = None
-                # for utxo in chain_context.utxos(payment_address):
+                # for utxo in chain_context.utxos(master_address):
                 #     if utxo.output.amount.coin > 3000000:
                 #         utxo_to_spend = utxo
                 #         break
@@ -476,7 +438,7 @@ async def mintTokens(send: pydantic_schemas.TokenGenesis) -> dict:
 
                 # Find a collateral UTxO
                 non_nft_utxo = None
-                for utxo in chain_context.utxos(payment_address):
+                for utxo in chain_context.utxos(master_address):
                     # multi_asset should be empty for collateral utxo
                     if not utxo.output.amount.multi_asset and utxo.output.amount.coin >= 5000000:
                         non_nft_utxo = utxo
@@ -511,9 +473,22 @@ async def mintTokens(send: pydantic_schemas.TokenGenesis) -> dict:
                     builder.add_minting_script(script=plutus_script, redeemer=Redeemer(send.mint.redeemer))
                     
 
-                    multiassets = { bytes(script_hash): tokens_bytes }
+                    mint_multiassets = { bytes(script_hash): tokens_bytes }
                     
-                    builder.mint = MultiAsset.from_primitive(multiassets)
+                    builder.mint = MultiAsset.from_primitive(mint_multiassets)
+
+                    #If burn, insert the utxo that contains the asset
+                    for tn_bytes, amount in tokens_bytes.items():
+                        if amount < 0:
+                            for utxo in chain_context.utxos(master_address):
+                                def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
+                                    return pi == script_hash and an.payload == tn_bytes and a >= -amount
+
+                                if utxo.output.amount.multi_asset.count(f):
+                                    burn_utxo = utxo
+
+                                    builder.add_input(burn_utxo)
+                                    assert burn_utxo, "UTxO containing token not found!"
 
                 builder.required_signers = signatures
 
@@ -527,35 +502,35 @@ async def mintTokens(send: pydantic_schemas.TokenGenesis) -> dict:
                     auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [send.metadata]}})))
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
-                addresses = send.addresses
-                # multi_asset = []
-                for address in addresses:
-                    multi_asset = MultiAsset()
-                    if address.multiAsset:
-                        for item in address.multiAsset:
-                            my_asset = Asset()
-                            for name, quantity in item.tokens.items():
-                                my_asset.data.update({AssetName(bytes(name, encoding="utf-8")): quantity})
-                            
-                            multi_asset[ScriptHash(bytes.fromhex(item.policyid))] = my_asset
-                                
-                    multi_asset_value = Value(0, multi_asset)
 
-                    # Calculate the minimum amount of lovelace that need to be transfered in the utxo  
-                    min_val = min_lovelace(
-                        chain_context, output=TransactionOutput(Address.decode(address.address), multi_asset_value)
-                    )
-                    if address.lovelace <= min_val:
-                        builder.add_output(TransactionOutput(Address.decode(address.address), Value(min_val, multi_asset)))
-                    else:
-                        builder.add_output(TransactionOutput(Address.decode(address.address), Value(address.lovelace, multi_asset)))
+                if send.addresses:
+                    for address in send.addresses:
+                        multi_asset = MultiAsset()
+                        if address.multiAsset:
+                            for item in address.multiAsset:
+                                my_asset = Asset()
+                                for name, quantity in item.tokens.items():
+                                    my_asset.data.update({AssetName(bytes(name, encoding="utf-8")): quantity})
+                                
+                                multi_asset[ScriptHash(bytes.fromhex(item.policyid))] = my_asset
+                        
+                        multi_asset_value = Value(0, multi_asset)
+
+                        # Calculate the minimum amount of lovelace that need to be transfered in the utxo  
+                        min_val = min_lovelace(
+                            chain_context, output=TransactionOutput(Address.decode(address.address), multi_asset_value)
+                        )
+                        if address.lovelace <= min_val:
+                            builder.add_output(TransactionOutput(Address.decode(address.address), Value(min_val, multi_asset)))
+                        else:
+                            builder.add_output(TransactionOutput(Address.decode(address.address), Value(address.lovelace, multi_asset)))
 
                 seed = walletInfo["seed"] 
                 hdwallet = HDWallet.from_seed(seed)
                 child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
                 payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
 
-                signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=Address.decode(address.address))
+                signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=master_address)
 
                 chain_context.submit_tx(signed_tx)
 

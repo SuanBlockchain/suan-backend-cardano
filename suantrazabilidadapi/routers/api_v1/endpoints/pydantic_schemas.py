@@ -71,7 +71,7 @@ class Asset(BaseModel):
     tokens: Dict[str, int]
 
 class AddressDestin(BaseModel):
-    address: str
+    address: Optional[str] = None
     lovelace: Optional[int] = 0
     multiAsset: Optional[list[Asset]] = None
 
@@ -99,7 +99,7 @@ class BuildTx(BaseModel):
 
 class TokenGenesis(BaseModel):
     wallet_id: str
-    addresses: list[AddressDestin]
+    addresses: Optional[list[AddressDestin]]
     metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
     mint: Optional[Mint] = None
 
