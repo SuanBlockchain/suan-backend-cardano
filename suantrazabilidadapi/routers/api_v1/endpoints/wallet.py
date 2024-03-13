@@ -183,7 +183,6 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         ########################
         
         save_flag = wallet.save_flag
-        save_local = wallet.save_local
         userID = wallet.userID
         mnemonic_words = wallet.words
         ########################
@@ -204,17 +203,6 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         wallet_id = binascii.hexlify(pkh.payload).decode('utf-8')
 
         seed = binascii.hexlify(hdwallet._seed).decode('utf-8')
-
-        wallet_name = wallet.localName
-        if save_local:
-            wallet_name = wallet.localName
-            localKeys = {
-                "words": mnemonic_words,
-                "vkey": payment_verification_key,
-                "skey": ExtendedSigningKey.from_hdwallet(child_hdwallet)
-            }
-            skey, vkey = Keys().load_or_create_key_pair(wallet_name, localKeys=localKeys)
-        skey, vkey = Keys().load_or_create_key_pair(wallet_name)
 
         ########################
         """3. Store wallet info"""
@@ -262,11 +250,6 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
                 "msg": "Error fetching data",
                 "data": r["error"]
             }
-
-        if save_local:
-            final_response["save_local"] = {"msg": "skey and vkey available locally", "skey": skey.to_json(), "vkey": vkey.to_json()}
-        else:
-            final_response["save_local"] = {"msg": "skey and vkey not available locally"}
         
         return final_response
     except ValueError as e:

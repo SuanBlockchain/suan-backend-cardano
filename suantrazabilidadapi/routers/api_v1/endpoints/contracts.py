@@ -1,10 +1,7 @@
 import logging
 # from opshin.prelude import 
 from pycardano import (
-    HDWallet,
-    ExtendedSigningKey,
     Address,
-    PaymentVerificationKey
 )
 from opshin.builder import build, PlutusContract
 from fastapi import APIRouter, HTTPException
@@ -148,6 +145,8 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
     """
     try:
 
+        #TODO: Verify that the wallet is admin
+
         r = Plataforma().getWallet("id", wallet_id)
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]
@@ -158,10 +157,11 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
                 # Get payment address
                 payment_address = Address.from_primitive(walletInfo["address"])
                 pkh = bytes(payment_address.payment_part)
+                # pkh = walletInfo["id"]
 
-                seed = walletInfo["seed"] 
-                hdwallet = HDWallet.from_seed(seed)
-                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+                # seed = walletInfo["seed"] 
+                # hdwallet = HDWallet.from_seed(seed)
+                # child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
 
                 # payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
                 # payment_verification_key = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
@@ -169,21 +169,29 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
         else:
             raise ValueError(f'Error fetching data')
 
-        if script_type == "mintSuanCO2":
-            script_name = "suanco2"
-            script_fullName = f"{script_name}.py"
-            scriptCategory = "PlutusV2"
-            
-            # Build parameters to build the SUANCO2 contract
-            # params_string2 = ReferenceParams(bytes(tokenName.encode("utf-8")), bytes(pkh.encode("utf-8")))
-
-        # Get the location of the contract
-        script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(script_fullName)
-
         tn_bytes = bytes(tokenName, encoding="utf-8")
+
+        if script_type == "mintSuanCO2":
+            scriptCategory = "PlutusV2"
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("suanco2.py")
+            contract = build(script_path, pkh, tn_bytes)
+
         
+        elif script_type == "mintProjectToken":
+            if not project_id:
+                raise ValueError(f'Project Id must be provided to interact with mintProjectToken')
+            
+            # Validate that the project exists in table products
+            r = Plataforma().getProject("id", project_id)
+            if not r["data"].get("data", None) or not r["data"]["data"]["getProduct"]:
+                raise ValueError(f'Project with id {project_id} does not exist in DynamoDB')
+
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("project.py")
+            scriptCategory = "PlutusV2"
+            project_bytes = bytes(project_id, encoding="utf-8")
+            contract = build(script_path, project_bytes, pkh, tn_bytes)
+
         # Build the contract
-        contract = build(script_path, pkh, tn_bytes)
         plutus_contract = PlutusContract(contract)
 
         cbor_hex = plutus_contract.cbor_hex

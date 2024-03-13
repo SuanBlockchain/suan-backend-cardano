@@ -245,90 +245,120 @@ async def txStatus(tx_hashes: Union[str, list[str]]) -> list:
     # response_model=List[str],
 )
 
-async def sendAccessToken(destinAddress: str):
+async def sendAccessToken(wallet_id: str, destinAddress: str):
     try:
 
         ########################
         """1. Obtain the MasterKey to pay and mint"""
         ########################
-        payment_skey, payment_vkey = Keys().load_or_create_key_pair("payment")
-        address = Address(payment_vkey.hash(), network=CardanoNetwork().NETWORK)
-        ########################
-        """3. Create the script and policy"""
-        ########################
-        # A policy that requires a signature from the policy key we generated above
-        pub_key_policy = ScriptPubkey(payment_vkey.hash())
-        # A time policy that disallows token minting after 10000 seconds from last block
-        # must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
-        # Combine two policies using ScriptAll policy
-        policy = ScriptAll([pub_key_policy])
-        # Calculate policy ID, which is the hash of the policy
-        policy_id = policy.hash()
-        print(f"Policy ID: {policy_id}")
-        with open(Constants().PROJECT_ROOT / "policy.id", "a+") as f:
-            f.truncate(0)
-            f.write(str(policy_id))
-        # Create the final native script that will be attached to the transaction
-        native_scripts = [policy]
-        ########################
-        """Define NFT"""
-        ########################
-        tokenName = b"SandboxSuanAccess1"
-        my_nft_alternative = MultiAsset.from_primitive(
-            {
-                policy_id.payload: {
-                    tokenName: 1,  
+        r = Plataforma().getWallet("id", wallet_id)
+        if r["data"].get("data", None) is not None:
+            walletInfo = r["data"]["data"]["getWallet"]
+            if walletInfo is None:
+                raise ValueError(f'Wallet with id: {wallet_id} does not exist in DynamoDB')
+            else:
+
+                seed = walletInfo["seed"] 
+                hdwallet = HDWallet.from_seed(seed)
+                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+
+                payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+
+                payment_vk = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
+
+
+                master_address = Address.from_primitive(walletInfo["address"])
+                ########################
+                """3. Create the script and policy"""
+                ########################
+                # A policy that requires a signature from the policy key we generated above
+                pub_key_policy = ScriptPubkey(payment_vk.hash())
+                # A time policy that disallows token minting after 10000 seconds from last block
+                # must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
+                # Combine two policies using ScriptAll policy
+                policy = ScriptAll([pub_key_policy])
+                # Calculate policy ID, which is the hash of the policy
+                policy_id = policy.hash()
+                print(f"Policy ID: {policy_id}")
+                with open(Constants().PROJECT_ROOT / "policy.id", "a+") as f:
+                    f.truncate(0)
+                    f.write(str(policy_id))
+                # Create the final native script that will be attached to the transaction
+                native_scripts = [policy]
+                ########################
+                """Define NFT"""
+                ########################
+                tokenName = b"SandboxSuanAccess1"
+                my_nft_alternative = MultiAsset.from_primitive(
+                    {
+                        policy_id.payload: {
+                            tokenName: 1,  
+                        }
+                    }
+                )
+                ########################
+                """Create metadata"""
+                ########################
+                metadata = {
+                    721: {  
+                        policy_id.payload.hex(): {
+                            tokenName: {
+                                "description": "NFT con acceso a marketplace en Sandbox",
+                                "name": "Token NFT SandBox",
+                            },
+                        }
+                    }
                 }
-            }
-        )
-        ########################
-        """Create metadata"""
-        ########################
-        metadata = {
-            721: {  
-                policy_id.payload.hex(): {
-                    tokenName: {
-                        "description": "NFT con acceso a marketplace en Sandbox",
-                        "name": "Token NFT SandBox",
-                    },
+                # Place metadata in AuxiliaryData, the format acceptable by a transaction.
+                auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata(metadata)))
+                """Build transaction"""
+                chain_context = CardanoNetwork().get_chain_context()
+                # Create a transaction builder
+                builder = TransactionBuilder(chain_context)
+                # Add our own address as the input address
+                builder.add_input_address(master_address)
+                # Since an InvalidHereAfter rule is included in the policy, we must specify time to live (ttl) for this transaction
+                # builder.ttl = must_before_slot.after
+                # Set nft we want to mint
+                builder.mint = my_nft_alternative
+                # Set native script
+                builder.native_scripts = native_scripts
+                # Set transaction metadata
+                builder.auxiliary_data = auxiliary_data
+                # Calculate the minimum amount of lovelace that need to hold the NFT we are going to mint
+                min_val = min_lovelace(
+                    chain_context, output=TransactionOutput(destinAddress, Value(0, my_nft_alternative))
+                )
+                # Send the NFT to our own address + 500 ADA
+                builder.add_output(TransactionOutput(destinAddress, Value(min_val, my_nft_alternative)))
+                builder.add_output(TransactionOutput(destinAddress, Value(50000000)))
+                # Create final signed transaction
+                signed_tx = builder.build_and_sign([payment_skey], change_address=master_address)
+                # Submit signed transaction to the network
+                tx_id = signed_tx.transaction_body.hash().hex()
+                chain_context.submit_tx(signed_tx)
+                ####################################################
+                final_response = {
+                        "success": True,
+                        "msg": "Tx submitted to the blockchain",
+                        "tx_id": tx_id
+                    }
+        else:
+            if r["success"] == True:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["data"]["errors"]
                 }
-            }
-        }
-        # Place metadata in AuxiliaryData, the format acceptable by a transaction.
-        auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata(metadata)))
-        """Build transaction"""
-        chain_context = CardanoNetwork().get_chain_context()
-        # Create a transaction builder
-        builder = TransactionBuilder(chain_context)
-        # Add our own address as the input address
-        builder.add_input_address(address)
-        # Since an InvalidHereAfter rule is included in the policy, we must specify time to live (ttl) for this transaction
-        # builder.ttl = must_before_slot.after
-        # Set nft we want to mint
-        builder.mint = my_nft_alternative
-        # Set native script
-        builder.native_scripts = native_scripts
-        # Set transaction metadata
-        builder.auxiliary_data = auxiliary_data
-        # Calculate the minimum amount of lovelace that need to hold the NFT we are going to mint
-        min_val = min_lovelace(
-            chain_context, output=TransactionOutput(destinAddress, Value(0, my_nft_alternative))
-        )
-        # Send the NFT to our own address + 500 ADA
-        builder.add_output(TransactionOutput(destinAddress, Value(min_val, my_nft_alternative)))
-        builder.add_output(TransactionOutput(destinAddress, Value(50000000)))
-        # Create final signed transaction
-        signed_tx = builder.build_and_sign([payment_skey], change_address=address)
-        # Submit signed transaction to the network
-        tx_id = signed_tx.transaction_body.hash().hex()
-        chain_context.submit_tx(signed_tx)
-        ####################################################
-        final_response = {
-                "success": True,
-                "msg": "Tx submitted to the blockchain",
-                "tx_id": tx_id
-            }
+            else:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["error"]
+                }
+        
         return final_response
+    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
@@ -341,7 +371,7 @@ summary="Given utxo output details, obtain calculated min ADA required",
     response_description="Min Ada required for the utxo in lovelace",)
 
 
-async def minLovelace(addressDestin: pydantic_schemas.AddressDestin, datum_hash: Optional[str] = None, datum: Optional[dict[str, str]] = {}, script: Optional[dict[str, str]] = {}) -> int:
+async def minLovelace(addressDestin: pydantic_schemas.AddressDestin, datum_hash: Optional[str] = None, datum: Optional[dict[str, str]] = None, script: Optional[dict[str, str]] = None) -> int:
     
     """Min Ada required for the utxo in lovelace \n
     """
@@ -427,14 +457,14 @@ async def mintTokens(send: pydantic_schemas.TokenGenesis) -> dict:
                 # Other method to find the utxo needed to cover transaction with Plutus script, 
                 # but I prefered to find a utxo for the collateral and input the address instead
                 # Get input utxo
-                # utxo_to_spend = None
-                # for utxo in chain_context.utxos(master_address):
-                #     if utxo.output.amount.coin > 3000000:
-                #         utxo_to_spend = utxo
-                #         break
-                # assert utxo_to_spend is not None, "UTxO not found to spend!"
+                utxo_to_spend = None
+                for utxo in chain_context.utxos(master_address):
+                    if utxo.output.amount.coin > 3000000:
+                        utxo_to_spend = utxo
+                        break
+                assert utxo_to_spend is not None, "UTxO not found to spend!"
 
-                # builder.add_input(utxo_to_spend)
+                builder.add_input(utxo_to_spend)
 
                 # Find a collateral UTxO
                 non_nft_utxo = None
@@ -472,7 +502,6 @@ async def mintTokens(send: pydantic_schemas.TokenGenesis) -> dict:
                     
                     builder.add_minting_script(script=plutus_script, redeemer=Redeemer(send.mint.redeemer))
                     
-
                     mint_multiassets = { bytes(script_hash): tokens_bytes }
                     
                     builder.mint = MultiAsset.from_primitive(mint_multiassets)
@@ -525,7 +554,10 @@ async def mintTokens(send: pydantic_schemas.TokenGenesis) -> dict:
                         else:
                             builder.add_output(TransactionOutput(Address.decode(address.address), Value(address.lovelace, multi_asset)))
 
-                seed = walletInfo["seed"] 
+                seed = walletInfo.get("seed", None)
+                if not seed:
+                    raise ValueError(f"No seed found for wallet with id: {send.wallet_id}")
+                
                 hdwallet = HDWallet.from_seed(seed)
                 child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
                 payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)

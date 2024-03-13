@@ -1,4 +1,4 @@
-query getProjects ($projectId: ID!) {
+query getProjectById ($projectId: ID!) {
         getProduct(id: $projectId) {
         id
         categoryID

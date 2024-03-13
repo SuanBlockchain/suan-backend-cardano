@@ -75,6 +75,19 @@ class Plataforma(Constants):
 
         return dictionary
 
+    def getProject(self, command_name: str, query_param: str) -> dict:
+
+        if command_name == "id":
+            graphql_variables = {
+                "projectId": query_param
+            }
+
+            data = self._post('getProjectById', graphql_variables)
+
+        return data
+    
+    def listProjects(self) -> dict:
+        return self._post('listProjects')
     def getWallet(self, command_name: str, query_param: str) -> dict:
 
         if command_name == "id":
@@ -362,17 +375,16 @@ class Helpers():
 
     def makeMultiAsset(self, addressesDestin: list[pydantic_schemas.AddressDestin]) -> Optional[MultiAsset]:
         multi_asset = None
-        if addressesDestin is not []:
+        if addressesDestin:
 
             for address in addressesDestin:
                 multi_asset = MultiAsset()
                 if address.multiAsset:
-                    for item in address.multiAsset:
-                        for policy_id, tokens in item.items():
-                            my_asset = Asset()
-                            for name, quantity in tokens.items():
-                                my_asset.data.update({AssetName(name.encode()): quantity})
-
-                            multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
+                    for asset in address.multiAsset:
+                        policy_id = asset.policyid
+                        my_asset = Asset()
+                        for name, quantity in asset.tokens.items():
+                            my_asset.data.update({AssetName(name.encode()): quantity})
+                        multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
 
         return multi_asset

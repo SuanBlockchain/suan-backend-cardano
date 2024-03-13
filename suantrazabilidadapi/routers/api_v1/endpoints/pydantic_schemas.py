@@ -35,15 +35,6 @@ class Wallet(BaseModel):
     save_flag: bool = True
     userID: str = ""
     words: str
-    save_local: bool = False
-    localName: str = ...
-
-    @validator("localName", always=True)
-    def check_local(cls, value, values):
-        save_local = values.get("save_local")
-        if save_local and (value == "" or value == "string"):
-            raise ValueError("if save_local is True, provide localName")
-        return value
 
 class WalletResponse(BaseModel):
     walletId: str
@@ -145,3 +136,10 @@ class ReferenceParams(PlutusData):
 class contractCommandName(str, Enum):
     id = "id"
     # address = "address"
+
+############################
+# Projects section definition
+############################
+    
+class projectCommandName(str, Enum):
+    id = "id"

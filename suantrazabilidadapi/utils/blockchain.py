@@ -2,8 +2,7 @@ from pycardano import *
 from dataclasses import dataclass
 import os
 from blockfrost import ApiUrls
-from pathlib import PosixPath
-from typing import Union
+import logging
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.utils.generic import Constants
@@ -33,25 +32,54 @@ class Keys(Constants):
             vkey = PaymentVerificationKey.from_signing_key(skey)
         else:
             if kwargs.get("localKeys", None) is not None:
-                if "words" in kwargs["localKeys"].keys():
-                    skey = kwargs["localKeys"].get("skey", None)
-                    if skey is not None:
-                        key_pair = PaymentKeyPair.from_signing_key(kwargs["localKeys"].get("skey"))
-                    else:
-                        raise ValueError("skey in optional paramaters must be provided if words are provided")
-                    #Save mnemonics as words were provided
+                logging.info(f"Generate Key pair and store them locally")
+                mnemonic_words = kwargs["localKeys"].get("mnemonic_words", None)
 
-                    mnemonics_path = path / f"{wallet_name}.mnemonics"
-                    # mnemonics_path.parent.mkdir(parents=True, exist_ok=True)
-                    with open(mnemonics_path, 'w') as file:
-                        file.write(kwargs["localKeys"]["words"])
-            
+                hdwallet = HDWallet.from_mnemonic(mnemonic_words)
+
+                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+
+                skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+
+                vkey = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
+                # staking_verification_key = StakeVerificationKey.from_primitive(child_hdwallet.public_key)
+
+                pkh = vkey.hash()
+
+                # address = Address(payment_part=pkh, staking_part=staking_verification_key.hash(), network=Network.TESTNET)
+                address = Address(payment_part=pkh, network=Network.TESTNET)
+                # stake_address = Address(payment_part=None, staking_part=staking_verification_key.hash(), network=Network.TESTNET)
+
+                # key_pair = PaymentKeyPair.from_signing_key(skey)
+
+                #Save mnemonics as words were provided
+
+                mnemonics_path = path / f"{wallet_name}.mnemonics"
+                skey_path = path / f"{wallet_name}.skey"
+                vkey_path = path / f"{wallet_name}.vkey"
+                address_path = path / f"{wallet_name}.address"
+                pkh_path = path / f"{wallet_name}.pkh"
+                # mnemonics_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(mnemonics_path, 'w') as file:
+                    file.write(mnemonic_words)
+
+                skey.save(str(skey_path))
+                vkey.save(str(vkey_path))
+
+                with open(address_path, 'w') as file:
+                    file.write(str(address))
+
+                with open(pkh_path, 'w') as file:
+                    file.write(str(pkh))
+            else:
+                logging.info(f"Only generate key pair but not stored locally")
                 key_pair = PaymentKeyPair.generate()
+                
             
-                key_pair.signing_key.save(str(skey_path))
-                key_pair.verification_key.save(str(vkey_path))
-                skey = key_pair.signing_key
-                vkey = key_pair.verification_key
+            # key_pair.signing_key.save(str(skey_path))
+            # key_pair.verification_key.save(str(vkey_path))
+            # skey = key_pair.signing_key
+            # vkey = key_pair.verification_key
                 
         return skey, vkey
 
