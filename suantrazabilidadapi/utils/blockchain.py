@@ -24,12 +24,26 @@ class Keys(Constants):
         skey_path = path.joinpath(f"{wallet_name}.skey")
         vkey_path = path.joinpath(f"{wallet_name}.vkey")
 
+        mnemonics_path = path.joinpath(f"{wallet_name}.mnemonics")
+        address_path = path.joinpath(f"{wallet_name}.address")
+        pkh_path = path.joinpath(f"{wallet_name}.pkh")
+
         skey = None
         vkey = None
 
         if skey_path.exists():
-            skey = PaymentSigningKey.load(str(skey_path))
+            # skey = PaymentSigningKey.load(str(skey_path))
+            skey = ExtendedSigningKey.load(str(skey_path))
             vkey = PaymentVerificationKey.from_signing_key(skey)
+
+            with open(mnemonics_path, 'r') as file:
+                mnemonics =file.readline()
+            with open(address_path, 'r') as file:
+                address =file.readline()
+            with open(pkh_path, 'r') as file:
+                pkh =file.readline()
+
+
         else:
             if kwargs.get("localKeys", None) is not None:
                 logging.info(f"Generate Key pair and store them locally")
@@ -54,11 +68,6 @@ class Keys(Constants):
 
                 #Save mnemonics as words were provided
 
-                mnemonics_path = path / f"{wallet_name}.mnemonics"
-                skey_path = path / f"{wallet_name}.skey"
-                vkey_path = path / f"{wallet_name}.vkey"
-                address_path = path / f"{wallet_name}.address"
-                pkh_path = path / f"{wallet_name}.pkh"
                 # mnemonics_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(mnemonics_path, 'w') as file:
                     file.write(mnemonic_words)
@@ -73,15 +82,16 @@ class Keys(Constants):
                     file.write(str(pkh))
             else:
                 logging.info(f"Only generate key pair but not stored locally")
+                mnemonics = "Mnemonics not generated"
                 key_pair = PaymentKeyPair.generate()
                 
-            
-            # key_pair.signing_key.save(str(skey_path))
-            # key_pair.verification_key.save(str(vkey_path))
-            # skey = key_pair.signing_key
-            # vkey = key_pair.verification_key
+                skey = key_pair.signing_key
+                vkey = key_pair.verification_key
+
+                pkh = vkey.hash()
+                address = Address(payment_part=pkh, network=Network.TESTNET)
                 
-        return skey, vkey
+        return mnemonics, skey, vkey, address, pkh
 
     def getPkh(self, address: str) -> str:
         if address.startswith("addr"):

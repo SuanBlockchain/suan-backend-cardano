@@ -1,7 +1,8 @@
 import logging
-# from opshin.prelude import 
+from opshin.prelude import TxOutRef, TxId
 from pycardano import (
     Address,
+    ScriptHash
 )
 from opshin.builder import build, PlutusContract
 from fastapi import APIRouter, HTTPException
@@ -139,13 +140,14 @@ async def getScript(script_type: pydantic_schemas.contractCommandName, query_par
 summary="From parameters build and create the smart contract",
     response_description="script details")
 
-async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wallet_id: str, tokenName: str = "", save_flag: bool = True, project_id: Optional[str] = None) -> dict:
+async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wallet_id: str, tokenName: str = "", save_flag: bool = True, parent_policy_id: Optional[str] = None) -> dict:
 
     """From parameters build a smart contract
     """
     try:
 
         #TODO: Verify that the wallet is admin
+        #TODO: Use project_id variable or delete it
 
         r = Plataforma().getWallet("id", wallet_id)
         if r["data"].get("data", None) is not None:
@@ -157,14 +159,6 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
                 # Get payment address
                 payment_address = Address.from_primitive(walletInfo["address"])
                 pkh = bytes(payment_address.payment_part)
-                # pkh = walletInfo["id"]
-
-                # seed = walletInfo["seed"] 
-                # hdwallet = HDWallet.from_seed(seed)
-                # child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-
-                # payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
-                # payment_verification_key = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
 
         else:
             raise ValueError(f'Error fetching data')
@@ -178,18 +172,38 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
 
         
         elif script_type == "mintProjectToken":
-            if not project_id:
-                raise ValueError(f'Project Id must be provided to interact with mintProjectToken')
+            # if not project_id:
+            #     raise ValueError(f'Project Id must be provided to interact with mintProjectToken')
             
             # Validate that the project exists in table products
-            r = Plataforma().getProject("id", project_id)
-            if not r["data"].get("data", None) or not r["data"]["data"]["getProduct"]:
-                raise ValueError(f'Project with id {project_id} does not exist in DynamoDB')
+            # r = Plataforma().getProject("id", project_id)
+            # if not r["data"].get("data", None) or not r["data"]["data"]["getProduct"]:
+            #     raise ValueError(f'Project with id {project_id} does not exist in DynamoDB')
+            
+            chain_context = CardanoNetwork().get_chain_context()
+            utxo_to_spend = None
+            for utxo in chain_context.utxos(payment_address):
+                if utxo.output.amount.coin > 3000000:
+                    utxo_to_spend = utxo
+                    break
+            assert utxo_to_spend is not None, "UTxO not found to spend!"
+            oref = TxOutRef(
+                id=TxId(bytes(utxo_to_spend.input.transaction_id)),
+                idx=utxo_to_spend.input.index,
+            )
+
+            logging.info(f"oref found to build the script: {oref.id.to_cbor_hex()} and idx: {oref.idx}")
 
             script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("project.py")
             scriptCategory = "PlutusV2"
-            project_bytes = bytes(project_id, encoding="utf-8")
-            contract = build(script_path, project_bytes, pkh, tn_bytes)
+            # project_bytes = bytes(project_id, encoding="utf-8")
+            contract = build(script_path, oref, pkh, tn_bytes)
+        
+        elif script_type == "spend":
+            scriptCategory = "PlutusV2"
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("inversionista.py")
+            
+            contract = build(script_path, bytes.fromhex(parent_policy_id), tn_bytes)
 
         # Build the contract
         plutus_contract = PlutusContract(contract)
@@ -199,7 +213,7 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
         testnet_address = plutus_contract.testnet_addr
         policy_id = plutus_contract.policy_id
 
-        logging.info(f"Build contract with policyID: {policy_id}")
+        logging.info(f"Build contract with policyID: {policy_id} and testnet address: {testnet_address}")
 
         ##################
 

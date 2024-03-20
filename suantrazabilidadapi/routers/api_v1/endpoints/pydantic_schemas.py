@@ -94,6 +94,19 @@ class TokenGenesis(BaseModel):
     metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
     mint: Optional[Mint] = None
 
+class DistributeTx(BaseModel):
+    wallet_id: str
+    addresses: list[AddressDestin]
+    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
+
+class distributeCommandName(str, Enum):
+    propietario: str = "propietario"
+    administrador: str = "administrador"
+    bioc: str = "bioc"
+    buffer: str = "buffer"
+    comunidad: str = "comunidad"
+    inversionista: str = "inversionista"
+
 class Buy(BaseModel):
     wallet_id: str
     tokenName: str
@@ -125,13 +138,29 @@ class ScriptType(str, Enum):
     spend = "spend"
     any = "any"
 
-
-@dataclass()
-class ReferenceParams(PlutusData):
+@dataclass
+class RedeemerMint(PlutusData):
     CONSTR_ID = 0
-    tokenName: bytes
-    suanpkh: PubKeyHash
 
+@dataclass
+class RedeemerBurn(PlutusData):
+    CONSTR_ID = 1
+
+@dataclass
+class DatumProjectParams(PlutusData):
+    CONSTR_ID = 0
+    beneficiary: Address
+    price: int
+
+@dataclass
+class Buy(PlutusData):
+    # Redeemer to buy the listed values
+    CONSTR_ID = 0
+
+@dataclass
+class Unlist(PlutusData):
+    # Redeemer to unlist the values
+    CONSTR_ID = 1
 
 class contractCommandName(str, Enum):
     id = "id"
