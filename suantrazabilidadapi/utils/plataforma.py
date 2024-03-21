@@ -154,7 +154,12 @@ class Plataforma(Constants):
             for k, v in output.amount.multi_asset.data.items():
                 assets = { assetName.payload: value for assetName, value in v.data.items()}
                 multi_asset[k.to_cbor_hex()[4:]] = assets
-
+            # datum_dict = None
+            # if output.datum:
+            #     datum_dict = {
+            #         "beneficiary": output.datum.beneficiary.to_primitive(),
+            #         "price": output.datum.price
+            #     }
             utxoOutputs[index] = {
                 "address": output.address.encode(),
                 "amount": {
@@ -163,8 +168,8 @@ class Plataforma(Constants):
                 },
                 "lovelace": output.lovelace,
                 "script": output.script,
-                "datum": output.datum,
-                "datum_hash": output.datum_hash,
+                # "datum": datum_dict,
+                # "datum_hash": output.datum_hash,
             }
 
         utxoOutputs = { k: self._nullDict(v) for k, v in utxoOutputs.items() }

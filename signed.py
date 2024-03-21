@@ -31,6 +31,9 @@ from pycardano import (
     AuxiliaryData,
     UTxO,
     ScriptHash,
+    TransactionWitnessSet,
+    Transaction,
+    VerificationKeyWitness
     
 )
 import os
@@ -259,4 +262,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(script= "inversionista", option = "retrieve")
+    main(script= "inversionista", option = "retreive")

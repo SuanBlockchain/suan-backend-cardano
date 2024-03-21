@@ -61,10 +61,15 @@ class Asset(BaseModel):
     policyid: str
     tokens: Dict[str, int]
 
+class TempDatum(BaseModel):
+    beneficiary: str
+    price: int
+
 class AddressDestin(BaseModel):
     address: Optional[str] = None
     lovelace: Optional[int] = 0
     multiAsset: Optional[list[Asset]] = None
+    datum: Optional[TempDatum] = None
 
     @validator("address", always=True)
     def check_address(cls, value):
@@ -82,6 +87,9 @@ class Mint(BaseModel):
     asset: Asset
     redeemer: Optional[int] = 0
 
+class MintRedeem(str, Enum):
+    mint = "Mint"
+    burn = "Burn"
 
 class BuildTx(BaseModel):
     wallet_id: str
@@ -94,38 +102,21 @@ class TokenGenesis(BaseModel):
     metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
     mint: Optional[Mint] = None
 
-class DistributeTx(BaseModel):
+class ClaimRedeem(str, Enum):
+    buy = "Buy"
+    Unlist = "Unlist"
+
+class Claim(BaseModel):
     wallet_id: str
+    spendPolicyId: str
     addresses: list[AddressDestin]
     metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
-
-class distributeCommandName(str, Enum):
-    propietario: str = "propietario"
-    administrador: str = "administrador"
-    bioc: str = "bioc"
-    buffer: str = "buffer"
-    comunidad: str = "comunidad"
-    inversionista: str = "inversionista"
-
-class Buy(BaseModel):
-    wallet_id: str
-    tokenName: str
-    metadata: dict[str, str]
-    tokenAmount: int
-
-class Tokens(BaseModel):
-    name: str
-    amount: int
 
 class SignSubmit(BaseModel):
     wallet_id: str
     cbor: str
+    scriptCbor: str
     metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
-
-class PurchaseSignSubmit(BaseModel):
-    wallet_id: str
-    cbor: str
-    metadata: dict
 
 ############################
 # Contracts section definition
@@ -153,9 +144,14 @@ class DatumProjectParams(PlutusData):
     price: int
 
 @dataclass
-class Buy(PlutusData):
+class RedeemerBuy(PlutusData):
     # Redeemer to buy the listed values
     CONSTR_ID = 0
+
+@dataclass
+class RedeemerUnlist(PlutusData):
+    # Redeemer to buy the listed values
+    CONSTR_ID = 1
 
 @dataclass
 class Unlist(PlutusData):

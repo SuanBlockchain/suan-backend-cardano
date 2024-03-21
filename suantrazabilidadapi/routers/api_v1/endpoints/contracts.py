@@ -140,7 +140,7 @@ async def getScript(script_type: pydantic_schemas.contractCommandName, query_par
 summary="From parameters build and create the smart contract",
     response_description="script details")
 
-async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wallet_id: str, tokenName: str = "", save_flag: bool = True, parent_policy_id: Optional[str] = None) -> dict:
+async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wallet_id: str, tokenName: str = "", save_flag: bool = True, parent_policy_id: Optional[str] = None, project_id: Optional[str] = None) -> dict:
 
     """From parameters build a smart contract
     """
@@ -172,13 +172,6 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
 
         
         elif script_type == "mintProjectToken":
-            # if not project_id:
-            #     raise ValueError(f'Project Id must be provided to interact with mintProjectToken')
-            
-            # Validate that the project exists in table products
-            # r = Plataforma().getProject("id", project_id)
-            # if not r["data"].get("data", None) or not r["data"]["data"]["getProduct"]:
-            #     raise ValueError(f'Project with id {project_id} does not exist in DynamoDB')
             
             chain_context = CardanoNetwork().get_chain_context()
             utxo_to_spend = None
@@ -236,6 +229,18 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
                         "token_name": tokenName,
 
                     }
+                    # Check if project_id was provided
+                    if script_type != "mintSuanCO2" and not project_id:
+                        raise ValueError(f'Project Id must be provided to interact with this contract')
+                    else:
+                        # Validate that the project exists in table products
+                        r = Plataforma().getProject("id", project_id)
+                        if not r["data"].get("data", None) or not r["data"]["data"]["getProduct"]:
+                            raise ValueError(f'Project with id {project_id} does not exist in DynamoDB')
+                        
+                        variables["project_id"] = project_id
+                    
+
                     responseScript = Plataforma().createContract(variables)
                     if responseScript["success"] == True:
                         if responseScript["data"]["data"] is not None:
