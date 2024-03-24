@@ -79,7 +79,7 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
-                if send.metadata is not None or send.metadata != []:
+                if send.metadata is not None and send.metadata != []:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
 
                     auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [send.metadata]}})))
@@ -193,7 +193,7 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
 
                 signature = payment_skey.sign(tx_body.hash())
                 vk_witnesses = [VerificationKeyWitness(payment_vk, signature)]
-                if signSubmit.metadata is not None or signSubmit.metadata != []:
+                if signSubmit.metadata is not None and signSubmit.metadata != []:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
 
                     auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [signSubmit.metadata]}})))
@@ -565,7 +565,7 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
-                if send.metadata is not None or send.metadata != []:
+                if send.metadata is not None and send.metadata != []:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
 
                     auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [send.metadata]}})))
@@ -589,7 +589,7 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                         if address.datum:
                                 datum = pydantic_schemas.DatumProjectParams(
                                     beneficiary=oprelude.Address(
-                                        payment_credential=bytes.fromhex(address.datum.beneficiary),
+                                        payment_credential=oprelude.PubKeyCredential(bytes.fromhex(address.datum.beneficiary)),
                                         staking_credential=oprelude.NoStakingCredential()
                                     ),
                                     price= address.datum.price
@@ -640,7 +640,7 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
 
                 final_response = {
                     "success": True,
-                    "msg": f'Tx Build',
+                    "msg": f'Tx Mint Tokens',
                     "build_tx": format_body,
                     "cbor": str(signed_tx.to_cbor_hex()),
                     "utxos_info": utxo_list_info,
@@ -832,7 +832,9 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
                     "build_tx": format_body,
                     "cbor": str(build_body.to_cbor_hex()),
                     "utxos_info": utxo_list_info,
-                    "tx_size": len(build_body.to_cbor())
+                    "tx_size": len(build_body.to_cbor()),
+                    "tx_id": str(signed_tx.id),
+                    "cardanoScan": f"https://preview.cardanoscan.io/transaction/{signed_tx.id}"
                 }
         else:
 

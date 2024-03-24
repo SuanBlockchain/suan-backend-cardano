@@ -238,7 +238,7 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
                         if not r["data"].get("data", None) or not r["data"]["data"]["getProduct"]:
                             raise ValueError(f'Project with id {project_id} does not exist in DynamoDB')
                         
-                        variables["project_id"] = project_id
+                        variables["productID"] = project_id
                     
 
                     responseScript = Plataforma().createContract(variables)

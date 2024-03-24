@@ -85,7 +85,6 @@ class AddressDestin(BaseModel):
 
 class Mint(BaseModel):
     asset: Asset
-    redeemer: Optional[int] = 0
 
 class MintRedeem(str, Enum):
     mint = "Mint"
@@ -115,7 +114,7 @@ class Claim(BaseModel):
 class SignSubmit(BaseModel):
     wallet_id: str
     cbor: str
-    scriptCbor: str
+    scriptCbor: Optional[str] = None
     metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
 
 ############################
