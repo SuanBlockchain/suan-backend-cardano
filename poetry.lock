@@ -1190,7 +1190,7 @@ name = "pyaiken"
 version = "0.5.5"
 description = "Python bindings for aiken"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 files = [
     {file = "pyaiken-0.5.5-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:c77fbcf63a288d77c6302c231c864b80c767b1fea84c944ee168d600f5214833"},
@@ -1682,4 +1682,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "8ed4a2031ab4a2d1b3a596ba146254ac62afa75ee601f28aea6bc9650bc9dafe"
+content-hash = "96260d7271c8375f51f29d474c0ee0d9e32799619e4b4fe67ee763bdf74ac6da"
