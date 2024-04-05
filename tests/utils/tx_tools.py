@@ -1,6 +1,7 @@
 from functools import cache
 from typing import Optional
 
+import pyaiken
 import pycardano
 import uplc
 from opshin.prelude import *

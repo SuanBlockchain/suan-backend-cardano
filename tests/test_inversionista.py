@@ -1,28 +1,31 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Union
 import unittest
 from functools import cache
 from pathlib import Path
 from copy import deepcopy
 import pycardano as py
-from opshin.builder import build, PlutusContract
+from opshin.builder import build, PlutusContract, load
 from opshin.prelude import Address, PubKeyCredential, NoStakingCredential, TxOutRef, TxId
 import logging
 import binascii
+import json
+import os
 
 
 import sys
 sys.path.append('./')
 from utils.mock import MockChainContext, MockUser
-from tests.utils.helpers import build_mintProjectToken, build_inversionista, find_utxos_with_tokens, min_value
-# import pydantic_schemas
+from tests.utils.helpers import build_mintProjectToken, build_inversionista, find_utxos_with_tokens, min_value, save_transaction
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork
+# import inversionista
 
 
 @cache
-def setup_context(script: Optional[str] = None):
+def setup_context():
     context = MockChainContext()
     # enable opshin validator debugging
-    # context.opshin_scripts[plutus_script] = inversionista.validator
+    # context.opshin_scripts[py.PlutusV2Script] = inversionista.validator
     return context, setup_user(context), setup_user(context), setup_user(context)
 
 
@@ -40,10 +43,11 @@ def buildContract(script_path: Path, token_policy_id: str, token_name: str) -> t
 def build_datum(pkh: str, price: int) -> pydantic_schemas.DatumProjectParams:
 
     datum = pydantic_schemas.DatumProjectParams(
-        beneficiary=Address(
-            payment_credential=PubKeyCredential(bytes.fromhex(pkh)),
-            staking_credential=NoStakingCredential()
-        ),
+        # beneficiary=Address(
+        #     payment_credential=PubKeyCredential(bytes.fromhex(pkh)),
+        #     staking_credential=NoStakingCredential()
+        # ),
+        beneficiary=bytes.fromhex(pkh),
         price= price
     )
     return datum
@@ -57,8 +61,8 @@ def build_multiAsset(policy_id: str, tokenName: str, quantity: int) -> py.MultiA
 
     return multi_asset
 
-def setup_user(context: MockChainContext):
-    user = MockUser(context)
+def setup_user(context: MockChainContext, walletName: Optional[str] = ""):
+    user = MockUser(context, walletName)
     user.fund(100000000)  # 100 ADA
     return user
 
@@ -82,292 +86,313 @@ def create_contract(contract: py.PlutusV2Script) -> PlutusContract:
     testnet_address = plutus_contract.testnet_addr
     policy_id = plutus_contract.policy_id
 
-    logging.info("Contract created:")
     logging.info(f"testnet address: {testnet_address}")
     logging.info(f"policyId: {policy_id}")
 
     return plutus_contract
 
-# def test_create_contract_mintProjectToken(contract_dir: Path, context: MockChainContext, master: MockUser, tokenName: str) -> tuple[PlutusContract, py.UTxO]:
-#     utxo_to_spend = None
-#     for utxo in context.utxos(master.address):
-#         if utxo.output.amount.coin > 3_000_000:
-#             utxo_to_spend = utxo
-#             break
-#     assert utxo_to_spend is not None, "UTxO not found to spend!"
-#     tn_bytes = bytes(tokenName, encoding="utf-8")
-#     oref = TxOutRef(
-#         id=TxId(bytes(utxo_to_spend.input.transaction_id)),
-#         idx=utxo_to_spend.input.index,
-#     )
-#     pkh = bytes(master.address.payment_part)
-#     logging.info("Create contract with following parameters:")
-#     logging.info(f"oref : {oref.id.to_cbor_hex()} and idx: {oref.idx}")
-#     logging.info(f"pkh : {pkh}")
-#     logging.info(f"token : {tokenName}")
-
-#     contract = build(contract_dir, oref, pkh, tn_bytes)
-
-#     # Build the contract
-#     plutus_contract = PlutusContract(contract)
-
-#     assert isinstance(plutus_contract, PlutusContract), "Not a plutus script contract"
-
-#     cbor_hex = plutus_contract.cbor_hex
-#     mainnet_address = plutus_contract.mainnet_addr
-#     testnet_address = plutus_contract.testnet_addr
-#     policy_id = plutus_contract.policy_id
-
-#     logging.info("Contract created:")
-#     logging.info(f"testnet address: {testnet_address}")
-#     logging.info(f"policyId: {policy_id}")
-
-    # return plutus_contract, utxo_to_spend
-
-# def test_create_contract_inversionista(contract_dir: Path, mint_policy_id: str, tokenName: str) -> tuple[PlutusContract, py.UTxO]:
-    
-#     tn_bytes = bytes(tokenName, encoding="utf-8")
-#     logging.info("Create contract with following parameters:")
-#     logging.info(f"Parent policy id from token mint contract : {mint_policy_id}")
-#     logging.info(f"token : {tokenName}")
-    
-#     contract = build(contract_dir, bytes.fromhex(mint_policy_id), tn_bytes)
-
-#     # Build the contract
-#     plutus_contract = PlutusContract(contract)
-
-#     assert isinstance(plutus_contract, PlutusContract), "Not a plutus script contract"
-    
-#     utxo_to_spend = None
-#     for utxo in context.utxos(master.address):
-#         if utxo.output.amount.coin > 3_000_000:
-#             utxo_to_spend = utxo
-#             break
-#     assert utxo_to_spend is not None, "UTxO not found to spend!"
-#     tn_bytes = bytes(tokenName, encoding="utf-8")
-#     oref = TxOutRef(
-#         id=TxId(bytes(utxo_to_spend.input.transaction_id)),
-#         idx=utxo_to_spend.input.index,
-#     )
-#     pkh = bytes(master.address.payment_part)
-#     logging.info("Create contract with following parameters:")
-#     logging.info(f"oref : {oref.id.to_cbor_hex()} and idx: {oref.idx}")
-#     logging.info(f"pkh : {pkh}")
-#     logging.info(f"token : {tokenName}")
-
-#     contract = build(contract_dir, oref, pkh, tn_bytes)
-
-#     # Build the contract
-#     plutus_contract = PlutusContract(contract)
-
-#     assert isinstance(plutus_contract, PlutusContract), "Not a plutus script contract"
-
-#     cbor_hex = plutus_contract.cbor_hex
-#     mainnet_address = plutus_contract.mainnet_addr
-#     testnet_address = plutus_contract.testnet_addr
-#     policy_id = plutus_contract.policy_id
-
-#     logging.info("Contract created:")
-#     logging.info(f"mainnet address: {mainnet_address}")
-#     logging.info(f"testnet address: {testnet_address}")
-#     logging.info(f"policyId: {policy_id}")
-
-#     return plutus_contract, utxo_to_spend
-
 def test_mint_lock(
-        plutus_contract: PlutusContract, 
-        utxo_to_spend: py.UTxO, 
-        context: MockChainContext, 
-        master: MockUser, 
+        contract_info: dict,
         tokenName: str,
         tokenQ: int,
-        price: int,
-        beneficiary: MockUser, 
-        destin: Optional[py.Address] = None) -> MockChainContext:
+        price: int) -> MockChainContext:
+
+
+    mint_contract = contract_info["mint_contract"]
+    context = contract_info["context"]
+    administrador = contract_info["administrador"]
+    spend_address = contract_info["spend_address"]
+    parent_mint_policyID = contract_info["parent_mint_policyID"]
+    utxo_to_spend = contract_info["utxo_to_spend"]
 
     tx_builder = py.TransactionBuilder(context)
+
     tx_builder.add_input(utxo_to_spend)
 
     signatures = []
-    signatures.append(py.VerificationKeyHash(bytes(master.address.payment_part)))
 
     redeemer = pydantic_schemas.RedeemerMint()
-    tx_builder.add_minting_script(script=plutus_contract.contract, redeemer=py.Redeemer(redeemer))
-    multi_asset = build_multiAsset(plutus_contract.policy_id, tokenName, tokenQ)
+    signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
+
+    tx_builder.add_minting_script(script=mint_contract.contract, redeemer=py.Redeemer(redeemer))
+    multi_asset = build_multiAsset(parent_mint_policyID, tokenName, tokenQ)
     tx_builder.mint = multi_asset
     tx_builder.required_signers = signatures
 
     must_before_slot = py.InvalidHereAfter(context.last_block_slot + 10000)
     # Since an InvalidHereAfter
     tx_builder.ttl = must_before_slot.after
-    pkh = binascii.hexlify(beneficiary.pkh.payload).decode('utf-8')
+    pkh = binascii.hexlify(administrador.pkh.payload).decode('utf-8')
     datum = build_datum(pkh, price)
 
 
-    min_val = min_value(context, master.address, multi_asset, datum)
-    # min_val = py.min_lovelace(
-    #     context, output=py.TransactionOutput(master.address, py.Value(0, multi_asset), datum=datum)
-    # )
-    if not destin:
-        tx_builder.add_output(py.TransactionOutput(master.address, py.Value(min_val, multi_asset), datum=datum))
-        assert master.balance().multi_asset == multi_asset, "Multi asset not found in expected utxo"
-    else:
-        spected_tx_output = py.TransactionOutput(destin, py.Value(min_val, multi_asset), datum=datum)
-        tx_builder.add_output(spected_tx_output, datum=datum)
+    min_val = min_value(context, administrador.address, multi_asset, datum)
+    
+    spected_tx_output = py.TransactionOutput(spend_address, py.Value(min_val, multi_asset), datum=datum)
+    tx_builder.add_output(spected_tx_output)
 
-    tx = tx_builder.build_and_sign([master.signing_key], change_address=master.address)
-    context.submit_tx(tx)
+    tx = tx_builder.build_and_sign([administrador.signing_key], change_address=administrador.address)
     new_context = context
-    utxos_at_spend = context._utxos(destin.encode())
-    assert utxos_at_spend[0].output == spected_tx_output, "Problems creating the transaction"
+    if isinstance(context, MockChainContext):
+        context.submit_tx(tx)
+        utxos_at_spend = context._utxos(spend_address.encode())
+        assert utxos_at_spend[0].output == spected_tx_output, "Problems creating the transaction"
+    else:
+        #TODO: Check what to do with the result of the evaluation
+        result = context.evaluate_tx(tx)
+        context.submit_tx(tx)
+
+        logging.info(f"New tokens created and locked at: {spend_address}")
 
     return new_context
 
 def test_unlock(
-        plutus_contract: PlutusContract, 
-        context: MockChainContext, 
-        buyer: MockUser,
-        tokenName: str, 
-        buyQ: int,
-        price: int,
-        beneficiary: MockUser) -> MockChainContext:
+    contract_info: dict,
+    tokenName: str, 
+    buyQ: int,
+    price: int,
+    redeemer: str) -> py.Transaction:
+
+    context = contract_info["context"]
+    administrador = contract_info["administrador"]
+    spend_address = contract_info["spend_address"]
+    spend_contract = contract_info["spend_contract"]
+    parent_mint_policyID = contract_info["parent_mint_policyID"]
+    propietario = contract_info["propietario"]
     
     tx_builder = py.TransactionBuilder(context)
     # MultiAsset to trade
-    multi_asset = build_multiAsset(plutus_contract.policy_id, tokenName, buyQ)
-
-    # Build Transaction Output to buyer
-    datum = None
-    min_val = min_value(context, buyer.address, multi_asset=py.MultiAsset(), datum=datum)
-    tx_builder.add_output(py.TransactionOutput(buyer.address, py.Value(min_val, multi_asset), datum=datum))
-    
-    # Build Transaction Output to beneficiary
-    # same min val can be taken
-    tx_builder.add_output(py.TransactionOutput(beneficiary.address, py.Value(price, multi_asset), datum=datum))
-    
-    # Build Transaction Output to contract
-    pkh = binascii.hexlify(beneficiary.pkh.payload).decode('utf-8')
-    datum = build_datum(pkh, price)
-    min_val = min_value(context, plutus_contract.testnet_addr, multi_asset=multi_asset, datum=datum)
-    tx_builder.add_output(py.TransactionOutput(buyer.address, py.Value(min_val, multi_asset), datum=datum))
+    multi_asset_buy = build_multiAsset(parent_mint_policyID, tokenName, buyQ)
 
     # Build redeemer
-    redeemer = pydantic_schemas.RedeemerBuy()
+    if redeemer == "buy":
+        redeemer = pydantic_schemas.RedeemerBuy()
+    else:
+        redeemer = pydantic_schemas.RedeemerUnlist()
     # Find the utxo at the contract
-    spend_utxo = find_utxos_with_tokens(context, plutus_contract.testnet_addr, multi_asset=multi_asset)
+    spend_utxo = find_utxos_with_tokens(context, spend_address, multi_asset=multi_asset_buy)
+    # Build Transaction Output to contract
+    pkh = binascii.hexlify(administrador.pkh.payload).decode('utf-8')
+    pkh = "e3c1e994723d3213efa96527a1099958465576763db3b3b479054daa"
+    datum = build_datum(pkh, price)
     tx_builder.add_script_input(
         spend_utxo,
-        plutus_contract.contract,
-        redeemer=py.Redeemer(redeemer),
+        spend_contract.contract,
+        redeemer=py.Redeemer(redeemer)
         )
+
+    # Add input address to pay fees. This is the buyer address
+    tx_builder.add_input_address(propietario.address)
     
-    tx = tx_builder.build_and_sign([buyer.signing_key], change_address=buyer.address)
-    context.submit_tx(tx)
+    # Build Transaction Output to buyer
+    min_val = min_value(context, propietario.address, multi_asset=multi_asset_buy)
+    tx_builder.add_output(py.TransactionOutput(propietario.address, py.Value(min_val, multi_asset_buy)))
+    
+    # Build Transaction Output to beneficiary
+    # tx_builder.add_output(py.TransactionOutput(administrador.address, py.Value(20_000_000)))
+    tx_builder.add_output(py.TransactionOutput("addr_test1qr3ur6v5wg7nyyl049jj0ggfn9vyv4tkwc7m8va50yz5m2hrc85egu3axgf7l2t9y7ssnx2cge2hva3akwemg7g9fk4qw77gs9", py.Value(20_000_000)))
+    
+    # Calculate the change of tokens back to the contract
+    balance = spend_utxo.output.amount.multi_asset.data.get(py.ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}).get(py.AssetName(bytes(tokenName, encoding="utf-8")), {b"":0})
+    new_token_balance = balance - buyQ
+    assert new_token_balance >= 0, "No tokens found in script address"
+    if new_token_balance > 0:
+        multi_asset_return = build_multiAsset(parent_mint_policyID, tokenName, new_token_balance)
+        min_val = min_value(context, spend_address, multi_asset=multi_asset_return, datum=datum)
+        spected_tx_output = py.TransactionOutput(spend_address, py.Value(min_val, multi_asset_return), datum=datum)
+        tx_builder.add_output(spected_tx_output)
+
+    # tx_body = tx_builder.build(change_address=propietario.address)
+    tx_signed = tx_builder.build_and_sign([propietario.signing_key], change_address=propietario.address)
+
+    # Save the transaction
+
+    
+    # new_context = context
+
+    # if isinstance(context, MockChainContext):
+    
+    #     context.submit_tx(tx)
+    #     utxos_at_spend = context._utxos(spend_address.encode())
+    #     logging.info(f"Buyer: {propietario.balance()}")
+    #     logging.info(f"Beneficiary: {administrador.balance()}")
+    #     logging.info(f"Spend script: {spected_tx_output}")
+    #     assert utxos_at_spend[0].output == spected_tx_output, "Problems creating the transaction"
+    # else:
+    #     pass
+    #     # result = context.evaluate_tx(tx)
+        
+    #     # context.submit_tx(tx)
+
+    return tx_signed
+
+def test_burn(
+    contract_info: dict,
+    tokenName: str, 
+    burnQ: int) -> MockChainContext:
+
+    context = contract_info["context"]
+    mint_contract = contract_info["mint_contract"]
+    parent_mint_policyID = contract_info["parent_mint_policyID"]
+    propietario = contract_info["propietario"]
+    administrador = contract_info["administrador"]
+    
+    tx_builder = py.TransactionBuilder(context)
+    signatures = []
+    signatures.append(py.VerificationKeyHash(bytes(propietario.address.payment_part)))
+    signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
+    # Build redeemer
+    redeemer = pydantic_schemas.RedeemerBurn()
+    tx_builder.add_minting_script(script=mint_contract.contract, redeemer=py.Redeemer(redeemer))
+    # MultiAsset to trade
+    multi_asset = build_multiAsset(parent_mint_policyID, tokenName, -burnQ)
+    burn_utxo = find_utxos_with_tokens(context, propietario.address, multi_asset=multi_asset)
+    tx_builder.add_input(burn_utxo)
+    multi_asset_burn = build_multiAsset(parent_mint_policyID, tokenName, burnQ)
+    tx_builder.mint = multi_asset_burn
+    tx_builder.required_signers = signatures
+
+    # Add input address to pay fees. This is the buyer address
+    tx_builder.add_input_address(propietario.address)
+
+    tx = tx_builder.build_and_sign([propietario.signing_key, administrador.signing_key], change_address=propietario.address)
     new_context = context
-    utxos_at_spend = context._utxos(plutus_contract.testnet_addr.encode())
-    # assert utxos_at_spend[0].output == spected_tx_output, "Problems creating the transaction"
+
+    if isinstance(context, MockChainContext):
+    
+        context.submit_tx(tx)
+        logging.info(f"Buyer: {propietario.balance()}")
+    else:
+        result = context.evaluate_tx(tx)
+        context.submit_tx(tx)
+
 
     return new_context
 
-# def unlock(context: MockChainContext, u1: MockUser, u3: MockUser, redeemer):
-#     scriptUtxo = context.utxos(script_address)[0]
-#     tx_builder = py.TransactionBuilder(context)
+def test_confirm_and_submit(transaction_dir: Path):
 
-#     # burn_utxo = None
-#     # def f(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
-#     #     return pi == py.ScriptHash(bytes.fromhex("2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f")) and an.payload == token_name and a >= 1
-#     # for utxo in context.utxos(u3.address):
-#     #     if utxo.output.amount.multi_asset.count(f):
-#     #         burn_utxo = utxo
-#     # assert burn_utxo, "UTxO containing token not found!"
-#     # tx_builder.reference_inputs.add(burn_utxo)
-#     # nft_multiasset = py.MultiAsset.from_primitive({bytes.fromhex("2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f"): {token_name: 1}})
-#     # reference_input = py.UTxO(
-#     #     py.TransactionInput(
-#     #         transaction_id=py.TransactionId(bytes.fromhex("a841120bcfa9b59477338fd4a540e35eb758725bfaa194b0b9fc101d1b4a2edf")),
-#     #         index = 0
-#     #     ),
-#     #     py.TransactionOutput(
-#     #         address=py.Address.from_primitive("addr_test1wzkfdtd5k5t3ggcsz22yj6r5cwtxa8x9vzs0qyz00x9y2ngra8aqg"),
-#     #         amount=py.Value(0, nft_multiasset),
-#     #         datum=datum
-#     #     ),
-#     # )
-#     # tx_builder.reference_inputs.add(reference_input)
-#     tx_builder.add_input_address(u1.address)
-#     tx_builder.add_script_input(
-#         scriptUtxo,
-#         redeemer=py.Redeemer(inversionista.Buy()),
-#         script=plutus_script
-#     )
-#     destionation_address = py.Address(py.VerificationKeyHash(bytes.fromhex("96be4512d3162d6752a86a19ec8ea28d497aceafad8cd6fc3152cad6")), network=py.Network.TESTNET)
-#     tx_builder.add_output(
-#         py.TransactionOutput(destionation_address, amount=10000000)
-#     )
-#     tx_builder.add_output(
-#         py.TransactionOutput(destionation_address, amount=2000000)
-#     )
-#     # tx_builder.validity_start = context.last_block_slot
-#     # tx_builder.ttl = tx_builder.validity_start + 1
-#     # tx_builder.required_signers()
-#     signatures = []
-#     signatures.append(py.VerificationKeyHash(bytes.fromhex("96be4512d3162d6752a86a19ec8ea28d497aceafad8cd6fc3152cad6")))
-#     tx_builder.required_signers = signatures
+    with open(transaction_dir, "r") as file:
+        tx = json.load(file)
+    cbor = bytes.fromhex(tx["cborHex"])
+    chain_context = CardanoNetwork().get_chain_context()
+    chain_context.submit_tx(cbor)
 
-#     tx = tx_builder.build_and_sign([u1.signing_key], change_address=u1.address)
-#     # context.submit_tx(tx)
-#     return context
+    os.remove(transaction_dir)
 
 
+ROOT = Path(__file__).resolve().parent.parent
 
-def test_inversionista():
+def build_contracts(toBC: bool, tokenName: str) -> dict:
 
-    ROOT = Path(__file__).resolve().parent.parent
-    # 1. Create the context and fund test wallets
-    context, master, beneficiary, buyer = deepcopy(setup_context())
+    # 1. Initialize general variables
+
+    base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/contracts")
+    contract_dir = base_dir / "project.py"
+
+    # 2. Create the context and fund test wallets in MockContext or Cardano
+
+    if toBC:
+        context = CardanoNetwork().get_chain_context()
+        administrador = setup_user(context, walletName="administrador")
+        propietario = setup_user(context, walletName="propietario")
+    else:
+        context, administrador, beneficiary, propietario = deepcopy(setup_context())
     
-    # 2. Build the mint contract
-    contract_dir = ROOT.joinpath("suantrazabilidadapi/.priv/contracts/project.py")
-    tokenName = "PROJECTTOKEN"
-    tokenQ = 100_000_000
-    price = 2_000_000
-    buyQ = 250_000
+    # 3. Build the mint contract and spend project contract
+    utxo_to_spend = None
+    if not Path(base_dir / "project").exists():
 
-    (plutus_contract, utxo_to_spend) = build_mintProjectToken(contract_dir, context, master, tokenName)
+        logging.info("Create new set of contracts")
 
-    mint_contract = create_contract(plutus_contract)
+        (plutus_contract, utxo_to_spend) = build_mintProjectToken(contract_dir, context, administrador, tokenName) 
 
+        mint_contract = create_contract(plutus_contract)
+
+        mint_contract.dump(base_dir / "project")
+
+        parent_mint_policyID = mint_contract.policy_id
+
+        contract_dir = base_dir / "inversionista.py"
+        plutus_contract = build_inversionista(contract_dir, parent_mint_policyID, tokenName)
+        # plutus_contract = build_inversionista(contract_dir)
+        # plutus_contract = build(contract_dir)
+
+        spend_contract = create_contract(plutus_contract)
+        spend_contract.dump(base_dir / "inversionista")
+
+    else:
+        logging.info("Recover the contracts from files")
+
+        with (base_dir / "project/script.cbor").open("r") as f:
+            cbor_hex = f.read()
+
+        cbor = bytes.fromhex(cbor_hex)
+        mint_contract = create_contract(py.PlutusV2Script(cbor))
+
+        with (base_dir / "inversionista/script.cbor").open("r") as f:
+            cbor_hex = f.read()
+
+        cbor = bytes.fromhex(cbor_hex)
+        spend_contract = create_contract(py.PlutusV2Script(cbor))
+        
     parent_mint_policyID = mint_contract.policy_id
-
-    # 2. Build the spend project contract
-    contracts_dir = ROOT.joinpath("suantrazabilidadapi/.priv/contracts/inversionista.py")
-    plutus_contract = build_inversionista(contract_dir, parent_mint_policyID, tokenName)
-
-    spend_contract = create_contract(plutus_contract)
 
     spend_address = spend_contract.testnet_addr
 
-    context = test_mint_lock(mint_contract, utxo_to_spend, context, master, tokenName, tokenQ, price, beneficiary, spend_address)
+    contract_info = {
+        "context": context, 
+        "mint_contract": mint_contract,
+        "spend_contract": spend_contract,
+        "parent_mint_policyID": parent_mint_policyID,
+        "spend_address": spend_address,
+        "administrador": administrador,
+        "propietario": propietario,
+        "utxo_to_spend": utxo_to_spend
+    }
 
-    context = test_unlock(spend_contract, context, buyer, tokenName, buyQ, price, beneficiary)
+    return contract_info
 
-
-
-    context.wait(1000)
-
-    # context = unlock(context, u1, u3, inversionista.Buy())
-
+        # context.wait(1000)
 
 if __name__ == "__main__":
-    # test_gift_contract()
-    test_inversionista()
 
-# def test_negative():
-#     deadline_slot = 1000
-#     redeemer_data = -1
-#     context, u1, u2 = deepcopy(setup_context())
-#     context = lock(context, u1, deadline_slot)
-#     context.wait(1000)
-#     unlock(context, u2, redeemer_data)
+    tokenName = "PROJECTtOKEN"
+    tokenQ = 100
+    price = 1000
+    buyQ = 70
+    burnQ = -70
+
+    exists = False
+
+    contracts_info = build_contracts(toBC=True, tokenName=tokenName)
+    
+    if contracts_info["utxo_to_spend"]:
+        context = test_mint_lock(contracts_info, tokenName, tokenQ, price)
+        # TODO: confirm transaction
+
+    redeemer = "buy"
+
+    tx_signed = test_unlock(contracts_info, tokenName, buyQ, price, redeemer)
+
+    logging.info(
+            "fee %s ADA",
+            int(tx_signed.transaction_body.fee) / 1000000,
+        )
+    logging.info(
+        "output %s ADA",
+        int(tx_signed.transaction_body.outputs[0].amount.coin) / 1000000,
+    )
+
+    base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/transactions")
+    transaction_dir = base_dir / f"{str(tx_signed.id)}.signed"
+    save_transaction(tx_signed, transaction_dir)
+
+    test_confirm_and_submit(transaction_dir)
+
+
+
+
+    context = test_burn(contracts_info, tokenName, burnQ)
+
 
 

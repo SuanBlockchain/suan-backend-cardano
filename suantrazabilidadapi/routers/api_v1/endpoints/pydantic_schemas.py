@@ -139,7 +139,7 @@ class RedeemerBurn(PlutusData):
 @dataclass
 class DatumProjectParams(PlutusData):
     CONSTR_ID = 0
-    beneficiary: Address
+    beneficiary: bytes
     price: int
 
 @dataclass

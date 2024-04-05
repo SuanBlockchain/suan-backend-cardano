@@ -140,7 +140,7 @@ async def getScript(script_type: pydantic_schemas.contractCommandName, query_par
 summary="From parameters build and create the smart contract",
     response_description="script details")
 
-async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wallet_id: str, tokenName: str = "", save_flag: bool = True, parent_policy_id: Optional[str] = None, project_id: Optional[str] = None) -> dict:
+async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wallet_id: str, tokenName: str = "", save_flag: bool = True, parent_policy_id: str = "", project_id: Optional[str] = None) -> dict:
 
     """From parameters build a smart contract
     """
@@ -227,7 +227,7 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
                         "script_type": script_type,
                         "Active": True,
                         "token_name": tokenName,
-
+                        "scriptParentID": parent_policy_id if parent_policy_id != "" else policy_id
                     }
                     # Check if project_id was provided
                     if script_type != "mintSuanCO2" and not project_id:

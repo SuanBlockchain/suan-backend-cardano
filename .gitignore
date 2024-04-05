@@ -169,7 +169,6 @@ other.md
 
 suantrazabilidadapi/kobo.json
 files/
-.priv
 temp.py
 temp_pycardano.py
 suantrazabilidadapi/policy.id
@@ -179,3 +178,5 @@ datosapi/app/basic_info/department.json
 suantrazabilidadapi/Untitled-1.json
 tests/transaction_test.py
 mint.py
+.priv
+# !.priv/contracts/*

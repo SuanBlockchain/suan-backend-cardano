@@ -2,6 +2,11 @@ import os
 import pathlib
 from pycardano import Network
 import importlib
+from pycardano import Transaction
+
+import logging
+import json
+from typing import Final
 
 # from suantrazabilidadapi.core.config import config
 
@@ -27,6 +32,25 @@ def is_valid_hex_string(s: str) -> bool:
     except ValueError:
         return False
     
-def remove_file(path: str, name: str) -> None:
-    if os.path.exists(path+name):
-        os.remove(path+name)
+def remove_file(path: str) -> None:
+    if os.path.exists(path):
+        os.remove(path)
+    
+
+# Transaction template.
+tx_template: Final[dict] = {
+    "type": "Witnessed Tx BabbageEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "",
+}
+def save_transaction(trans: Transaction, file: str):
+    """Save transaction helper function saves a Tx object to file."""
+    logging.info(
+        "saving Tx to: %s , inspect with: 'cardano-cli transaction view --tx-file %s'",
+        file,
+        file,
+    )
+    tx = tx_template.copy()
+    tx["cborHex"] = trans.to_cbor().hex()
+    with open(file, "w", encoding="utf-8") as tf:
+        tf.write(json.dumps(tx, indent=4))

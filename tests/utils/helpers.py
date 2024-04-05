@@ -1,14 +1,20 @@
 from opshin.builder import build, PlutusContract
 from pathlib import Path
 from opshin.prelude import *
-from typing import Optional
+from typing import Optional, Final
 
 import logging
 import pycardano as py
+import json
 
 from utils.mock import MockChainContext, MockUser
 
-
+# Transaction template.
+tx_template: Final[dict] = {
+    "type": "Witnessed Tx BabbageEra",
+    "description": "Ledger Cddl Format",
+    "cborHex": "",
+}
 
 def build_mintProjectToken(contract_dir: Path, context: MockChainContext, master: MockUser, tokenName: str) -> tuple[py.PlutusV2Script, py.UTxO]:
     utxo_to_spend = None
@@ -33,46 +39,43 @@ def build_mintProjectToken(contract_dir: Path, context: MockChainContext, master
     return contract, utxo_to_spend
 
 def build_inversionista(contract_dir: Path, parent_mint_policyID: str, tokenName: str) -> py.PlutusV2Script:
+# def build_inversionista(contract_dir: Path) -> py.PlutusV2Script:
     tn_bytes = bytes(tokenName, encoding="utf-8")
     logging.info("Create contract with following parameters:")
     logging.info(f"Parent policy id from token mint contract : {parent_mint_policyID}")
     logging.info(f"token : {tokenName}")
     
+    # return build(contract_dir)
     return build(contract_dir, bytes.fromhex(parent_mint_policyID), tn_bytes)
 
-def find_utxos_with_tokens(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset) ->Union[list[py.UTxO], py.UTxO]:
-    #TODO: fix this part of the function
-    tokens_bytes = { bytes(tokenName, encoding="utf-8"): q for tokenName, q in multi_asset.items() }
-    #If burn, insert the utxo that contains the asset
-    for tn_bytes, amount in tokens_bytes.items():
-        candidate_utxo = None
-        candidate_utxo_list = []
-        for utxo in context.utxos(address.encode()):
-            def f(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
-                return pi == py.script_hash and an.payload == tn_bytes and a >= -amount
-            if utxo.output.amount.multi_asset.count(f):
-                candidate_utxo = utxo
+def find_utxos_with_tokens(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset) -> py.UTxO:
+    for policy_id, asset in multi_asset.data.items():
+        for tn_bytes, amount in asset.data.items():
 
-        if not candidate_utxo:
-            q = 0
             for utxo in context.utxos(address.encode()):
-                def f1(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
-                    return pi == py.script_hash and an.payload == tn_bytes
-                if utxo.output.amount.multi_asset.count(f1):
-                    candidate_utxo_list.append(utxo)
-                    union_multiasset = utxo.output.amount.multi_asset.data
-                    for asset in union_multiasset.values():
-                        q += int(list(asset.data.values())[0])
+                def f(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
+                    return pi == policy_id and an.payload == tn_bytes.payload and a >= amount
+                if utxo.output.amount.multi_asset.count(f):
+                    candidate_utxo = utxo
+                    break
             
-            if q < amount:
-                raise ValueError("UTxO containing token to burn not found!")
+            assert isinstance(candidate_utxo, py.UTxO), "Not enough tokens found in Utxo"
     
-    if candidate_utxo_list == []:
-        return candidate_utxo   
-    else:
-        candidate_utxo_list
+    return candidate_utxo
 
 def min_value(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset, datum: Optional[py.Datum] = None) -> int:
     return py.min_lovelace(
         context, output=py.TransactionOutput(address, py.Value(0, multi_asset), datum=datum)
     )
+
+def save_transaction(trans: py.Transaction, file: str):
+    """Save transaction helper function saves a Tx object to file."""
+    logging.info(
+        "saving Tx to: %s , inspect with: 'cardano-cli transaction view --tx-file %s'",
+        file,
+        file,
+    )
+    tx = tx_template.copy()
+    tx["cborHex"] = trans.to_cbor().hex()
+    with open(file, "w", encoding="utf-8") as tf:
+        tf.write(json.dumps(tx, indent=4))

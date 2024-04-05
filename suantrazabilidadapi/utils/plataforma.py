@@ -9,7 +9,7 @@ import boto3
 import logging
 import pathlib
 
-from pycardano import TransactionBody, MultiAsset, Asset, AssetName, ScriptHash
+from pycardano import TransactionBody, MultiAsset, Asset, AssetName, ScriptHash, ChainContext, Address, UTxO
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
@@ -373,23 +373,49 @@ class CardanoApi(Constants):
         return status_response
     
 @dataclass()
-class Helpers():
+class Helpers:
 
     def __post_init__(self):
         pass
 
-    def makeMultiAsset(self, addressesDestin: list[pydantic_schemas.AddressDestin]) -> Optional[MultiAsset]:
+    def makeMultiAsset(self, addressesDestin: pydantic_schemas.AddressDestin) -> Optional[MultiAsset]:
         multi_asset = None
         if addressesDestin:
-
-            for address in addressesDestin:
-                multi_asset = MultiAsset()
-                if address.multiAsset:
-                    for asset in address.multiAsset:
-                        policy_id = asset.policyid
-                        my_asset = Asset()
-                        for name, quantity in asset.tokens.items():
-                            my_asset.data.update({AssetName(name.encode()): quantity})
-                        multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
+            multi_asset = MultiAsset()
+            if addressesDestin.multiAsset:
+                for asset in addressesDestin.multiAsset:
+                    policy_id = asset.policyid
+                    my_asset = Asset()
+                    for name, quantity in asset.tokens.items():
+                        my_asset.data.update({AssetName(name.encode()): quantity})
+                    multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
 
         return multi_asset
+
+    def build_datum(self, pkh: str, price: int) -> pydantic_schemas.DatumProjectParams:
+
+        datum = pydantic_schemas.DatumProjectParams(
+            beneficiary=bytes.fromhex(pkh),
+            price= price
+        )
+        return datum
+    
+    def find_utxos_with_tokens(self, context: ChainContext, address: Union[Address, str], multi_asset: MultiAsset) -> Union[UTxO, None]:
+        candidate_utxo = None
+        if isinstance(address, Address):
+            address = address.encode()
+        
+        # TODO: acummulate utxos with tokens when there's more than one utxo and the request cannot be fulfill with just one
+        for policy_id, asset in multi_asset.data.items():
+            for tn_bytes, amount in asset.data.items():
+
+                for utxo in context.utxos(address):
+                    def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
+                        return pi == policy_id and an.payload == tn_bytes.payload and a >= amount
+                    if utxo.output.amount.multi_asset.count(f):
+                        candidate_utxo = utxo
+                        break
+                
+                assert isinstance(candidate_utxo, UTxO), "Not enough tokens found in Utxo"
+        
+        return candidate_utxo

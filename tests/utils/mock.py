@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Union
+from dataclasses import dataclass, field
 
 from pycardano import (
     Address,
@@ -35,6 +36,7 @@ from utils.tx_tools import (
     generate_script_contexts_resolved,
     ScriptInvocation,
 )
+from suantrazabilidadapi.utils.blockchain import Keys
 
 
 ValidatorType = Callable[[Any, Any, Any], Any]
@@ -196,32 +198,50 @@ class MockChainContext(ChainContext):
             posix - self.genesis_param.system_start
         ) // self.genesis_param.slot_length
 
-
+@dataclass
 class MockUser:
-    def __init__(self, context: MockChainContext):
-        self.context = context
-        self.signing_key = PaymentSigningKey.generate()
-        self.verification_key = PaymentVerificationKey.from_signing_key(
-            self.signing_key
-        )
-        self.pkh = self.verification_key.hash()
+    context: Union[MockChainContext, ChainContext] = field(init=True)
+    walletName: str = field(init=True)
+    def __post_init__(self):
         self.network = Network.TESTNET
+        if isinstance(self.context, MockChainContext):
+            # self.context = context
+            self.signing_key = PaymentSigningKey.generate()
+            self.verification_key = PaymentVerificationKey.from_signing_key(
+                self.signing_key
+            )
+            self.pkh = self.verification_key.hash()
+            self.address = Address(
+                payment_part=self.verification_key.hash(), network=self.network
+            )
+        else:
+            mnemonics, skey, vkey, address, pkh = Keys().load_or_create_key_pair(self.walletName)
+
+            self.signing_key = skey
+            self.verification_key = vkey
+            # self.pkh = pkh
+        self.pkh = self.verification_key.hash()
         self.address = Address(
             payment_part=self.verification_key.hash(), network=self.network
         )
 
     def fund(self, amount: Union[int, Value]):
-        if isinstance(amount, int):
-            value = Value(coin=amount)
+        if isinstance(self.context, MockChainContext):
+            if isinstance(amount, int):
+                value = Value(coin=amount)
+            else:
+                value = amount
+            self.context.add_utxo(
+                # not sure what the correct genesis transaction is
+                UTxO(
+                    TransactionInput(TransactionId(self.verification_key.payload), 0),
+                    TransactionOutput(self.address, value),
+                ),
+            )
         else:
-            value = amount
-        self.context.add_utxo(
-            # not sure what the correct genesis transaction is
-            UTxO(
-                TransactionInput(TransactionId(self.verification_key.payload), 0),
-                TransactionOutput(self.address, value),
-            ),
-        )
+            pass
+
+
 
     # def special_fund(self, amount: Union[int, Value]):
     #     datum = inversionista.DatumProjectParams(

@@ -2,10 +2,11 @@ from fastapi import APIRouter, HTTPException
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi, Helpers
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
-from suantrazabilidadapi.utils.generic import Constants
+from suantrazabilidadapi.utils.generic import Constants, save_transaction, remove_file
 
 from typing import Union, Optional
 import logging
+import json
 
 from pycardano import (
     TransactionBuilder, 
@@ -35,7 +36,7 @@ from pycardano import (
     ScriptPubkey,
     ScriptAll,
     Datum,
-    UTxO
+    UTxO,
 )
 import opshin.prelude as oprelude
 
@@ -390,7 +391,7 @@ async def minLovelace(addressDestin: pydantic_schemas.AddressDestin) -> int:
     try:
         address = addressDestin.address
         # Get Multiassets
-        multiAsset = Helpers().makeMultiAsset([addressDestin])
+        multiAsset = Helpers().makeMultiAsset(addressDestin)
         # Create Value type
         amount = Value(addressDestin.lovelace, multiAsset)
         if datum:
@@ -574,26 +575,13 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
 
                 if send.addresses:
                     for address in send.addresses:
-                        multi_asset = MultiAsset()
-                        if address.multiAsset:
-                            for item in address.multiAsset:
-                                my_asset = Asset()
-                                for name, quantity in item.tokens.items():
-                                    my_asset.data.update({AssetName(bytes(name, encoding="utf-8")): quantity})
-                                
-                                multi_asset[ScriptHash(bytes.fromhex(item.policyid))] = my_asset
+                        multi_asset = Helpers().makeMultiAsset(addressesDestin=address)
                         
                         multi_asset_value = Value(0, multi_asset)
 
                         datum = None
                         if address.datum:
-                                datum = pydantic_schemas.DatumProjectParams(
-                                    beneficiary=oprelude.Address(
-                                        payment_credential=oprelude.PubKeyCredential(bytes.fromhex(address.datum.beneficiary)),
-                                        staking_credential=oprelude.NoStakingCredential()
-                                    ),
-                                    price= address.datum.price
-                                )
+                                datum = Helpers().build_datum(pkh=address.datum.beneficiary, price=address.datum.price)
                         # Calculate the minimum amount of lovelace that need to be transfered in the utxo  
                         min_val = min_lovelace(
                             chain_context, output=TransactionOutput(Address.decode(address.address), multi_asset_value, datum=datum)
@@ -619,13 +607,16 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                 payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
 
                 signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=master_address)
+                
+                base_dir = Constants.PROJECT_ROOT.joinpath(".priv/transactions")
+                transaction_dir = base_dir / f"{str(signed_tx.id)}.signed"
+                save_transaction(signed_tx, transaction_dir)
 
-                chain_context.submit_tx(signed_tx)
+                # chain_context.submit_tx(signed_tx)
 
                 logging.info(f"transaction id: {signed_tx.id}")
                 logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")
 
-                # build_body = builder.build(change_address=address.address, merge_change=True)
                 build_body = signed_tx.transaction_body
 
                 # Processing the tx body
@@ -645,8 +636,7 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                     "cbor": str(signed_tx.to_cbor_hex()),
                     "utxos_info": utxo_list_info,
                     "tx_size": len(build_body.to_cbor()),
-                    "tx_id": str(signed_tx.id),
-                    "cardanoScan": f"https://preview.cardanoscan.io/transaction/{signed_tx.id}"
+                    "tx_id": str(signed_tx.id)
                 }
         else:
 
@@ -722,35 +712,57 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
+                # Get the contract address and cbor from policyId
+                        
+                r = Plataforma().getScript("id", claim.spendPolicyId)
+                if r["success"] == True:
+                    contractInfo = r["data"]["data"]["getScript"]
+                    if contractInfo is None:
+                        raise ValueError(f'Contract with id: {claim.spendPolicyId} does not exist in DynamoDB')
+                    else:
+                        testnet_address = contractInfo.get("testnetAddr", None)
+                        cbor_hex = contractInfo.get("cbor", None)
+                        parent_mint_policyID = contractInfo.get("scriptParentID", None)
+                        tokenName = contractInfo.get("token_name", None)
+
                 if claim.metadata is not None and claim.metadata != []:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
 
                     auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [claim.metadata]}})))
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
-
+                quantity_request = 0
                 addresses = claim.addresses
                 for address in addresses:
-                    multi_asset = MultiAsset()
-                    if address.multiAsset:
-                        for item in address.multiAsset:
-                            my_asset = Asset()
-                            for name, quantity in item.tokens.items():
-                                my_asset.data.update({AssetName(bytes(name, encoding="utf-8")): quantity})
+                    multi_asset = Helpers().makeMultiAsset(address)
+                    if multi_asset:
+                        quantity = multi_asset.data.get(ScriptHash(bytes.fromhex(parent_mint_policyID)), 0).data.get(AssetName(bytes(tokenName, encoding="utf-8")), 0)
+                        if quantity > 0:
+                            quantity_request += quantity
+                        #     multi_asset.data.get(parent_mint_policyID, None).data.get(tokenName, None)
+                        # for item in multi_asset:
+                        #     for name, quantity in item.tokens.items():
+                        #         if parent_mint_policyID == item.policyid and name == tokenName:
+                        #             quantity_request += quantity
+                    # multi_asset = MultiAsset()
+                    # if address.multiAsset:
+                    #     for item in address.multiAsset:
+                    #         my_asset = Asset()
+                    #         for name, quantity in item.tokens.items():
+                    #             my_asset.data.update({AssetName(bytes(name, encoding="utf-8")): quantity})
+
+                    #             if parent_mint_policyID == item.policyid:
+                    #                 quantity_request += quantity
                             
-                            multi_asset[ScriptHash(bytes.fromhex(item.policyid))] = my_asset
+                    #         multi_asset[ScriptHash(bytes.fromhex(item.policyid))] = my_asset
+
+                            # candidate_utxo = Helpers().find_utxos_with_tokens(chain_context, testnet_address, multi_asset)
                                 
                     multi_asset_value = Value(0, multi_asset)
 
                     datum = None
                     if address.datum:
-                            datum = pydantic_schemas.DatumProjectParams(
-                                beneficiary=oprelude.Address(
-                                    payment_credential=oprelude.PubKeyCredential(bytes.fromhex(address.datum.beneficiary)),
-                                    staking_credential=oprelude.NoStakingCredential()
-                                ),
-                                price= address.datum.price
-                            )
+                        datum = Helpers().build_datum(pkh=address.datum.beneficiary, price=address.datum.price)
 
                     # Calculate the minimum amount of lovelace that need to be transfered in the utxo  
                     min_val = min_lovelace(
@@ -768,19 +780,8 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
                     redeemer = pydantic_schemas.RedeemerUnlist()
                 else:
                     raise ValueError(f"Wrong redeemer")
-                
-                # Get the contract address and cbor from policyId
                         
-                r = Plataforma().getScript("id", claim.spendPolicyId)
-                if r["success"] == True:
-                    contractInfo = r["data"]["data"]["getScript"]
-                    if contractInfo is None:
-                        raise ValueError(f'Contract with id: {claim.spendPolicyId} does not exist in DynamoDB')
-                    else:
-                        testnet_address = contractInfo.get("testnetAddr", None)
-                        cbor_hex = contractInfo.get("cbor", None)
-                        
-                # Get input utxo
+                # Get script utxo to spend where tokens are located
                 utxo_from_contract = None
                 for utxo in chain_context.utxos(testnet_address):
                     if utxo.output.amount.coin >= 1_000_000:
@@ -788,6 +789,12 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
                         break
                 assert utxo_from_contract is not None, "UTxO not found to spend!"
                 logging.info(f"Found utxo to spend: {utxo_from_contract.input.transaction_id} and index: {utxo_from_contract.input.index}")
+
+                # Calculate the change of tokens back to the contract
+                balance = utxo_from_contract.output.amount.multi_asset.data.get(ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}).get(AssetName(bytes(tokenName, encoding="utf-8")), {b"":0})
+                new_token_balance = balance - quantity_request
+                if new_token_balance < 0:
+                    raise ValueError(f"Not enough tokens found in script address")
 
                 cbor = bytes.fromhex(cbor_hex)
                 plutus_script = PlutusV2Script(cbor)
@@ -809,10 +816,13 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
 
                 signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=user_address)
                 
-                chain_context.submit_tx(signed_tx)
+                base_dir = Constants.PROJECT_ROOT.joinpath(".priv/transactions")
+                transaction_dir = base_dir / f"{str(signed_tx.id)}.signed"
+                save_transaction(signed_tx, transaction_dir)
+                # chain_context.submit_tx(signed_tx)
 
-                logging.info(f"transaction id: {signed_tx.id}")
-                logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")
+                # logging.info(f"transaction id: {signed_tx.id}")
+                # logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")
                 
                 build_body = signed_tx.transaction_body
 
@@ -833,8 +843,7 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
                     "cbor": str(build_body.to_cbor_hex()),
                     "utxos_info": utxo_list_info,
                     "tx_size": len(build_body.to_cbor()),
-                    "tx_id": str(signed_tx.id),
-                    "cardanoScan": f"https://preview.cardanoscan.io/transaction/{signed_tx.id}"
+                    "tx_id": str(signed_tx.id)
                 }
         else:
 
@@ -857,3 +866,39 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post(
+    "/confirm-submit/",
+    status_code=201,
+    summary="Confirm and submit transaction in cborhex format",
+    response_description="Response with transaction details and in cborhex format",
+    # response_model=List[str],
+)
+
+async def confirmSubmit(confirm: bool, tx_id: str) -> dict:
+    try:
+        if confirm:
+            base_dir = Constants.PROJECT_ROOT.joinpath(".priv/transactions")
+            transaction_dir = base_dir / f"{tx_id}.signed"
+            with open(transaction_dir, "r") as file:
+                tx = json.load(file)
+            cbor = bytes.fromhex(tx["cborHex"])
+            chain_context = CardanoNetwork().get_chain_context()
+            chain_context.submit_tx(cbor)
+
+            final_response = {
+                "success": True,
+                "msg": "Tx submitted to the blockchain",
+                "tx_id": tx_id,
+                "cardanoScan": f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}"
+            }
+        else:
+            final_response = {
+                "success": False,
+                "msg": "Error submitting the transaction",
+            }
+    
+        remove_file(transaction_dir)
+
+        return final_response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

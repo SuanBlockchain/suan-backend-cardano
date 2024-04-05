@@ -14,7 +14,7 @@ class Keys(Constants):
     def __post_init__(self):
         self.FULL_KEY_DIR = self.PROJECT_ROOT.joinpath(self.KEY_DIR)
     
-    def load_or_create_key_pair(self, wallet_name: str, **kwargs):
+    def load_or_create_key_pair(self, wallet_name: str, **kwargs) -> tuple[str, ExtendedSigningKey, PaymentVerificationKey, Address, str]:
         """Load payment keys or create them if they don't exist"""
         path = self.FULL_KEY_DIR / f"{wallet_name}"
 
