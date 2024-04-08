@@ -392,7 +392,7 @@ class Helpers:
 
         return multi_asset
 
-    def build_datum(self, pkh: str, price: int) -> pydantic_schemas.DatumProjectParams:
+    def build_DatumProjectParams(self, pkh: str, price: int) -> pydantic_schemas.DatumProjectParams:
 
         datum = pydantic_schemas.DatumProjectParams(
             beneficiary=bytes.fromhex(pkh),

@@ -117,6 +117,19 @@ class SignSubmit(BaseModel):
     scriptCbor: Optional[str] = None
     metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
 
+class Index(BaseModel):
+    policy_id: str
+    token: str
+    price: int
+
+class Oracle(BaseModel):
+    data: List[Index] 
+    validity: POSIXTime
+
+class OracleAction(str, Enum):
+    create = "Create"
+    update = "Update"
+
 ############################
 # Contracts section definition
 ############################
@@ -141,6 +154,14 @@ class DatumProjectParams(PlutusData):
     CONSTR_ID = 0
     beneficiary: bytes
     price: int
+
+@dataclass 
+class DatumOracle(PlutusData):
+    CONSTR_ID = 0
+    value_dict: Dict[bytes, Anything]
+    identifier: bytes
+    validity: POSIXTime
+    # signature: bytes
 
 @dataclass
 class RedeemerBuy(PlutusData):

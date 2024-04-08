@@ -67,14 +67,13 @@ query listScripts {
       id
       name
       pbk
-      cbor
-      MainnetAddr
       Active
       productID
       script_category
       script_type
       testnetAddr
       token_name
+      scriptParentID
     }
   }
 }
