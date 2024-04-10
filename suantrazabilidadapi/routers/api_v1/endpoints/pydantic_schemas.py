@@ -153,12 +153,17 @@ class RedeemerBurn(PlutusData):
 class DatumProjectParams(PlutusData):
     CONSTR_ID = 0
     beneficiary: bytes
+
+@dataclass
+class TokenFeed(PlutusData):
+    CONSTR_ID = 0
+    tokenName: bytes
     price: int
 
 @dataclass 
 class DatumOracle(PlutusData):
     CONSTR_ID = 0
-    value_dict: Dict[bytes, Anything]
+    value_dict: Dict[bytes, TokenFeed]
     identifier: bytes
     validity: POSIXTime
     # signature: bytes

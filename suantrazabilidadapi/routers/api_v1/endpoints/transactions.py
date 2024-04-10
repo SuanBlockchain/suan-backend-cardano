@@ -119,7 +119,6 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                     else:
                         builder.add_output(TransactionOutput(Address.decode(address.address), Value(address.lovelace, multi_asset), datum=datum))
 
-                
                 build_body = builder.build(change_address=master_address, merge_change=True)
 
                 # Processing the tx body
@@ -582,7 +581,7 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
 
                         datum = None
                         if address.datum:
-                                datum = Helpers().build_DatumProjectParams(pkh=address.datum.beneficiary, price=address.datum.price)
+                                datum = Helpers().build_DatumProjectParams(pkh=address.datum.beneficiary)
                         # Calculate the minimum amount of lovelace that need to be transfered in the utxo  
                         min_val = min_lovelace(
                             chain_context, output=TransactionOutput(Address.decode(address.address), multi_asset_value, datum=datum)
@@ -736,7 +735,7 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
 
                     datum = None
                     if address.datum:
-                        datum = Helpers().build_DatumProjectParams(pkh=address.datum.beneficiary, price=address.datum.price)
+                        datum = Helpers().build_DatumProjectParams(pkh=address.datum.beneficiary)
 
                     # Calculate the minimum amount of lovelace that need to be transfered in the utxo  
                     min_val = min_lovelace(
@@ -793,11 +792,7 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
                 base_dir = Constants.PROJECT_ROOT.joinpath(".priv/transactions")
                 transaction_dir = base_dir / f"{str(signed_tx.id)}.signed"
                 save_transaction(signed_tx, transaction_dir)
-                # chain_context.submit_tx(signed_tx)
 
-                # logging.info(f"transaction id: {signed_tx.id}")
-                # logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")
-                
                 build_body = signed_tx.transaction_body
 
                 # Processing the tx body
@@ -947,6 +942,7 @@ async def oracleDatum(action: pydantic_schemas.OracleAction, wallet_id: str, ora
                 builder.mint = my_nft
                 # Set native script
                 builder.native_scripts = native_scripts
+                msg = f"{tokenName} minted to store oracle data info in datum for Suan"
             else:
                 nft_utxo = None
                 for utxo in chain_context.utxos(master_address):
@@ -956,14 +952,18 @@ async def oracleDatum(action: pydantic_schemas.OracleAction, wallet_id: str, ora
                         nft_utxo = utxo
                         
                         builder.add_input(nft_utxo)
+                
+                msg = "Oracle datum updated"
             # Build the inline datum
             precision = 14
             value_dict = {}
             for data in oracle_data.data:
-                policy_id = data.policy_id
-                token = data.token
-                price = data.price 
-                value_dict[bytes.fromhex(policy_id)] = {1: bytes(token, encoding="utf-8"), 2: price}
+                # policy_id = data.policy_id
+                token_feed = pydantic_schemas.TokenFeed(
+                    tokenName= bytes(data.token, encoding="utf-8"),
+                    price=data.price
+                )
+                value_dict[bytes.fromhex(data.policy_id)] = token_feed
             
             datum = pydantic_schemas.DatumOracle(
                 value_dict=value_dict,
@@ -986,7 +986,7 @@ async def oracleDatum(action: pydantic_schemas.OracleAction, wallet_id: str, ora
             ####################################################
             final_response = {
                     "success": True,
-                    "msg": f"{tokenName} minted to store oracle data info in datum for Suan",
+                    "msg": msg,
                     "tx_id": tx_id,
                     "cardanoScan": f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}"
                 }

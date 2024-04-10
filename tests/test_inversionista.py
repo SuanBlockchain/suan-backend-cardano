@@ -40,15 +40,11 @@ def buildContract(script_path: Path, token_policy_id: str, token_name: str) -> t
 
     return (script_hash, script_address)
 
-def build_datum(pkh: str, price: int) -> pydantic_schemas.DatumProjectParams:
+def build_datum(pkh: str) -> pydantic_schemas.DatumProjectParams:
 
     datum = pydantic_schemas.DatumProjectParams(
-        # beneficiary=Address(
-        #     payment_credential=PubKeyCredential(bytes.fromhex(pkh)),
-        #     staking_credential=NoStakingCredential()
-        # ),
-        beneficiary=bytes.fromhex(pkh),
-        price= price
+        # oracle_policy_id=bytes.fromhex(oracle_policy_id),
+        beneficiary=bytes.fromhex(pkh)
     )
     return datum
 
@@ -94,8 +90,7 @@ def create_contract(contract: py.PlutusV2Script) -> PlutusContract:
 def test_mint_lock(
         contract_info: dict,
         tokenName: str,
-        tokenQ: int,
-        price: int) -> MockChainContext:
+        tokenQ: int) -> MockChainContext:
 
 
     mint_contract = contract_info["mint_contract"]
@@ -123,7 +118,7 @@ def test_mint_lock(
     # Since an InvalidHereAfter
     tx_builder.ttl = must_before_slot.after
     pkh = binascii.hexlify(administrador.pkh.payload).decode('utf-8')
-    datum = build_datum(pkh, price)
+    datum = build_datum(pkh)
 
 
     min_val = min_value(context, administrador.address, multi_asset, datum)
@@ -150,7 +145,6 @@ def test_unlock(
     contract_info: dict,
     tokenName: str, 
     buyQ: int,
-    price: int,
     redeemer: str) -> py.Transaction:
 
     context = contract_info["context"]
@@ -171,10 +165,15 @@ def test_unlock(
         redeemer = pydantic_schemas.RedeemerUnlist()
     # Find the utxo at the contract
     spend_utxo = find_utxos_with_tokens(context, spend_address, multi_asset=multi_asset_buy)
+
+    oracle_asset = build_multiAsset("f74904d005a134a622ab52ddcf4bd206a5d5ac6ea19de7587bb8ebb2", "SuanOracle", 1)
+    oracle_address = py.Address.from_primitive("addr_test1qzjawhpa7860arp70znfdmsudqldsegvscvxamcn2rrkjc996awrmu05l6xru79xjmhpc6p7mpjsepscdmh3x5x8d9sqg8lag7")
+    oracle_utxo = find_utxos_with_tokens(context, oracle_address, multi_asset=oracle_asset)
+    tx_builder.reference_inputs.add(oracle_utxo)
     # Build Transaction Output to contract
     pkh = binascii.hexlify(administrador.pkh.payload).decode('utf-8')
-    pkh = "e3c1e994723d3213efa96527a1099958465576763db3b3b479054daa"
-    datum = build_datum(pkh, price)
+    pkh = "96be4512d3162d6752a86a19ec8ea28d497aceafad8cd6fc3152cad6"
+    datum = build_datum(pkh)
     tx_builder.add_script_input(
         spend_utxo,
         spend_contract.contract,
@@ -190,7 +189,7 @@ def test_unlock(
     
     # Build Transaction Output to beneficiary
     # tx_builder.add_output(py.TransactionOutput(administrador.address, py.Value(20_000_000)))
-    tx_builder.add_output(py.TransactionOutput("addr_test1qr3ur6v5wg7nyyl049jj0ggfn9vyv4tkwc7m8va50yz5m2hrc85egu3axgf7l2t9y7ssnx2cge2hva3akwemg7g9fk4qw77gs9", py.Value(20_000_000)))
+    tx_builder.add_output(py.TransactionOutput("addr_test1qzttu3gj6vtz6e6j4p4pnmyw52x5j7kw47kce4hux9fv445khez395ck94n492r2r8kgag5df9avatad3nt0cv2jettqxfwfwv", py.Value(20_000_000)))
     
     # Calculate the change of tokens back to the contract
     balance = spend_utxo.output.amount.multi_asset.data.get(py.ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}).get(py.AssetName(bytes(tokenName, encoding="utf-8")), {b"":0})
@@ -314,8 +313,6 @@ def build_contracts(toBC: bool, tokenName: str) -> dict:
 
         contract_dir = base_dir / "inversionista.py"
         plutus_contract = build_inversionista(contract_dir, parent_mint_policyID, tokenName)
-        # plutus_contract = build_inversionista(contract_dir)
-        # plutus_contract = build(contract_dir)
 
         spend_contract = create_contract(plutus_contract)
         spend_contract.dump(base_dir / "inversionista")
@@ -356,10 +353,10 @@ def build_contracts(toBC: bool, tokenName: str) -> dict:
 
 if __name__ == "__main__":
 
-    tokenName = "PROJECTtOKEN"
+    tokenName = "PROJECTtOKEN2"
     tokenQ = 100
     price = 1000
-    buyQ = 70
+    buyQ = 1
     burnQ = -70
 
     exists = False
@@ -367,12 +364,12 @@ if __name__ == "__main__":
     contracts_info = build_contracts(toBC=True, tokenName=tokenName)
     
     if contracts_info["utxo_to_spend"]:
-        context = test_mint_lock(contracts_info, tokenName, tokenQ, price)
+        context = test_mint_lock(contracts_info, tokenName, tokenQ)
         # TODO: confirm transaction
 
     redeemer = "buy"
 
-    tx_signed = test_unlock(contracts_info, tokenName, buyQ, price, redeemer)
+    tx_signed = test_unlock(contracts_info, tokenName, buyQ, redeemer)
 
     logging.info(
             "fee %s ADA",
