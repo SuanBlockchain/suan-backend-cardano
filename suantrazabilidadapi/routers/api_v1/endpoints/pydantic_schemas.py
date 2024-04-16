@@ -63,7 +63,6 @@ class Asset(BaseModel):
 
 class TempDatum(BaseModel):
     beneficiary: str
-    price: int
 
 class AddressDestin(BaseModel):
     address: Optional[str] = None

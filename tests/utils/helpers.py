@@ -25,12 +25,12 @@ def build_mintProjectToken(contract_dir: Path, context: MockChainContext, master
     assert utxo_to_spend is not None, "UTxO not found to spend!"
     tn_bytes = bytes(tokenName, encoding="utf-8")
     oref = TxOutRef(
-        id=TxId(bytes(utxo_to_spend.input.transaction_id)),
+        id=TxId(utxo_to_spend.input.transaction_id.payload),
         idx=utxo_to_spend.input.index,
     )
     pkh = bytes(master.address.payment_part)
     logging.info("Create contract with following parameters:")
-    logging.info(f"oref : {oref.id.to_cbor_hex()} and idx: {oref.idx}")
+    logging.info(f"oref : {oref.id.tx_id.hex()} and idx: {oref.idx}")
     logging.info(f"pkh : {pkh}")
     logging.info(f"token : {tokenName}")
 
@@ -38,7 +38,7 @@ def build_mintProjectToken(contract_dir: Path, context: MockChainContext, master
 
     return contract, utxo_to_spend
 
-def build_inversionista(contract_dir: Path, parent_mint_policyID: str, tokenName: str) -> py.PlutusV2Script:
+def build_spend(contract_dir: Path, parent_mint_policyID: str, tokenName: str) -> py.PlutusV2Script:
 # def build_inversionista(contract_dir: Path) -> py.PlutusV2Script:
     tn_bytes = bytes(tokenName, encoding="utf-8")
     logging.info("Create contract with following parameters:")

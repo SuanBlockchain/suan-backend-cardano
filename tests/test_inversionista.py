@@ -1,25 +1,25 @@
-from typing import List, Optional, Union
-import unittest
+from typing import List, Optional
 from functools import cache
 from pathlib import Path
 from copy import deepcopy
 import pycardano as py
-from opshin.builder import build, PlutusContract, load
-from opshin.prelude import Address, PubKeyCredential, NoStakingCredential, TxOutRef, TxId
+from opshin.builder import build, PlutusContract
 import logging
 import binascii
 import json
 import os
 
+# sys.setrecursionlimit(args.recursion_limit)
 
 import sys
 sys.path.append('./')
 from utils.mock import MockChainContext, MockUser
-from tests.utils.helpers import build_mintProjectToken, build_inversionista, find_utxos_with_tokens, min_value, save_transaction
+from tests.utils.helpers import build_mintProjectToken, build_spend, find_utxos_with_tokens, min_value, save_transaction
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
-# import inversionista
 
+ROOT = Path(__file__).resolve().parent.parent
+base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/contracts")
 
 @cache
 def setup_context():
@@ -92,7 +92,6 @@ def test_mint_lock(
         tokenName: str,
         tokenQ: int) -> MockChainContext:
 
-
     mint_contract = contract_info["mint_contract"]
     context = contract_info["context"]
     administrador = contract_info["administrador"]
@@ -120,26 +119,24 @@ def test_mint_lock(
     pkh = binascii.hexlify(administrador.pkh.payload).decode('utf-8')
     datum = build_datum(pkh)
 
-
     min_val = min_value(context, administrador.address, multi_asset, datum)
     
     spected_tx_output = py.TransactionOutput(spend_address, py.Value(min_val, multi_asset), datum=datum)
     tx_builder.add_output(spected_tx_output)
 
-    tx = tx_builder.build_and_sign([administrador.signing_key], change_address=administrador.address)
+    signed_tx = tx_builder.build_and_sign([administrador.signing_key], change_address=administrador.address)
+    tx_id = signed_tx.transaction_body.hash().hex()
     new_context = context
     if isinstance(context, MockChainContext):
-        context.submit_tx(tx)
+        context.submit_tx(signed_tx)
         utxos_at_spend = context._utxos(spend_address.encode())
         assert utxos_at_spend[0].output == spected_tx_output, "Problems creating the transaction"
     else:
         #TODO: Check what to do with the result of the evaluation
-        result = context.evaluate_tx(tx)
-        context.submit_tx(tx)
+        result = context.evaluate_tx(signed_tx)
+        context.submit_tx(signed_tx)
 
-        logging.info(f"New tokens created and locked at: {spend_address}")
-
-    return new_context
+    return tx_id
 
 def test_unlock(
     contract_info: dict,
@@ -166,13 +163,12 @@ def test_unlock(
     # Find the utxo at the contract
     spend_utxo = find_utxos_with_tokens(context, spend_address, multi_asset=multi_asset_buy)
 
-    oracle_asset = build_multiAsset("f74904d005a134a622ab52ddcf4bd206a5d5ac6ea19de7587bb8ebb2", "SuanOracle", 1)
-    oracle_address = py.Address.from_primitive("addr_test1qzjawhpa7860arp70znfdmsudqldsegvscvxamcn2rrkjc996awrmu05l6xru79xjmhpc6p7mpjsepscdmh3x5x8d9sqg8lag7")
+    oracle_asset = build_multiAsset("bee96517f9dab275358a141351f4010b077d5997d382430604938b9a", "SuanOracle", 1)
+    oracle_address = py.Address.from_primitive("addr_test1vqk6jh4xqxmp80dv2tay9hu8cmzhezyes76alt8ezevlpssxz77zr")
     oracle_utxo = find_utxos_with_tokens(context, oracle_address, multi_asset=oracle_asset)
     tx_builder.reference_inputs.add(oracle_utxo)
     # Build Transaction Output to contract
     pkh = binascii.hexlify(administrador.pkh.payload).decode('utf-8')
-    pkh = "96be4512d3162d6752a86a19ec8ea28d497aceafad8cd6fc3152cad6"
     datum = build_datum(pkh)
     tx_builder.add_script_input(
         spend_utxo,
@@ -188,8 +184,8 @@ def test_unlock(
     tx_builder.add_output(py.TransactionOutput(propietario.address, py.Value(min_val, multi_asset_buy)))
     
     # Build Transaction Output to beneficiary
-    # tx_builder.add_output(py.TransactionOutput(administrador.address, py.Value(20_000_000)))
-    tx_builder.add_output(py.TransactionOutput("addr_test1qzttu3gj6vtz6e6j4p4pnmyw52x5j7kw47kce4hux9fv445khez395ck94n492r2r8kgag5df9avatad3nt0cv2jettqxfwfwv", py.Value(20_000_000)))
+    tx_builder.add_output(py.TransactionOutput(administrador.address, py.Value(2_000_000)))
+    # tx_builder.add_output(py.TransactionOutput("addr_test1qzttu3gj6vtz6e6j4p4pnmyw52x5j7kw47kce4hux9fv445khez395ck94n492r2r8kgag5df9avatad3nt0cv2jettqxfwfwv", py.Value(20_000_000)))
     
     # Calculate the change of tokens back to the contract
     balance = spend_utxo.output.amount.multi_asset.data.get(py.ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}).get(py.AssetName(bytes(tokenName, encoding="utf-8")), {b"":0})
@@ -203,25 +199,6 @@ def test_unlock(
 
     # tx_body = tx_builder.build(change_address=propietario.address)
     tx_signed = tx_builder.build_and_sign([propietario.signing_key], change_address=propietario.address)
-
-    # Save the transaction
-
-    
-    # new_context = context
-
-    # if isinstance(context, MockChainContext):
-    
-    #     context.submit_tx(tx)
-    #     utxos_at_spend = context._utxos(spend_address.encode())
-    #     logging.info(f"Buyer: {propietario.balance()}")
-    #     logging.info(f"Beneficiary: {administrador.balance()}")
-    #     logging.info(f"Spend script: {spected_tx_output}")
-    #     assert utxos_at_spend[0].output == spected_tx_output, "Problems creating the transaction"
-    # else:
-    #     pass
-    #     # result = context.evaluate_tx(tx)
-        
-    #     # context.submit_tx(tx)
 
     return tx_signed
 
@@ -254,19 +231,20 @@ def test_burn(
     # Add input address to pay fees. This is the buyer address
     tx_builder.add_input_address(propietario.address)
 
-    tx = tx_builder.build_and_sign([propietario.signing_key, administrador.signing_key], change_address=propietario.address)
+    signed_tx = tx_builder.build_and_sign([propietario.signing_key, administrador.signing_key], change_address=propietario.address)
     new_context = context
+    tx_id = signed_tx.transaction_body.hash().hex()
 
     if isinstance(context, MockChainContext):
     
-        context.submit_tx(tx)
+        context.submit_tx(signed_tx)
         logging.info(f"Buyer: {propietario.balance()}")
     else:
-        result = context.evaluate_tx(tx)
-        context.submit_tx(tx)
+        result = context.evaluate_tx(signed_tx)
+        context.submit_tx(signed_tx)
 
 
-    return new_context
+    return tx_id
 
 def test_confirm_and_submit(transaction_dir: Path):
 
@@ -278,14 +256,13 @@ def test_confirm_and_submit(transaction_dir: Path):
 
     os.remove(transaction_dir)
 
+# def test_create_order(contracts_info):
 
-ROOT = Path(__file__).resolve().parent.parent
 
 def build_contracts(toBC: bool, tokenName: str) -> dict:
 
     # 1. Initialize general variables
 
-    base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/contracts")
     contract_dir = base_dir / "project.py"
 
     # 2. Create the context and fund test wallets in MockContext or Cardano
@@ -312,10 +289,15 @@ def build_contracts(toBC: bool, tokenName: str) -> dict:
         parent_mint_policyID = mint_contract.policy_id
 
         contract_dir = base_dir / "inversionista.py"
-        plutus_contract = build_inversionista(contract_dir, parent_mint_policyID, tokenName)
+        plutus_contract = build_spend(contract_dir, parent_mint_policyID, tokenName)
 
         spend_contract = create_contract(plutus_contract)
         spend_contract.dump(base_dir / "inversionista")
+
+        parent_spend_policyID = spend_contract.policy_id
+
+        # contract_dir = base_dir / "swap.py"
+        # swap_contract = build_spend(contract_dir, parent_spend_policyID, tokenName)
 
     else:
         logging.info("Recover the contracts from files")
@@ -331,12 +313,21 @@ def build_contracts(toBC: bool, tokenName: str) -> dict:
 
         cbor = bytes.fromhex(cbor_hex)
         spend_contract = create_contract(py.PlutusV2Script(cbor))
+
+        # with(base_dir / "swap/script.cbor").open("r") as f:
+        #     cbor_hex = f.read()
+
+        # cbor = bytes.fromhex(cbor_hex)
+        # swap_contract = create_contract(py.PlutusV2Script(cbor))
         
     parent_mint_policyID = mint_contract.policy_id
 
     spend_address = spend_contract.testnet_addr
+    spend_policyID = spend_contract.policy_id
 
-    contract_info = {
+    # swap_address = swap_contract.testnet_addr
+
+    contracts_info = {
         "context": context, 
         "mint_contract": mint_contract,
         "spend_contract": spend_contract,
@@ -344,41 +335,148 @@ def build_contracts(toBC: bool, tokenName: str) -> dict:
         "spend_address": spend_address,
         "administrador": administrador,
         "propietario": propietario,
-        "utxo_to_spend": utxo_to_spend
+        "utxo_to_spend": utxo_to_spend,
+        "spend_policyID": spend_policyID,
+        # "swap_address": swap_address
     }
 
-    return contract_info
+    return contracts_info
 
         # context.wait(1000)
 
+def create_oracle(token_policy_id: str, token_name: str, price: int, validity: int) -> str:
+    context = CardanoNetwork().get_chain_context()
+    suanOracle = setup_user(context, walletName="suanOracle")
+    tx_builder = py.TransactionBuilder(context)
+    suanOracleAddress = py.Address.from_primitive(str(suanOracle.address))
+    tx_builder.add_input_address(suanOracleAddress)
+    must_before_slot = py.InvalidHereAfter(context.last_block_slot + 10000)
+    tx_builder.ttl = must_before_slot.after
+
+    pkh = py.VerificationKeyHash(bytes(suanOracle.address.payment_part))
+
+    pub_key_policy = py.ScriptPubkey(pkh)
+
+    policy = py.ScriptAll([pub_key_policy])
+    # Calculate policy ID, which is the hash of the policy
+    oracle_policy_id = policy.hash()
+    with open(base_dir / "oraclepolicy.id", "a+") as f:
+        f.truncate(0)
+        f.write(str(oracle_policy_id))
+    # Create the final native script that will be attached to the transaction
+    native_scripts = [policy]
+
+    tokenName = b"SuanOracle"
+    ########################
+    """Define NFT"""
+    ########################
+    my_nft = py.MultiAsset.from_primitive(
+        {
+            oracle_policy_id.payload: {
+                tokenName: 1,  
+            }
+        }
+    )
+    tx_builder.mint = my_nft
+    # Set native script
+    tx_builder.native_scripts = native_scripts
+
+    value_dict = {}
+    token_feed = pydantic_schemas.TokenFeed(
+        tokenName= bytes(token_name, encoding="utf-8"),
+        price=price
+    )
+    value_dict[bytes.fromhex(token_policy_id)] = token_feed
+    datum = pydantic_schemas.DatumOracle(
+        value_dict=value_dict,
+        identifier=pkh.payload,
+        validity= validity
+    )
+    min_val = py.min_lovelace(
+        context, output=py.TransactionOutput(suanOracleAddress, py.Value(0, my_nft), datum=datum)
+    )
+    tx_builder.add_output(py.TransactionOutput(suanOracleAddress, py.Value(min_val, my_nft), datum=datum))
+    signed_tx = tx_builder.build_and_sign([suanOracle.signing_key], change_address=suanOracleAddress)
+    tx_id = signed_tx.transaction_body.hash().hex()
+    context.submit_tx(signed_tx)
+    return tx_id
+
+def burn_oracle() -> str:
+    context = CardanoNetwork().get_chain_context()
+    suanOracle = setup_user(context, walletName="suanOracle")
+    tx_builder = py.TransactionBuilder(context)
+    suanOracleAddress = py.Address.from_primitive(str(suanOracle.address))
+    tx_builder.add_input_address(suanOracleAddress)
+    must_before_slot = py.InvalidHereAfter(context.last_block_slot + 10000)
+    tx_builder.ttl = must_before_slot.after
+
+    pkh = py.VerificationKeyHash(bytes(suanOracle.address.payment_part))
+
+    pub_key_policy = py.ScriptPubkey(pkh)
+
+    policy = py.ScriptAll([pub_key_policy])
+    # Calculate policy ID, which is the hash of the policy
+    oracle_policy_id = policy.hash()
+    with open(base_dir / "oraclepolicy.id", "a+") as f:
+        f.truncate(0)
+        f.write(str(oracle_policy_id))
+    # Create the final native script that will be attached to the transaction
+    native_scripts = [policy]
+
+    tokenName = b"SuanOracle"
+    my_nft = py.MultiAsset.from_primitive(
+        {
+            oracle_policy_id.payload: {
+                tokenName: -1,  
+            }
+        }
+    )
+
+    burn_utxo = None
+    for utxo in context.utxos(suanOracleAddress):
+        def f(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
+            return pi == oracle_policy_id and an.payload == tokenName and a >= 1
+        if utxo.output.amount.multi_asset.count(f):
+            burn_utxo = utxo
+            
+            tx_builder.add_input(burn_utxo)
+
+    if not burn_utxo:
+        raise ValueError("UTxO containing token to burn not found!")
+    
+    tx_builder.mint = my_nft
+    # Set native script
+    tx_builder.native_scripts = native_scripts
+    signed_tx = tx_builder.build_and_sign([suanOracle.signing_key], change_address=suanOracleAddress)
+    tx_id = signed_tx.transaction_body.hash().hex()
+    context.submit_tx(signed_tx)
+    return tx_id
+
+
 if __name__ == "__main__":
 
-    tokenName = "PROJECTtOKEN2"
-    tokenQ = 100
+    tokenName = "PROJECTtOKEN3"
+    tokenQ = 1
     price = 1000
     buyQ = 1
-    burnQ = -70
+    burnQ = -1
 
     exists = False
 
     contracts_info = build_contracts(toBC=True, tokenName=tokenName)
-    
+
     if contracts_info["utxo_to_spend"]:
-        context = test_mint_lock(contracts_info, tokenName, tokenQ)
+        tx_id = create_oracle(contracts_info["parent_mint_policyID"], tokenName, price, validity=1878695)
+        logging.info(f"created oracle datum with tx_id: {tx_id}")
+        tx_id = test_mint_lock(contracts_info, tokenName, tokenQ)
+        logging.info(f"Locked tokens in spend contract tx_id: {tx_id}")
         # TODO: confirm transaction
 
     redeemer = "buy"
 
     tx_signed = test_unlock(contracts_info, tokenName, buyQ, redeemer)
 
-    logging.info(
-            "fee %s ADA",
-            int(tx_signed.transaction_body.fee) / 1000000,
-        )
-    logging.info(
-        "output %s ADA",
-        int(tx_signed.transaction_body.outputs[0].amount.coin) / 1000000,
-    )
+    logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
 
     base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/transactions")
     transaction_dir = base_dir / f"{str(tx_signed.id)}.signed"
@@ -386,10 +484,16 @@ if __name__ == "__main__":
 
     test_confirm_and_submit(transaction_dir)
 
+    # Test swap
+
+    # test_create_order(contracts_info)
 
 
+    tx_id = test_burn(contracts_info, tokenName, burnQ)
+    logging.info(f"burned project tokens with tx_id: {tx_id}")
 
-    context = test_burn(contracts_info, tokenName, burnQ)
+    tx_id = burn_oracle()
+    logging.info(f"burned oracle token with tx_id: {tx_id}")
 
 
 

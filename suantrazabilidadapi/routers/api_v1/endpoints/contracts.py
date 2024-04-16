@@ -181,11 +181,11 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
                     break
             assert utxo_to_spend is not None, "UTxO not found to spend!"
             oref = TxOutRef(
-                id=TxId(bytes(utxo_to_spend.input.transaction_id)),
+                id=TxId(utxo_to_spend.input.transaction_id.payload),
                 idx=utxo_to_spend.input.index,
             )
 
-            logging.info(f"oref found to build the script: {oref.id.to_cbor_hex()} and idx: {oref.idx}")
+            logging.info(f"oref found to build the script: {oref.id.tx_id.hex()} and idx: {oref.idx}")
 
             script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("project.py")
             scriptCategory = "PlutusV2"
