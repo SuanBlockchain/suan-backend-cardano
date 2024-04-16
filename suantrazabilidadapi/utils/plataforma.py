@@ -24,13 +24,19 @@ from suantrazabilidadapi.utils.generic import Constants
 
 plataformaSecrets = config(section="plataforma")
 security = config(section="security")
+environment = security["env"]
 
 @dataclass()
 class Plataforma(Constants):
 
     def __post_init__(self):
-        self.graphqlEndpoint = os.getenv('endpoint')
-        self.awsAppSyncApiKey = os.getenv('graphql_key')
+        if environment == "dev":
+            self.graphqlEndpoint = os.getenv('endpoint_dev')
+            self.awsAppSyncApiKey = os.getenv('graphql_key_dev')
+        elif environment == "prod":
+            self.graphqlEndpoint = os.getenv('endpoint_prod')
+            self.awsAppSyncApiKey = os.getenv('graphql_key_prod')
+
         self.HEADERS["x-api-key"] = self.awsAppSyncApiKey
         # koios_api_module = importlib.import_module("koios_api")
         # self.koios_api = koios_api_module
@@ -379,6 +385,7 @@ class Helpers:
         pass
 
     def makeMultiAsset(self, addressesDestin: pydantic_schemas.AddressDestin) -> Optional[MultiAsset]:
+        #TODO: deprecated. use build_multiAsset
         multi_asset = None
         if addressesDestin:
             multi_asset = MultiAsset()
@@ -391,6 +398,15 @@ class Helpers:
                     multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
 
         return multi_asset
+    
+    def build_multiAsset(self, policy_id: str, tokenName: str, quantity: int) -> MultiAsset:
+        multi_asset = MultiAsset()
+        my_asset = Asset()
+        my_asset.data.update({AssetName(bytes(tokenName, encoding="utf-8")): quantity})
+        multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
+
+        return multi_asset
+
 
     def build_DatumProjectParams(self, pkh: str) -> pydantic_schemas.DatumProjectParams:
 

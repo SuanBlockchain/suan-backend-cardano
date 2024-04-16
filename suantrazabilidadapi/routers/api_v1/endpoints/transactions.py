@@ -668,16 +668,20 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
     # response_model=List[str],
 )
 
-async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_schemas.Claim) -> dict:
+async def claimTx(admin_id: str, claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_schemas.Claim) -> dict:
 
     try:
+        #TODO: include the oracle input in the endpoint
+        # TODO: 
+        oracle_policy_id = "2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f"
+        oracle_token_name= "SuanOracle"
         ########################
         """1. Get wallet info"""
         ########################
         r = Plataforma().getWallet("id", claim.wallet_id)
         if r["data"].get("data", None) is not None:
-            walletInfo = r["data"]["data"]["getWallet"]
-            if walletInfo is None:
+            userWalletInfo = r["data"]["data"]["getWallet"]
+            if userWalletInfo is None:
                 raise ValueError(f'Wallet with id: {claim.wallet_id} does not exist in DynamoDB')
             else:
                 ########################
@@ -689,7 +693,7 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
                 builder = TransactionBuilder(chain_context)
 
                 # Add user own address as the input address
-                user_address = Address.from_primitive(walletInfo["address"])
+                user_address = Address.from_primitive(userWalletInfo["address"])
                 builder.add_input_address(user_address)
                 utxo_to_spend = None
                 for utxo in chain_context.utxos(user_address):
@@ -778,8 +782,20 @@ async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_
                 redeemer=Redeemer(redeemer),
                 )
 
+                r = Plataforma().getWallet("id", admin_id)
+                if r["data"].get("data", None) is not None:
+                    adminWalletInfo = r["data"]["data"]["getWallet"]
+                    if adminWalletInfo is None:
+                        raise ValueError(f'Wallet with id: {claim.wallet_id} does not exist in DynamoDB')
+                    else:
+                        admin_address = Address.from_primitive(adminWalletInfo["address"])
+                        
+                        oracle_asset = Helpers().build_multiAsset(oracle_policy_id, oracle_token_name, 1)
+                        oracle_utxo = Helpers().find_utxos_with_tokens(chain_context, admin_address, multi_asset=oracle_asset)
+                        assert oracle_utxo is not None, "Oracle UTxO not found!"
+                        builder.reference_inputs.add(oracle_utxo)
                 # Get the wallet from user to sign transaction
-                seed = walletInfo.get("seed", None)
+                seed = userWalletInfo.get("seed", None)
                 if not seed:
                     raise ValueError(f"No seed found for wallet with id: {claim.wallet_id}")
                 

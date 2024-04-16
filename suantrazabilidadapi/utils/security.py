@@ -4,12 +4,20 @@ from fastapi import HTTPException, status, Security
 import secrets
 from suantrazabilidadapi.core.config import config
 import os
+from dotenv import load_dotenv
 
 security = config(section="security")
+load_dotenv()
 graphqlEndpoint = os.getenv('endpoint')
+environment = security["env"]
+
+if  environment == "dev":
+    env = os.getenv("platform_api_key_dev")
+elif environment == "prod":
+    env = os.getenv("platform_api_key_prod")
 
 API_KEYS = {
-        "platform": os.getenv("platform_api_key")
+        "platform": env
     }
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)

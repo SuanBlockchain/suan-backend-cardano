@@ -10,9 +10,7 @@ def create_wallets(
 
     mnemonic_words = HDWallet.generate_mnemonic(strength=256)
 
-    localKeys = {
-        "mnemonic_words": mnemonic_words
-    }
+    localKeys = {"mnemonic_words": mnemonic_words}
 
     skey, vkey = Keys().load_or_create_key_pair(wallet_name, localKeys=localKeys)
 

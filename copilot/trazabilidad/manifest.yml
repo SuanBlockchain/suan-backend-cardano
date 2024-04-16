@@ -41,6 +41,7 @@ memory: 2048
 #
 variables:                    # Pass environment variables as key value pairs.
   CARDANO_NET: preview
+  ENV: prod
 
 # tags:                         # Pass tags as key value pairs.
 #   project: project-name
@@ -49,7 +50,10 @@ variables:                    # Pass environment variables as key value pairs.
 #   GITHUB_TOKEN: GITHUB_TOKEN  # The key is the name of the environment variable, the value is the name of an SSM parameter.
 
 # You can override any of the values defined above by environment.
-# environments:
-#   test:
-#     variables:
-#       LOG_LEVEL: debug        # Log level for the "test" environment.
+environments:
+  prod:
+    variables:
+      ENV: prod       # Log level for the "test" environment.
+  test:
+    variables:
+      ENV: dev

@@ -138,11 +138,10 @@ def test_mint_lock(
 
     return tx_id
 
-def test_unlock(
+def test_unlock_buy(
     contract_info: dict,
     tokenName: str, 
-    buyQ: int,
-    redeemer: str) -> py.Transaction:
+    buyQ: int) -> py.Transaction:
 
     context = contract_info["context"]
     administrador = contract_info["administrador"]
@@ -156,14 +155,11 @@ def test_unlock(
     multi_asset_buy = build_multiAsset(parent_mint_policyID, tokenName, buyQ)
 
     # Build redeemer
-    if redeemer == "buy":
-        redeemer = pydantic_schemas.RedeemerBuy()
-    else:
-        redeemer = pydantic_schemas.RedeemerUnlist()
+    redeemer = pydantic_schemas.RedeemerBuy()
     # Find the utxo at the contract
     spend_utxo = find_utxos_with_tokens(context, spend_address, multi_asset=multi_asset_buy)
 
-    oracle_asset = build_multiAsset("bee96517f9dab275358a141351f4010b077d5997d382430604938b9a", "SuanOracle", 1)
+    oracle_asset = build_multiAsset("bee96517f9dab275358a141351f4010b077d5997d382430604938b9a", "SuanOracleTest", 1)
     oracle_address = py.Address.from_primitive("addr_test1vqk6jh4xqxmp80dv2tay9hu8cmzhezyes76alt8ezevlpssxz77zr")
     oracle_utxo = find_utxos_with_tokens(context, oracle_address, multi_asset=oracle_asset)
     tx_builder.reference_inputs.add(oracle_utxo)
@@ -199,6 +195,49 @@ def test_unlock(
 
     # tx_body = tx_builder.build(change_address=propietario.address)
     tx_signed = tx_builder.build_and_sign([propietario.signing_key], change_address=propietario.address)
+
+    return tx_signed
+
+def test_unlock_unlist(
+    contract_info: dict,
+    tokenName: str, 
+    unlock: int) -> py.Transaction:
+
+    context = contract_info["context"]
+    administrador = contract_info["administrador"]
+    spend_address = contract_info["spend_address"]
+    spend_contract = contract_info["spend_contract"]
+    parent_mint_policyID = contract_info["parent_mint_policyID"]
+    propietario = contract_info["propietario"]
+    
+    tx_builder = py.TransactionBuilder(context)
+
+    # Take out all the tokens from the spend address
+    balance = spend_utxo.output.amount.multi_asset.data.get(py.ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}).get(py.AssetName(bytes(tokenName, encoding="utf-8")), {b"":0})
+    # MultiAsset to trade
+    multi_asset_unlist = build_multiAsset(parent_mint_policyID, tokenName, balance)
+
+    # Build redeemer
+    redeemer = pydantic_schemas.RedeemerUnlist()
+    # Find the utxo at the contract
+    spend_utxo = find_utxos_with_tokens(context, spend_address, multi_asset=multi_asset_unlist)
+
+    # Build Transaction Output to contract
+    tx_builder.add_script_input(
+        spend_utxo,
+        spend_contract.contract,
+        redeemer=py.Redeemer(redeemer)
+        )
+
+    # Add input address to pay fees. This is the buyer address
+    tx_builder.add_input_address(propietario.address)
+    
+    # Build Transaction Output to buyer
+    min_val = min_value(context, propietario.address, multi_asset=multi_asset_unlist)
+    tx_builder.add_output(py.TransactionOutput(propietario.address, py.Value(min_val, multi_asset_unlist)))
+
+    # tx_body = tx_builder.build(change_address=propietario.address)
+    tx_signed = tx_builder.build_and_sign([propietario.signing_key, administrador.signing_key], change_address=propietario.address)
 
     return tx_signed
 
@@ -346,7 +385,7 @@ def build_contracts(toBC: bool, tokenName: str) -> dict:
 
 def create_oracle(token_policy_id: str, token_name: str, price: int, validity: int) -> str:
     context = CardanoNetwork().get_chain_context()
-    suanOracle = setup_user(context, walletName="suanOracle")
+    suanOracle = setup_user(context, walletName="suanOracleTest")
     tx_builder = py.TransactionBuilder(context)
     suanOracleAddress = py.Address.from_primitive(str(suanOracle.address))
     tx_builder.add_input_address(suanOracleAddress)
@@ -366,7 +405,7 @@ def create_oracle(token_policy_id: str, token_name: str, price: int, validity: i
     # Create the final native script that will be attached to the transaction
     native_scripts = [policy]
 
-    tokenName = b"SuanOracle"
+    tokenName = b"SuanOracleTest"
     ########################
     """Define NFT"""
     ########################
@@ -403,7 +442,7 @@ def create_oracle(token_policy_id: str, token_name: str, price: int, validity: i
 
 def burn_oracle() -> str:
     context = CardanoNetwork().get_chain_context()
-    suanOracle = setup_user(context, walletName="suanOracle")
+    suanOracle = setup_user(context, walletName="suanOracleTest")
     tx_builder = py.TransactionBuilder(context)
     suanOracleAddress = py.Address.from_primitive(str(suanOracle.address))
     tx_builder.add_input_address(suanOracleAddress)
@@ -423,7 +462,7 @@ def burn_oracle() -> str:
     # Create the final native script that will be attached to the transaction
     native_scripts = [policy]
 
-    tokenName = b"SuanOracle"
+    tokenName = b"SuanOracleTest"
     my_nft = py.MultiAsset.from_primitive(
         {
             oracle_policy_id.payload: {
@@ -456,12 +495,11 @@ def burn_oracle() -> str:
 if __name__ == "__main__":
 
     tokenName = "PROJECTtOKEN3"
-    tokenQ = 1
-    price = 1000
+    tokenQ = 2
+    price = 3_000_000
     buyQ = 1
-    burnQ = -1
-
-    exists = False
+    unlock = 1
+    burnQ = -2
 
     contracts_info = build_contracts(toBC=True, tokenName=tokenName)
 
@@ -472,9 +510,8 @@ if __name__ == "__main__":
         logging.info(f"Locked tokens in spend contract tx_id: {tx_id}")
         # TODO: confirm transaction
 
-    redeemer = "buy"
 
-    tx_signed = test_unlock(contracts_info, tokenName, buyQ, redeemer)
+    tx_signed = test_unlock_buy(contracts_info, tokenName, buyQ)
 
     logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
 
@@ -484,6 +521,12 @@ if __name__ == "__main__":
 
     test_confirm_and_submit(transaction_dir)
 
+    tx_signed = test_unlock_unlist(contracts_info. tokenName, unlock)
+    transaction_dir = base_dir / f"{str(tx_signed.id)}.signed"
+    save_transaction(tx_signed, transaction_dir)
+
+    test_confirm_and_submit(transaction_dir)
+    
     # Test swap
 
     # test_create_order(contracts_info)

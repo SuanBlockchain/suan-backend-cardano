@@ -1,3 +1,7 @@
+import os
+os.environ["env"] = "env"
+print(os.getenv("env"))
+
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,6 +11,7 @@ from suantrazabilidadapi.utils.security import generate_api_key
 
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
+
 load_dotenv()
 
 description = "Este API es el backend de la wallet de Plataforma - Suan"
