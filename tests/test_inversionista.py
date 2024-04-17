@@ -200,8 +200,7 @@ def test_unlock_buy(
 
 def test_unlock_unlist(
     contract_info: dict,
-    tokenName: str, 
-    unlock: int) -> py.Transaction:
+    tokenName: str) -> py.Transaction:
 
     context = contract_info["context"]
     administrador = contract_info["administrador"]
@@ -212,13 +211,12 @@ def test_unlock_unlist(
     
     tx_builder = py.TransactionBuilder(context)
 
-    # Take out all the tokens from the spend address
-    balance = spend_utxo.output.amount.multi_asset.data.get(py.ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}).get(py.AssetName(bytes(tokenName, encoding="utf-8")), {b"":0})
     # MultiAsset to trade
-    multi_asset_unlist = build_multiAsset(parent_mint_policyID, tokenName, balance)
+    multi_asset_unlist = build_multiAsset(parent_mint_policyID, tokenName, 1)
 
     # Build redeemer
     redeemer = pydantic_schemas.RedeemerUnlist()
+    # Take out all the tokens from the spend address
     # Find the utxo at the contract
     spend_utxo = find_utxos_with_tokens(context, spend_address, multi_asset=multi_asset_unlist)
 
@@ -238,7 +236,6 @@ def test_unlock_unlist(
 
     # tx_body = tx_builder.build(change_address=propietario.address)
     tx_signed = tx_builder.build_and_sign([propietario.signing_key, administrador.signing_key], change_address=propietario.address)
-
     return tx_signed
 
 def test_burn(
@@ -298,7 +295,7 @@ def test_confirm_and_submit(transaction_dir: Path):
 # def test_create_order(contracts_info):
 
 
-def build_contracts(toBC: bool, tokenName: str) -> dict:
+def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
     # 1. Initialize general variables
 
@@ -328,7 +325,7 @@ def build_contracts(toBC: bool, tokenName: str) -> dict:
         parent_mint_policyID = mint_contract.policy_id
 
         contract_dir = base_dir / "inversionista.py"
-        plutus_contract = build_spend(contract_dir, parent_mint_policyID, tokenName)
+        plutus_contract = build_spend(contract_dir, oracle_policy_id, parent_mint_policyID, tokenName)
 
         spend_contract = create_contract(plutus_contract)
         spend_contract.dump(base_dir / "inversionista")
@@ -494,14 +491,15 @@ def burn_oracle() -> str:
 
 if __name__ == "__main__":
 
+    oracle_policy_id ="bee96517f9dab275358a141351f4010b077d5997d382430604938b9a"
     tokenName = "PROJECTtOKEN3"
-    tokenQ = 2
-    price = 3_000_000
+    tokenQ = 1
+    price = 2_000_000
     buyQ = 1
-    unlock = 1
-    burnQ = -2
+    # unlock = 1
+    burnQ = -1
 
-    contracts_info = build_contracts(toBC=True, tokenName=tokenName)
+    contracts_info = build_contracts(toBC=True, tokenName=tokenName, oracle_policy_id=oracle_policy_id)
 
     if contracts_info["utxo_to_spend"]:
         tx_id = create_oracle(contracts_info["parent_mint_policyID"], tokenName, price, validity=1878695)
@@ -521,11 +519,11 @@ if __name__ == "__main__":
 
     test_confirm_and_submit(transaction_dir)
 
-    tx_signed = test_unlock_unlist(contracts_info. tokenName, unlock)
-    transaction_dir = base_dir / f"{str(tx_signed.id)}.signed"
-    save_transaction(tx_signed, transaction_dir)
+    # tx_signed = test_unlock_unlist(contracts_info, tokenName)
+    # transaction_dir = base_dir / f"{str(tx_signed.id)}.signed"
+    # save_transaction(tx_signed, transaction_dir)
 
-    test_confirm_and_submit(transaction_dir)
+    # test_confirm_and_submit(transaction_dir)
     
     # Test swap
 

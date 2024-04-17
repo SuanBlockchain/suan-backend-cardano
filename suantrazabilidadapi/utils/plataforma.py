@@ -15,13 +15,6 @@ from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.generic import Constants
 
-# @dataclass()
-# class Start:
-#     headers = {'Content-Type': 'application/json'}
-#     ROOT = pathlib.Path(__file__).resolve().parent.parent
-#     plataformaSecrets = config(section="plataforma")
-#     security = config(section="security")
-
 plataformaSecrets = config(section="plataforma")
 security = config(section="security")
 environment = security["env"]
@@ -38,8 +31,6 @@ class Plataforma(Constants):
             self.awsAppSyncApiKey = os.getenv('graphql_key_prod')
 
         self.HEADERS["x-api-key"] = self.awsAppSyncApiKey
-        # koios_api_module = importlib.import_module("koios_api")
-        # self.koios_api = koios_api_module
         self.S3_BUCKET_NAME = os.getenv('s3_bucket_name')
         self.S3_BUCKET_NAME_HIERARCHY = os.getenv('s3_bucket_name_hierarchy')
         self.AWS_ACCESS_KEY_ID = os.getenv('aws_access_key_id')
@@ -160,12 +151,7 @@ class Plataforma(Constants):
             for k, v in output.amount.multi_asset.data.items():
                 assets = { assetName.payload: value for assetName, value in v.data.items()}
                 multi_asset[k.to_cbor_hex()[4:]] = assets
-            # datum_dict = None
-            # if output.datum:
-            #     datum_dict = {
-            #         "beneficiary": output.datum.beneficiary.to_primitive(),
-            #         "price": output.datum.price
-            #     }
+
             utxoOutputs[index] = {
                 "address": output.address.encode(),
                 "amount": {
@@ -333,8 +319,6 @@ class Plataforma(Constants):
 class CardanoApi(Constants):
 
     def __post_init__(self):
-        # koios_api_module = importlib.import_module("koios_api")
-        # self.koios_api = koios_api_module
         pass
 
     def getAddressInfo(self, address: Union[str, list[str]]) -> list[dict]:

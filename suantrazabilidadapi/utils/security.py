@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 
 security = config(section="security")
 load_dotenv()
-graphqlEndpoint = os.getenv('endpoint')
 environment = security["env"]
 
 if  environment == "dev":

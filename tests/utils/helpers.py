@@ -38,7 +38,7 @@ def build_mintProjectToken(contract_dir: Path, context: MockChainContext, master
 
     return contract, utxo_to_spend
 
-def build_spend(contract_dir: Path, parent_mint_policyID: str, tokenName: str) -> py.PlutusV2Script:
+def build_spend(contract_dir: Path, oracle_policy_id: str, parent_mint_policyID: str, tokenName: str) -> py.PlutusV2Script:
 # def build_inversionista(contract_dir: Path) -> py.PlutusV2Script:
     tn_bytes = bytes(tokenName, encoding="utf-8")
     logging.info("Create contract with following parameters:")
@@ -46,7 +46,7 @@ def build_spend(contract_dir: Path, parent_mint_policyID: str, tokenName: str) -
     logging.info(f"token : {tokenName}")
     
     # return build(contract_dir)
-    return build(contract_dir, bytes.fromhex(parent_mint_policyID), tn_bytes)
+    return build(contract_dir, bytes.fromhex(oracle_policy_id), bytes.fromhex(parent_mint_policyID), tn_bytes)
 
 def find_utxos_with_tokens(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset) -> py.UTxO:
     for policy_id, asset in multi_asset.data.items():

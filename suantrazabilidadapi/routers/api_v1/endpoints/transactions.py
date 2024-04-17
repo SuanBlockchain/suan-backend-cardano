@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi, Helpers
-from suantrazabilidadapi.utils.blockchain import CardanoNetwork
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
 from suantrazabilidadapi.utils.generic import Constants, save_transaction, remove_file
 
 from typing import Union, Optional
@@ -35,9 +35,7 @@ from pycardano import (
     TransactionWitnessSet,
     ScriptPubkey,
     ScriptAll,
-    Datum,
-    UTxO,
-    IndefiniteList
+    Datum
 )
 import opshin.prelude as oprelude
 
@@ -896,128 +894,103 @@ async def confirmSubmit(confirm: bool, tx_id: str) -> dict:
     # response_model=List[str],
 )
 
-async def oracleDatum(action: pydantic_schemas.OracleAction, wallet_id: str, oracle_data: pydantic_schemas.Oracle) -> dict:
+async def oracleDatum(action: pydantic_schemas.OracleAction, oracle_data: pydantic_schemas.Oracle, oracle_wallet_name: Optional[str] = "SuanOracle") -> dict:
 
-    r = Plataforma().getWallet("id", wallet_id)
-    if r["data"].get("data", None):
-        walletInfo = r["data"]["data"]["getWallet"]
-        if walletInfo is None:
-            raise ValueError(f'Wallet with id {wallet_id} does not exist in DynamoDB')
+    try:
+        oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
+
+        chain_context = CardanoNetwork().get_chain_context()
+
+        # Create a transaction builder
+        builder = TransactionBuilder(chain_context)
+
+        # Add user own address as the input address
+        master_address = Address.from_primitive(oracle_walletInfo[3])
+        builder.add_input_address(master_address)
+        must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
+        builder.ttl = must_before_slot.after
+
+        ########################
+        """3. Create the script and policy"""
+        ########################
+        # A policy that requires a signature from the policy key we generated above
+        pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
+        # Combine two policies using ScriptAll policy
+        policy = ScriptAll([pub_key_policy])
+        # Calculate policy ID, which is the hash of the policy
+        policy_id = policy.hash()
+        print(f"Policy ID: {policy_id}")
+        with open(Constants().PROJECT_ROOT / "policy.id", "a+") as f:
+            f.truncate(0)
+            f.write(str(policy_id))
+        # Create the final native script that will be attached to the transaction
+        native_scripts = [policy]
+
+        tokenName = b"SuanOracle"
+        ########################
+        """Define NFT"""
+        ########################
+        my_nft = MultiAsset.from_primitive(
+            {
+                policy_id.payload: {
+                    tokenName: 1,  
+                }
+            }
+        )
+
+        if action == "Create":
+            builder.mint = my_nft
+            # Set native script
+            builder.native_scripts = native_scripts
+            msg = f"{tokenName} minted to store oracle data info in datum for Suan"
         else:
-
-            seed = walletInfo["seed"] 
-            hdwallet = HDWallet.from_seed(seed)
-            child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-
-            payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
-
-            payment_vk = PaymentVerificationKey.from_primitive(child_hdwallet.public_key)
-
-            chain_context = CardanoNetwork().get_chain_context()
-
-            # Create a transaction builder
-            builder = TransactionBuilder(chain_context)
-
-            # Add user own address as the input address
-            master_address = Address.from_primitive(walletInfo["address"])
-            builder.add_input_address(master_address)
-            must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
-            builder.ttl = must_before_slot.after
-
-            ########################
-            """3. Create the script and policy"""
-            ########################
-            # A policy that requires a signature from the policy key we generated above
-            pub_key_policy = ScriptPubkey(payment_vk.hash())
-            # A time policy that disallows token minting after 10000 seconds from last block
-            # must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
-            # Combine two policies using ScriptAll policy
-            policy = ScriptAll([pub_key_policy])
-            # Calculate policy ID, which is the hash of the policy
-            policy_id = policy.hash()
-            print(f"Policy ID: {policy_id}")
-            with open(Constants().PROJECT_ROOT / "policy.id", "a+") as f:
-                f.truncate(0)
-                f.write(str(policy_id))
-            # Create the final native script that will be attached to the transaction
-            native_scripts = [policy]
-
-            tokenName = b"SuanOracle"
-            ########################
-            """Define NFT"""
-            ########################
-            my_nft = MultiAsset.from_primitive(
-                {
-                    policy_id.payload: {
-                        tokenName: 1,  
-                    }
-                }
-            )
-
-            if action == "Create":
-                builder.mint = my_nft
-                # Set native script
-                builder.native_scripts = native_scripts
-                msg = f"{tokenName} minted to store oracle data info in datum for Suan"
-            else:
-                nft_utxo = None
-                for utxo in chain_context.utxos(master_address):
-                    def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
-                        return pi == policy_id and an.payload == tokenName and a == 1
-                    if utxo.output.amount.multi_asset.count(f):
-                        nft_utxo = utxo
-                        
-                        builder.add_input(nft_utxo)
-                
-                msg = "Oracle datum updated"
-            # Build the inline datum
-            precision = 14
-            value_dict = {}
-            for data in oracle_data.data:
-                # policy_id = data.policy_id
-                token_feed = pydantic_schemas.TokenFeed(
-                    tokenName= bytes(data.token, encoding="utf-8"),
-                    price=data.price
-                )
-                value_dict[bytes.fromhex(data.policy_id)] = token_feed
+            nft_utxo = None
+            for utxo in chain_context.utxos(master_address):
+                def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
+                    return pi == policy_id and an.payload == tokenName and a == 1
+                if utxo.output.amount.multi_asset.count(f):
+                    nft_utxo = utxo
+                    
+                    builder.add_input(nft_utxo)
             
-            datum = pydantic_schemas.DatumOracle(
-                value_dict=value_dict,
-                identifier=bytes.fromhex(wallet_id),
-                validity= oracle_data.validity
+            msg = "Oracle datum updated"
+        # Build the inline datum
+        precision = 14
+        value_dict = {}
+        for data in oracle_data.data:
+            # policy_id = data.policy_id
+            token_feed = pydantic_schemas.TokenFeed(
+                tokenName= bytes(data.token, encoding="utf-8"),
+                price=data.price
             )
-            min_val = min_lovelace(
-                chain_context, output=TransactionOutput(master_address, Value(0, my_nft), datum=datum)
-            )
-            builder.add_output(TransactionOutput(master_address, Value(min_val, my_nft), datum=datum))
-            signed_tx = builder.build_and_sign([payment_skey], change_address=master_address)
-
-            # Submit signed transaction to the network
-            tx_id = signed_tx.transaction_body.hash().hex()
-            chain_context.submit_tx(signed_tx)
-
-            logging.info(f"transaction id: {tx_id}")
-            logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}")
-
-            ####################################################
-            final_response = {
-                    "success": True,
-                    "msg": msg,
-                    "tx_id": tx_id,
-                    "cardanoScan": f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}"
-                }
-    else:
-            if r["success"] == True:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["data"]["errors"]
-                }
-            else:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["error"]
-                }
+            value_dict[bytes.fromhex(data.policy_id)] = token_feed
         
-    return final_response
+        datum = pydantic_schemas.DatumOracle(
+            value_dict=value_dict,
+            identifier=bytes.fromhex(oracle_walletInfo[4]),
+            validity= oracle_data.validity
+        )
+        min_val = min_lovelace(
+            chain_context, output=TransactionOutput(master_address, Value(0, my_nft), datum=datum)
+        )
+        builder.add_output(TransactionOutput(master_address, Value(min_val, my_nft), datum=datum))
+        signed_tx = builder.build_and_sign([oracle_walletInfo[1]], change_address=master_address)
+
+        # Submit signed transaction to the network
+        tx_id = signed_tx.transaction_body.hash().hex()
+        chain_context.submit_tx(signed_tx)
+
+        logging.info(f"transaction id: {tx_id}")
+        logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}")
+
+        ####################################################
+        final_response = {
+                "success": True,
+                "msg": msg,
+                "tx_id": tx_id,
+                "cardanoScan": f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}"
+            }
+            
+        return final_response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,7 +1,3 @@
-import os
-os.environ["env"] = "env"
-print(os.getenv("env"))
-
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -68,9 +64,15 @@ suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)
 
 if __name__ == "__main__":
     # Use this for debugging purposes only
-    # logger.warning("Running in development mode. Do not run like this in production.")
+    load_dotenv()
     import uvicorn
-
+    import os
+    import logging
+    env = os.getenv("env")
+    if env == "dev":
+        logging.warning(f"Running in {env} mode. Do not run like this in production")
+    elif env == "prod":
+        logging.warning(f"Running in {env} mode. Change the mode to run locally")
     uvicorn.run(
         suantrazabilidad, host="0.0.0.0", port=8001, reload=False, log_level="debug"
     )

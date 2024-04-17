@@ -2,7 +2,8 @@ import logging
 from opshin.prelude import TxOutRef, TxId
 from pycardano import (
     Address,
-    ScriptHash
+    ScriptPubkey,
+    ScriptAll
 )
 from opshin.builder import build, PlutusContract
 from fastapi import APIRouter, HTTPException
@@ -140,7 +141,14 @@ async def getScript(script_type: pydantic_schemas.contractCommandName, query_par
 summary="From parameters build and create the smart contract",
     response_description="script details")
 
-async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wallet_id: str, tokenName: str = "", save_flag: bool = True, parent_policy_id: str = "", project_id: Optional[str] = None) -> dict:
+async def createContract(
+    script_type: pydantic_schemas.ScriptType, 
+    name: str, wallet_id: str, 
+    tokenName: str = "", 
+    save_flag: bool = True, 
+    parent_policy_id: str = "", 
+    project_id: Optional[str] = None, 
+    oracle_wallet_name: Optional[str] = "SuanOracle") -> dict:
 
     """From parameters build a smart contract
     """
@@ -195,8 +203,16 @@ async def createContract(script_type: pydantic_schemas.ScriptType, name: str, wa
         elif script_type == "spend":
             scriptCategory = "PlutusV2"
             script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("inversionista.py")
+
+            # Recreate oracle policyId
+            oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
+            pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
+            # Combine two policies using ScriptAll policy
+            policy = ScriptAll([pub_key_policy])
+            # Calculate policy ID, which is the hash of the policy
+            oracle_policy_id = policy.hash()
             
-            contract = build(script_path, bytes.fromhex(parent_policy_id), tn_bytes)
+            contract = build(script_path, bytes.fromhex(oracle_policy_id), bytes.fromhex(parent_policy_id), tn_bytes)
 
         # Build the contract
         plutus_contract = PlutusContract(contract)
