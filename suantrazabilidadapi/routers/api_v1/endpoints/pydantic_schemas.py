@@ -149,9 +149,28 @@ class RedeemerBurn(PlutusData):
     CONSTR_ID = 1
 
 @dataclass
+class RedeemerBuy(PlutusData):
+    # Redeemer to buy the listed values
+    CONSTR_ID = 0
+
+@dataclass
+class RedeemerSell(PlutusData):
+    # Redeemer to buy the listed values
+    CONSTR_ID = 1
+
+@dataclass
 class DatumProjectParams(PlutusData):
     CONSTR_ID = 0
     beneficiary: bytes
+
+@dataclass
+class DatumSwap(PlutusData):
+    CONSTR_ID = 0
+    owner: bytes
+    order_side: Union[RedeemerBuy, RedeemerSell]
+    tokenA: Token
+    tokenB: Token
+    price: int
 
 @dataclass
 class TokenFeed(PlutusData):
@@ -166,11 +185,6 @@ class DatumOracle(PlutusData):
     identifier: bytes
     validity: POSIXTime
     # signature: bytes
-
-@dataclass
-class RedeemerBuy(PlutusData):
-    # Redeemer to buy the listed values
-    CONSTR_ID = 0
 
 @dataclass
 class RedeemerUnlist(PlutusData):

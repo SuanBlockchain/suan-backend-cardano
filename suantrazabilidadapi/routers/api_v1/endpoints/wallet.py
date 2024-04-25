@@ -333,3 +333,17 @@ async def accountUtxos(stake: str, skip: int = 0, limit: int = 10, all: bool = F
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/asset-info/", status_code=200,
+    summary="Get the information for all assets under the same policy",
+    response_description="Array of detailed information of assets under the same policy")
+
+async def accountUtxos(policy_id: str):
+    """Array of detailed information of assets under the same policy \n
+    """
+    try:
+        asset_info = CardanoApi().assetInfo(policy_id)
+
+        return asset_info
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

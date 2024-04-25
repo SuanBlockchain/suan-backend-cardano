@@ -392,7 +392,7 @@ async def minLovelace(addressDestin: pydantic_schemas.AddressDestin) -> int:
         multiAsset = Helpers().makeMultiAsset(addressDestin)
         # Create Value type
         amount = Value(addressDestin.lovelace, multiAsset)
-        if datum:
+        if addressDestin.datum:
             datum = Datum(addressDestin.datum)
         else:
             datum = None
@@ -671,7 +671,7 @@ async def claimTx(admin_id: str, claim_redeemer: pydantic_schemas.ClaimRedeem, c
     try:
         #TODO: include the oracle input in the endpoint
         # TODO: 
-        oracle_policy_id = "2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f"
+        oracle_policy_id = "b11a367d61a2b8f6a77049a809d7b93c6d44c140678d69276ab77c12"
         oracle_token_name= "SuanOracle"
         ########################
         """1. Get wallet info"""
@@ -780,18 +780,13 @@ async def claimTx(admin_id: str, claim_redeemer: pydantic_schemas.ClaimRedeem, c
                 redeemer=Redeemer(redeemer),
                 )
 
-                r = Plataforma().getWallet("id", admin_id)
-                if r["data"].get("data", None) is not None:
-                    adminWalletInfo = r["data"]["data"]["getWallet"]
-                    if adminWalletInfo is None:
-                        raise ValueError(f'Wallet with id: {claim.wallet_id} does not exist in DynamoDB')
-                    else:
-                        admin_address = Address.from_primitive(adminWalletInfo["address"])
-                        
-                        oracle_asset = Helpers().build_multiAsset(oracle_policy_id, oracle_token_name, 1)
-                        oracle_utxo = Helpers().find_utxos_with_tokens(chain_context, admin_address, multi_asset=oracle_asset)
-                        assert oracle_utxo is not None, "Oracle UTxO not found!"
-                        builder.reference_inputs.add(oracle_utxo)
+                oracle_walletInfo = Keys().load_or_create_key_pair("SuanOracle")
+                oracle_address = oracle_walletInfo[3]
+                oracle_asset = Helpers().build_multiAsset(oracle_policy_id, oracle_token_name, 1)
+                oracle_utxo = Helpers().find_utxos_with_tokens(chain_context, oracle_address, multi_asset=oracle_asset)
+                assert oracle_utxo is not None, "Oracle UTxO not found!"
+                builder.reference_inputs.add(oracle_utxo)
+
                 # Get the wallet from user to sign transaction
                 seed = userWalletInfo.get("seed", None)
                 if not seed:
@@ -905,8 +900,8 @@ async def oracleDatum(action: pydantic_schemas.OracleAction, oracle_data: pydant
         builder = TransactionBuilder(chain_context)
 
         # Add user own address as the input address
-        master_address = Address.from_primitive(oracle_walletInfo[3])
-        builder.add_input_address(master_address)
+        oracle_address = Address.from_primitive(oracle_walletInfo[3])
+        builder.add_input_address(oracle_address)
         must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
         builder.ttl = must_before_slot.after
 
@@ -945,7 +940,7 @@ async def oracleDatum(action: pydantic_schemas.OracleAction, oracle_data: pydant
             msg = f"{tokenName} minted to store oracle data info in datum for Suan"
         else:
             nft_utxo = None
-            for utxo in chain_context.utxos(master_address):
+            for utxo in chain_context.utxos(oracle_address):
                 def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
                     return pi == policy_id and an.payload == tokenName and a == 1
                 if utxo.output.amount.multi_asset.count(f):
@@ -971,10 +966,11 @@ async def oracleDatum(action: pydantic_schemas.OracleAction, oracle_data: pydant
             validity= oracle_data.validity
         )
         min_val = min_lovelace(
-            chain_context, output=TransactionOutput(master_address, Value(0, my_nft), datum=datum)
+            chain_context, output=TransactionOutput(oracle_address, Value(0, my_nft), datum=datum)
         )
-        builder.add_output(TransactionOutput(master_address, Value(min_val, my_nft), datum=datum))
-        signed_tx = builder.build_and_sign([oracle_walletInfo[1]], change_address=master_address)
+        builder.add_output(TransactionOutput(oracle_address, Value(min_val, my_nft), datum=datum))
+
+        signed_tx = builder.build_and_sign([oracle_walletInfo[1]], change_address=oracle_address)
 
         # Submit signed transaction to the network
         tx_id = signed_tx.transaction_body.hash().hex()
@@ -990,7 +986,7 @@ async def oracleDatum(action: pydantic_schemas.OracleAction, oracle_data: pydant
                 "tx_id": tx_id,
                 "cardanoScan": f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}"
             }
-            
+
         return final_response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

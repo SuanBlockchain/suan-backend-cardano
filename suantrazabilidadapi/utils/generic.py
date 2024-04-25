@@ -54,3 +54,15 @@ def save_transaction(trans: Transaction, file: str):
     tx["cborHex"] = trans.to_cbor().hex()
     with open(file, "w", encoding="utf-8") as tf:
         tf.write(json.dumps(tx, indent=4))
+
+
+def recursion_limit(limit: int=2000):
+    import sys
+
+    # Check if the new limit is greater than the current one
+    if limit > sys.getrecursionlimit():
+        # Set the new recursion limit
+        sys.setrecursionlimit(limit)
+        print("Recursion limit updated successfully.")
+    else:
+        print("New limit must be greater than the current limit.")

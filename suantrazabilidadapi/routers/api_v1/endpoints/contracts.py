@@ -8,9 +8,10 @@ from pycardano import (
 from opshin.builder import build, PlutusContract
 from fastapi import APIRouter, HTTPException
 from typing import Optional
+import binascii
 
 from suantrazabilidadapi.utils.blockchain import Keys, CardanoNetwork
-from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string
+from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string, recursion_limit
 from suantrazabilidadapi.utils.plataforma import Plataforma
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 
@@ -210,8 +211,8 @@ async def createContract(
             # Combine two policies using ScriptAll policy
             policy = ScriptAll([pub_key_policy])
             # Calculate policy ID, which is the hash of the policy
-            oracle_policy_id = policy.hash()
-            
+            oracle_policy_id = binascii.hexlify(policy.hash().payload).decode('utf-8')
+            recursion_limit(2000)
             contract = build(script_path, bytes.fromhex(oracle_policy_id), bytes.fromhex(parent_policy_id), tn_bytes)
 
         # Build the contract

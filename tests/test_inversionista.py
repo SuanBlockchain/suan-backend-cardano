@@ -1,9 +1,10 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from functools import cache
 from pathlib import Path
 from copy import deepcopy
 import pycardano as py
 from opshin.builder import build, PlutusContract
+from opshin.prelude import Token, PolicyId
 import logging
 import binascii
 import json
@@ -14,7 +15,15 @@ import os
 import sys
 sys.path.append('./')
 from utils.mock import MockChainContext, MockUser
-from tests.utils.helpers import build_mintProjectToken, build_spend, find_utxos_with_tokens, min_value, save_transaction
+from tests.utils.helpers import (
+    build_mintProjectToken,
+    build_spend,
+    find_utxos_with_tokens,
+    min_value,
+    save_transaction,
+    build_mintSwapToken,
+    build_swap
+) 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 
@@ -40,14 +49,13 @@ def buildContract(script_path: Path, token_policy_id: str, token_name: str) -> t
 
     return (script_hash, script_address)
 
-def build_datum(pkh: str) -> pydantic_schemas.DatumProjectParams:
+def build_datumProject(pkh: str) -> pydantic_schemas.DatumProjectParams:
 
     datum = pydantic_schemas.DatumProjectParams(
         # oracle_policy_id=bytes.fromhex(oracle_policy_id),
         beneficiary=bytes.fromhex(pkh)
     )
     return datum
-
 
 def build_multiAsset(policy_id: str, tokenName: str, quantity: int) -> py.MultiAsset:
     multi_asset = py.MultiAsset()
@@ -117,7 +125,7 @@ def test_mint_lock(
     # Since an InvalidHereAfter
     tx_builder.ttl = must_before_slot.after
     pkh = binascii.hexlify(administrador.pkh.payload).decode('utf-8')
-    datum = build_datum(pkh)
+    datum = build_datumProject(pkh)
 
     min_val = min_value(context, administrador.address, multi_asset, datum)
     
@@ -165,7 +173,7 @@ def test_unlock_buy(
     tx_builder.reference_inputs.add(oracle_utxo)
     # Build Transaction Output to contract
     pkh = binascii.hexlify(administrador.pkh.payload).decode('utf-8')
-    datum = build_datum(pkh)
+    datum = build_datumProject(pkh)
     tx_builder.add_script_input(
         spend_utxo,
         spend_contract.contract,
@@ -282,7 +290,11 @@ def test_burn(
 
     return tx_id
 
-def test_confirm_and_submit(transaction_dir: Path):
+def test_confirm_and_submit(tx_signed: py.Transaction):
+
+    base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/transactions")
+    transaction_dir = base_dir / f"{str(tx_signed.id)}.signed"
+    save_transaction(tx_signed, transaction_dir)
 
     with open(transaction_dir, "r") as file:
         tx = json.load(file)
@@ -292,8 +304,75 @@ def test_confirm_and_submit(transaction_dir: Path):
 
     os.remove(transaction_dir)
 
-# def test_create_order(contracts_info):
+def test_create_order(
+        contracts_info: dict,
+        tokenA_policy_id: str,
+        tokenA_name: str,
+        tokenB_policy_id: str,
+        tokenB_name: str,
+        price: int
+):
 
+    swaptoken_contract = contracts_info["swaptoken_contract"]
+    swaptoken_policy_id = swaptoken_contract.policy_id
+    swap_contract = contracts_info["swap_contract"]
+    swaptoken_address = swap_contract.testnet_addr
+
+    context = contracts_info["context"]
+    administrador = contracts_info["administrador"]
+    propietario = contracts_info["propietario"]
+
+    tx_builder = py.TransactionBuilder(context)
+
+    tx_builder.add_input_address(propietario.address)
+
+    signatures = []
+
+    redeemer = pydantic_schemas.RedeemerMint()
+    signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
+    signatures.append(py.VerificationKeyHash(bytes(propietario.address.payment_part)))
+
+    nft_swap_token = "nft_swap_" + tokenName
+
+    tx_builder.add_minting_script(script=swaptoken_contract.contract, redeemer=py.Redeemer(redeemer))
+    multi_asset = build_multiAsset(swaptoken_policy_id, nft_swap_token, 1)
+    tx_builder.mint = multi_asset
+    tx_builder.required_signers = signatures
+
+    must_before_slot = py.InvalidHereAfter(context.last_block_slot + 10000)
+    # Since an InvalidHereAfter
+    tx_builder.ttl = must_before_slot.after
+
+    tokenA = Token(
+        policy_id=PolicyId(bytes.fromhex(tokenA_policy_id)),
+        token_name=bytes(tokenA_name, encoding="utf-8")
+    )
+    tokenB = Token(
+        policy_id=PolicyId(bytes.fromhex(tokenB_policy_id)),
+        token_name=bytes(tokenB_name, encoding="utf-8")
+    )
+    order_side = pydantic_schemas.RedeemerBuy()
+
+    datum = pydantic_schemas.DatumSwap(
+        owner=bytes.fromhex(administrador.pkh),
+        order_side=order_side,
+        tokenA=tokenA,
+        tokenB=tokenB,
+        price=price
+    )
+
+    min_val = min_value(context, swaptoken_address, multi_asset, datum)
+    
+    spected_tx_output = py.TransactionOutput(swaptoken_address, py.Value(min_val, multi_asset), datum=datum)
+    tx_builder.add_output(spected_tx_output)
+
+    signed_tx = tx_builder.build_and_sign([administrador.signing_key, propietario.signing_key], change_address=administrador.address)
+    tx_id = signed_tx.transaction_body.hash().hex()
+
+    result = context.evaluate_tx(signed_tx)
+    context.submit_tx(signed_tx)
+
+    return tx_id
 
 def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
@@ -330,10 +409,20 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
         spend_contract = create_contract(plutus_contract)
         spend_contract.dump(base_dir / "inversionista")
 
-        parent_spend_policyID = spend_contract.policy_id
+        contract_dir = base_dir / "swaptoken.py"
+        nft_swap_token = "nft_swap_" + tokenName
+        plutus_contract = build_mintSwapToken(contract_dir, context, administrador, nft_swap_token) 
+        
+        swaptoken_contract = create_contract(plutus_contract)
+        swaptoken_contract.dump(base_dir / "swaptoken")
 
-        # contract_dir = base_dir / "swap.py"
-        # swap_contract = build_spend(contract_dir, parent_spend_policyID, tokenName)
+        swaptoken_policy_id = swaptoken_contract.policy_id
+
+        contract_dir = base_dir / "swap.py"
+        plutus_contract = build_swap(contract_dir, swaptoken_policy_id, nft_swap_token)
+        
+        swap_contract = create_contract(plutus_contract)
+        swap_contract.dump(base_dir / "swap")
 
     else:
         logging.info("Recover the contracts from files")
@@ -350,18 +439,16 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
         cbor = bytes.fromhex(cbor_hex)
         spend_contract = create_contract(py.PlutusV2Script(cbor))
 
-        # with(base_dir / "swap/script.cbor").open("r") as f:
-        #     cbor_hex = f.read()
+        with(base_dir / "swap/script.cbor").open("r") as f:
+            cbor_hex = f.read()
 
-        # cbor = bytes.fromhex(cbor_hex)
-        # swap_contract = create_contract(py.PlutusV2Script(cbor))
+        cbor = bytes.fromhex(cbor_hex)
+        swap_contract = create_contract(py.PlutusV2Script(cbor))
         
     parent_mint_policyID = mint_contract.policy_id
 
     spend_address = spend_contract.testnet_addr
     spend_policyID = spend_contract.policy_id
-
-    # swap_address = swap_contract.testnet_addr
 
     contracts_info = {
         "context": context, 
@@ -373,7 +460,8 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
         "propietario": propietario,
         "utxo_to_spend": utxo_to_spend,
         "spend_policyID": spend_policyID,
-        # "swap_address": swap_address
+        "swaptoken_contract": swaptoken_contract,
+        "swap_contract": swap_contract
     }
 
     return contracts_info
@@ -513,21 +601,21 @@ if __name__ == "__main__":
 
     logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
 
-    base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/transactions")
-    transaction_dir = base_dir / f"{str(tx_signed.id)}.signed"
-    save_transaction(tx_signed, transaction_dir)
-
-    test_confirm_and_submit(transaction_dir)
+    test_confirm_and_submit(tx_signed)
 
     # tx_signed = test_unlock_unlist(contracts_info, tokenName)
-    # transaction_dir = base_dir / f"{str(tx_signed.id)}.signed"
-    # save_transaction(tx_signed, transaction_dir)
 
-    # test_confirm_and_submit(transaction_dir)
+    # test_confirm_and_submit(tx_signed)
     
     # Test swap
+    tokenBPolicyId = ""
+    tokenB = ""
 
-    # test_create_order(contracts_info)
+    tx_signed = test_create_order(contracts_info, tokenName, tokenBPolicyId, tokenB, 2_000_000)
+    
+    logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
+
+    test_confirm_and_submit(tx_signed)
 
 
     tx_id = test_burn(contracts_info, tokenName, burnQ)

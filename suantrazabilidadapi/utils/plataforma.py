@@ -362,6 +362,14 @@ class CardanoApi(Constants):
 
         return status_response
     
+    def assetInfo(self, policy_id: str) -> list:
+
+        asset_info = self.KOIOS_API.get_policy_asset_info(policy_id)
+
+        return asset_info
+
+    
+    
 @dataclass()
 class Helpers:
 

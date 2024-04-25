@@ -39,14 +39,34 @@ def build_mintProjectToken(contract_dir: Path, context: MockChainContext, master
     return contract, utxo_to_spend
 
 def build_spend(contract_dir: Path, oracle_policy_id: str, parent_mint_policyID: str, tokenName: str) -> py.PlutusV2Script:
-# def build_inversionista(contract_dir: Path) -> py.PlutusV2Script:
     tn_bytes = bytes(tokenName, encoding="utf-8")
     logging.info("Create contract with following parameters:")
     logging.info(f"Parent policy id from token mint contract : {parent_mint_policyID}")
     logging.info(f"token : {tokenName}")
     
-    # return build(contract_dir)
     return build(contract_dir, bytes.fromhex(oracle_policy_id), bytes.fromhex(parent_mint_policyID), tn_bytes)
+
+def build_mintSwapToken(contract_dir: Path, context: MockChainContext, master: MockUser, tokenName: str) -> tuple[py.PlutusV2Script, py.UTxO]:
+
+    pkh = bytes(master.address.payment_part)
+    tn_bytes = bytes(tokenName, encoding="utf-8")
+
+    logging.info("Create contract with following parameters:")
+    logging.info(f"pkh : {pkh}")
+    logging.info(f"token : {tokenName}")
+
+    contract = build(contract_dir, pkh, tn_bytes)
+
+    return contract
+
+def build_swap(contract_dir: Path, nft_policy_id: str, tokenName: str) -> py.PlutusV2Script:
+    tn_bytes = bytes(tokenName, encoding="utf-8")
+    logging.info("Create contract with following parameters:")
+    logging.info(f"Parent policy id from token mint contract : {nft_policy_id}")
+    logging.info(f"token : {tokenName}")
+    
+    return build(contract_dir, bytes.fromhex(nft_policy_id), tn_bytes)
+
 
 def find_utxos_with_tokens(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset) -> py.UTxO:
     for policy_id, asset in multi_asset.data.items():
