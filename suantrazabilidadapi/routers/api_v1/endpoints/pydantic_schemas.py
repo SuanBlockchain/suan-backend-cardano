@@ -137,8 +137,8 @@ class ScriptType(str, Enum):
     native = "native"
     mintSuanCO2 = "mintSuanCO2"
     mintProjectToken = "mintProjectToken"
-    spend = "spend"
-    any = "any"
+    spendSwap = "spendSwap"
+    spendProject = "spendProject"
 
 @dataclass
 class RedeemerMint(PlutusData):

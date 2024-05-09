@@ -8,12 +8,27 @@ from botocore.exceptions import ClientError
 import boto3
 import logging
 import pathlib
+import binascii
 
-from pycardano import TransactionBody, MultiAsset, Asset, AssetName, ScriptHash, ChainContext, Address, UTxO
+from pycardano import (
+    TransactionBody,
+    MultiAsset,
+    Asset,
+    AssetName,
+    ScriptHash,
+    ChainContext,
+    Address,
+    UTxO,
+    ScriptPubkey,
+    ScriptAll,
+    )
+
+
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.generic import Constants
+from suantrazabilidadapi.utils.blockchain import Keys
 
 plataformaSecrets = config(section="plataforma")
 security = config(section="security")
@@ -426,3 +441,14 @@ class Helpers:
                 assert isinstance(candidate_utxo, UTxO), "Not enough tokens found in Utxo"
         
         return candidate_utxo
+
+    def build_oraclePolicyId(self, oracle_wallet_name: Optional[str] = "SuanOracle") -> str:
+        # Recreate oracle policyId
+        oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
+        pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
+        # Combine two policies using ScriptAll policy
+        policy = ScriptAll([pub_key_policy])
+        # Calculate policy ID, which is the hash of the policy
+        oracle_policy_id = binascii.hexlify(policy.hash().payload).decode('utf-8')
+
+        return oracle_policy_id

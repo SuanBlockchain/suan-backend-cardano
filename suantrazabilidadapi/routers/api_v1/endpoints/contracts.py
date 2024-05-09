@@ -12,7 +12,7 @@ import binascii
 
 from suantrazabilidadapi.utils.blockchain import Keys, CardanoNetwork
 from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string, recursion_limit
-from suantrazabilidadapi.utils.plataforma import Plataforma
+from suantrazabilidadapi.utils.plataforma import Plataforma, Helpers
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 
 
@@ -156,7 +156,8 @@ async def createContract(
     try:
 
         #TODO: Verify that the wallet is admin
-        #TODO: Use project_id variable or delete it
+
+        scriptCategory = "PlutusV2"
 
         r = Plataforma().getWallet("id", wallet_id)
         if r["data"].get("data", None) is not None:
@@ -174,9 +175,11 @@ async def createContract(
 
         tn_bytes = bytes(tokenName, encoding="utf-8")
 
+        #######################
+        # Handle to decide the contract to build
+        #######################
         if script_type == "mintSuanCO2":
-            scriptCategory = "PlutusV2"
-            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("suanco2.py")
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type}.py")
             contract = build(script_path, pkh, tn_bytes)
 
         
@@ -196,22 +199,26 @@ async def createContract(
 
             logging.info(f"oref found to build the script: {oref.id.tx_id.hex()} and idx: {oref.idx}")
 
-            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("project.py")
-            scriptCategory = "PlutusV2"
-            # project_bytes = bytes(project_id, encoding="utf-8")
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type}.py")
             contract = build(script_path, oref, pkh, tn_bytes)
         
-        elif script_type == "spend":
-            scriptCategory = "PlutusV2"
-            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath("inversionista.py")
+        elif script_type == "spendSwap":
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type.value}.py")
+            oracle_policy_id = Helpers().build_oraclePolicyId(oracle_wallet_name)
+            recursion_limit(2000)
+            contract = build(script_path, bytes.fromhex(oracle_policy_id))
+        
+        elif script_type == "spendProject":
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type}.py")
 
-            # Recreate oracle policyId
-            oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
-            pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
-            # Combine two policies using ScriptAll policy
-            policy = ScriptAll([pub_key_policy])
-            # Calculate policy ID, which is the hash of the policy
-            oracle_policy_id = binascii.hexlify(policy.hash().payload).decode('utf-8')
+            oracle_policy_id = Helpers().build_oraclePolicyId(oracle_wallet_name)
+            # # Recreate oracle policyId
+            # oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
+            # pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
+            # # Combine two policies using ScriptAll policy
+            # policy = ScriptAll([pub_key_policy])
+            # # Calculate policy ID, which is the hash of the policy
+            # oracle_policy_id = binascii.hexlify(policy.hash().payload).decode('utf-8')
             recursion_limit(2000)
             contract = build(script_path, bytes.fromhex(oracle_policy_id), bytes.fromhex(parent_policy_id), tn_bytes)
 
@@ -247,7 +254,7 @@ async def createContract(
                         "scriptParentID": parent_policy_id if parent_policy_id != "" else policy_id
                     }
                     # Check if project_id was provided
-                    if script_type != "mintSuanCO2" and not project_id:
+                    if (script_type != "mintSuanCO2" or script_type != "spendSwap") and not project_id:
                         raise ValueError(f'Project Id must be provided to interact with this contract')
                     else:
                         # Validate that the project exists in table products
