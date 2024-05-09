@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Union, Optional, Annotated
+from typing import List, Union, Optional, Annotated, Dict
 from pydantic import constr
 from typing import Dict
 
@@ -97,7 +97,7 @@ class BuildTx(BaseModel):
 class TokenGenesis(BaseModel):
     wallet_id: str
     addresses: Optional[list[AddressDestin]]
-    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
+    metadata: Optional[Dict[str, Annotated[str, constr(max_length=64)]]] = None
     mint: Optional[Mint] = None
 
 class ClaimRedeem(str, Enum):
@@ -189,7 +189,7 @@ class DatumOracle(PlutusData):
 @dataclass
 class RedeemerUnlist(PlutusData):
     # Redeemer to buy the listed values
-    CONSTR_ID = 1
+    CONSTR_ID = 2
 
 @dataclass
 class Unlist(PlutusData):

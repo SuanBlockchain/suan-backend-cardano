@@ -6,8 +6,11 @@ from typing import Optional, Final
 import logging
 import pycardano as py
 import json
+import time
 
 from utils.mock import MockChainContext, MockUser
+from suantrazabilidadapi.utils.generic import recursion_limit
+from suantrazabilidadapi.utils.plataforma import CardanoApi
 
 # Transaction template.
 tx_template: Final[dict] = {
@@ -59,16 +62,17 @@ def build_mintSwapToken(contract_dir: Path, context: MockChainContext, master: M
 
     return contract
 
-def build_swap(contract_dir: Path, nft_policy_id: str, tokenName: str) -> py.PlutusV2Script:
-    tn_bytes = bytes(tokenName, encoding="utf-8")
+def build_swap(contract_dir: Path, oracle_policy_id: str) -> py.PlutusV2Script:
+    # tn_bytes = bytes(tokenName, encoding="utf-8")
     logging.info("Create contract with following parameters:")
-    logging.info(f"Parent policy id from token mint contract : {nft_policy_id}")
-    logging.info(f"token : {tokenName}")
-    
-    return build(contract_dir, bytes.fromhex(nft_policy_id), tn_bytes)
+    logging.info(f"Parent policy id from token mint contract : {oracle_policy_id}")
+    # logging.info(f"token : {tokenName}")
+    recursion_limit(2000)
+    return build(contract_dir, bytes.fromhex(oracle_policy_id))
 
 
-def find_utxos_with_tokens(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset) -> py.UTxO:
+def find_utxos_with_tokens(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset) -> Union[py.UTxO, None]:
+    candidate_utxo = None
     for policy_id, asset in multi_asset.data.items():
         for tn_bytes, amount in asset.data.items():
 
@@ -99,3 +103,64 @@ def save_transaction(trans: py.Transaction, file: str):
     tx["cborHex"] = trans.to_cbor().hex()
     with open(file, "w", encoding="utf-8") as tf:
         tf.write(json.dumps(tx, indent=4))
+
+def setup_user(context: MockChainContext, walletName: Optional[str] = ""):
+    user = MockUser(context, walletName)
+    user.fund(100000000)  # 100 ADA
+    return user
+
+def setup_users(context: MockChainContext) -> List[MockUser]:
+    users = []
+    for _ in range(3):
+        u = MockUser(context)
+        u.fund(10_000_000)  # 10 ADA
+        users.append(u)
+    return users
+
+def create_contract(contract: py.PlutusV2Script) -> PlutusContract:
+
+    # Build the contract
+    plutus_contract = PlutusContract(contract)
+
+    assert isinstance(plutus_contract, PlutusContract), "Not a plutus script contract"
+
+    cbor_hex = plutus_contract.cbor_hex
+    mainnet_address = plutus_contract.mainnet_addr
+    testnet_address = plutus_contract.testnet_addr
+    policy_id = plutus_contract.policy_id
+
+    logging.info(f"testnet address: {testnet_address}")
+    logging.info(f"policyId: {policy_id}")
+
+    return plutus_contract
+
+def build_multiAsset(policy_id: str, tokenName: str, quantity: int) -> py.MultiAsset:
+
+    multi_asset = py.MultiAsset()
+    my_asset = py.Asset()
+    my_asset.data.update({py.AssetName(bytes(tokenName, encoding="utf-8")): quantity})
+    multi_asset[py.ScriptHash(bytes.fromhex(policy_id))] = my_asset
+
+    return multi_asset
+
+
+def monitor_transaction(transaction_id: str) -> bool:
+
+    # Wait to confirm the transaction in the blockchain
+    confirmation = False
+    while not confirmation:  # type: ignore
+        status = CardanoApi().txStatus(transaction_id)[0]["num_confirmations"]
+        if status:
+            if status >= 1:
+                confirmation = True
+            else:
+                print(f"Transaction {transaction_id} not yet confirmed")
+                time.sleep(5)
+        else:
+            print(f"Transaction {transaction_id} not yet confirmed")
+            time.sleep(10)
+
+
+    print(f"transaction succesfully submitted with Hash: {transaction_id}")
+
+    return confirmation

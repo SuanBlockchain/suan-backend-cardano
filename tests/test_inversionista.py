@@ -1,9 +1,8 @@
-from typing import List, Optional, Union
 from functools import cache
 from pathlib import Path
 from copy import deepcopy
 import pycardano as py
-from opshin.builder import build, PlutusContract
+from opshin.builder import build
 from opshin.prelude import Token, PolicyId
 import logging
 import binascii
@@ -14,7 +13,7 @@ import os
 
 import sys
 sys.path.append('./')
-from utils.mock import MockChainContext, MockUser
+from utils.mock import MockChainContext
 from tests.utils.helpers import (
     build_mintProjectToken,
     build_spend,
@@ -22,7 +21,11 @@ from tests.utils.helpers import (
     min_value,
     save_transaction,
     build_mintSwapToken,
-    build_swap
+    build_swap, 
+    setup_user,
+    create_contract,
+    build_multiAsset,
+    monitor_transaction
 ) 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
@@ -36,8 +39,6 @@ def setup_context():
     # enable opshin validator debugging
     # context.opshin_scripts[py.PlutusV2Script] = inversionista.validator
     return context, setup_user(context), setup_user(context), setup_user(context)
-
-
 
 def buildContract(script_path: Path, token_policy_id: str, token_name: str) -> tuple[py.ScriptHash, py.Address]:
 
@@ -56,44 +57,6 @@ def build_datumProject(pkh: str) -> pydantic_schemas.DatumProjectParams:
         beneficiary=bytes.fromhex(pkh)
     )
     return datum
-
-def build_multiAsset(policy_id: str, tokenName: str, quantity: int) -> py.MultiAsset:
-    multi_asset = py.MultiAsset()
-    my_asset = py.Asset()
-    my_asset.data.update({py.AssetName(bytes(tokenName, encoding="utf-8")): quantity})
-    multi_asset[py.ScriptHash(bytes.fromhex(policy_id))] = my_asset
-
-    return multi_asset
-
-def setup_user(context: MockChainContext, walletName: Optional[str] = ""):
-    user = MockUser(context, walletName)
-    user.fund(100000000)  # 100 ADA
-    return user
-
-def setup_users(context: MockChainContext) -> List[MockUser]:
-    users = []
-    for _ in range(3):
-        u = MockUser(context)
-        u.fund(10_000_000)  # 10 ADA
-        users.append(u)
-    return users
-
-def create_contract(contract: py.PlutusV2Script) -> PlutusContract:
-
-    # Build the contract
-    plutus_contract = PlutusContract(contract)
-
-    assert isinstance(plutus_contract, PlutusContract), "Not a plutus script contract"
-
-    cbor_hex = plutus_contract.cbor_hex
-    mainnet_address = plutus_contract.mainnet_addr
-    testnet_address = plutus_contract.testnet_addr
-    policy_id = plutus_contract.policy_id
-
-    logging.info(f"testnet address: {testnet_address}")
-    logging.info(f"policyId: {policy_id}")
-
-    return plutus_contract
 
 def test_mint_lock(
         contract_info: dict,
@@ -149,7 +112,8 @@ def test_mint_lock(
 def test_unlock_buy(
     contract_info: dict,
     tokenName: str, 
-    buyQ: int) -> py.Transaction:
+    buyQ: int,
+    price: int) -> py.Transaction:
 
     context = contract_info["context"]
     administrador = contract_info["administrador"]
@@ -188,7 +152,7 @@ def test_unlock_buy(
     tx_builder.add_output(py.TransactionOutput(propietario.address, py.Value(min_val, multi_asset_buy)))
     
     # Build Transaction Output to beneficiary
-    tx_builder.add_output(py.TransactionOutput(administrador.address, py.Value(2_000_000)))
+    tx_builder.add_output(py.TransactionOutput(administrador.address, py.Value(price * buyQ)))
     # tx_builder.add_output(py.TransactionOutput("addr_test1qzttu3gj6vtz6e6j4p4pnmyw52x5j7kw47kce4hux9fv445khez395ck94n492r2r8kgag5df9avatad3nt0cv2jettqxfwfwv", py.Value(20_000_000)))
     
     # Calculate the change of tokens back to the contract
@@ -220,7 +184,7 @@ def test_unlock_unlist(
     tx_builder = py.TransactionBuilder(context)
 
     # MultiAsset to trade
-    multi_asset_unlist = build_multiAsset(parent_mint_policyID, tokenName, 1)
+    multi_asset_unlist = build_multiAsset(parent_mint_policyID, tokenName, 20)
 
     # Build redeemer
     redeemer = pydantic_schemas.RedeemerUnlist()
@@ -243,7 +207,7 @@ def test_unlock_unlist(
     tx_builder.add_output(py.TransactionOutput(propietario.address, py.Value(min_val, multi_asset_unlist)))
 
     # tx_body = tx_builder.build(change_address=propietario.address)
-    tx_signed = tx_builder.build_and_sign([propietario.signing_key, administrador.signing_key], change_address=propietario.address)
+    tx_signed = tx_builder.build_and_sign([propietario.signing_key], change_address=propietario.address)
     return tx_signed
 
 def test_burn(
@@ -256,33 +220,36 @@ def test_burn(
     parent_mint_policyID = contract_info["parent_mint_policyID"]
     propietario = contract_info["propietario"]
     administrador = contract_info["administrador"]
+
+    inversionista = setup_user(context, walletName="inversionista")
+    # inversionista_address = inversionista.address
     
     tx_builder = py.TransactionBuilder(context)
     signatures = []
-    signatures.append(py.VerificationKeyHash(bytes(propietario.address.payment_part)))
+    signatures.append(py.VerificationKeyHash(bytes(inversionista.address.payment_part)))
     signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
     # Build redeemer
     redeemer = pydantic_schemas.RedeemerBurn()
     tx_builder.add_minting_script(script=mint_contract.contract, redeemer=py.Redeemer(redeemer))
     # MultiAsset to trade
     multi_asset = build_multiAsset(parent_mint_policyID, tokenName, -burnQ)
-    burn_utxo = find_utxos_with_tokens(context, propietario.address, multi_asset=multi_asset)
+    burn_utxo = find_utxos_with_tokens(context, inversionista.address, multi_asset=multi_asset)
     tx_builder.add_input(burn_utxo)
     multi_asset_burn = build_multiAsset(parent_mint_policyID, tokenName, burnQ)
     tx_builder.mint = multi_asset_burn
     tx_builder.required_signers = signatures
 
     # Add input address to pay fees. This is the buyer address
-    tx_builder.add_input_address(propietario.address)
+    tx_builder.add_input_address(inversionista.address)
 
-    signed_tx = tx_builder.build_and_sign([propietario.signing_key, administrador.signing_key], change_address=propietario.address)
+    signed_tx = tx_builder.build_and_sign([inversionista.signing_key, administrador.signing_key], change_address=inversionista.address)
     new_context = context
     tx_id = signed_tx.transaction_body.hash().hex()
 
     if isinstance(context, MockChainContext):
     
         context.submit_tx(signed_tx)
-        logging.info(f"Buyer: {propietario.balance()}")
+        logging.info(f"Buyer: {inversionista.balance()}")
     else:
         result = context.evaluate_tx(signed_tx)
         context.submit_tx(signed_tx)
@@ -306,17 +273,18 @@ def test_confirm_and_submit(tx_signed: py.Transaction):
 
 def test_create_order(
         contracts_info: dict,
-        tokenA_policy_id: str,
         tokenA_name: str,
+        qTokenA: int,
         tokenB_policy_id: str,
         tokenB_name: str,
         price: int
 ):
 
-    swaptoken_contract = contracts_info["swaptoken_contract"]
-    swaptoken_policy_id = swaptoken_contract.policy_id
+    # swaptoken_contract = contracts_info["swaptoken_contract"]
+    # swaptoken_policy_id = swaptoken_contract.policy_id
     swap_contract = contracts_info["swap_contract"]
     swaptoken_address = swap_contract.testnet_addr
+    parent_mint_policyID = contracts_info["parent_mint_policyID"]
 
     context = contracts_info["context"]
     administrador = contracts_info["administrador"]
@@ -328,15 +296,17 @@ def test_create_order(
 
     signatures = []
 
-    redeemer = pydantic_schemas.RedeemerMint()
-    signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
+    # redeemer = pydantic_schemas.RedeemerMint() # to Mint the swapToken
+    # signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
     signatures.append(py.VerificationKeyHash(bytes(propietario.address.payment_part)))
 
-    nft_swap_token = "nft_swap_" + tokenName
+    # nft_swap_token = "nft_swap_" + tokenName
 
-    tx_builder.add_minting_script(script=swaptoken_contract.contract, redeemer=py.Redeemer(redeemer))
-    multi_asset = build_multiAsset(swaptoken_policy_id, nft_swap_token, 1)
-    tx_builder.mint = multi_asset
+    # tx_builder.add_minting_script(script=swaptoken_contract.contract, redeemer=py.Redeemer(redeemer))
+    # nft_swap_multi_asset = build_multiAsset(swaptoken_policy_id, nft_swap_token, 1)
+    multi_asset = build_multiAsset(parent_mint_policyID, tokenA_name, qTokenA)
+    # multi_asset = multi_asset.union(nft_swap_multi_asset)
+    # tx_builder.mint = nft_swap_multi_asset
     tx_builder.required_signers = signatures
 
     must_before_slot = py.InvalidHereAfter(context.last_block_slot + 10000)
@@ -344,7 +314,7 @@ def test_create_order(
     tx_builder.ttl = must_before_slot.after
 
     tokenA = Token(
-        policy_id=PolicyId(bytes.fromhex(tokenA_policy_id)),
+        policy_id=PolicyId(bytes.fromhex(parent_mint_policyID)),
         token_name=bytes(tokenA_name, encoding="utf-8")
     )
     tokenB = Token(
@@ -354,7 +324,7 @@ def test_create_order(
     order_side = pydantic_schemas.RedeemerBuy()
 
     datum = pydantic_schemas.DatumSwap(
-        owner=bytes.fromhex(administrador.pkh),
+        owner=propietario.pkh.payload,
         order_side=order_side,
         tokenA=tokenA,
         tokenB=tokenB,
@@ -366,13 +336,137 @@ def test_create_order(
     spected_tx_output = py.TransactionOutput(swaptoken_address, py.Value(min_val, multi_asset), datum=datum)
     tx_builder.add_output(spected_tx_output)
 
-    signed_tx = tx_builder.build_and_sign([administrador.signing_key, propietario.signing_key], change_address=administrador.address)
-    tx_id = signed_tx.transaction_body.hash().hex()
+    signed_tx = tx_builder.build_and_sign([propietario.signing_key], change_address=propietario.address)
+    # tx_id = signed_tx.transaction_body.hash().hex()
 
     result = context.evaluate_tx(signed_tx)
-    context.submit_tx(signed_tx)
+    # context.submit_tx(signed_tx)
 
-    return tx_id
+    return signed_tx
+
+def test_unlist_order(
+        contracts_info: dict,
+        tokenA_name: str,
+        qTokenA: int,
+):
+    # swaptoken_contract = contracts_info["swaptoken_contract"]
+    # swaptoken_policy_id = swaptoken_contract.policy_id
+    swap_contract = contracts_info["swap_contract"]
+    swaptoken_address = swap_contract.testnet_addr
+    parent_mint_policyID = contracts_info["parent_mint_policyID"]
+    context = contracts_info["context"]
+    propietario = contracts_info["propietario"]
+    administrador = contracts_info["administrador"]
+
+    tx_builder = py.TransactionBuilder(context)
+
+    tx_builder.add_input_address(propietario.address)
+
+    signatures = []
+    signatures.append(py.VerificationKeyHash(bytes(propietario.address.payment_part)))
+    tx_builder.required_signers = signatures
+
+    redeemer = pydantic_schemas.RedeemerUnlist()
+    multi_asset = build_multiAsset(parent_mint_policyID, tokenA_name, qTokenA)
+    multi_asset_spend_utxo = find_utxos_with_tokens(context, swaptoken_address, multi_asset=multi_asset)
+
+    
+    # nft_swap_token = "nft_swap_" + tokenName
+    # nft_swap_multi_asset = build_multiAsset(swaptoken_policy_id, nft_swap_token, 1)
+    # nft_swap_multi_asset_spend_utxo = find_utxos_with_tokens(context, swaptoken_address, multi_asset=nft_swap_multi_asset)
+    if multi_asset_spend_utxo:
+        tx_builder.add_script_input(
+            multi_asset_spend_utxo,
+            swap_contract.contract,
+            redeemer=py.Redeemer(redeemer)
+            )
+
+    # nft_swap_multi_asset_burn = build_multiAsset(swaptoken_policy_id, nft_swap_token, -1)
+    # tx_builder.mint = nft_swap_multi_asset_burn
+    # tx_builder.add_minting_script(script=swaptoken_contract.contract, redeemer=py.Redeemer(pydantic_schemas.RedeemerBurn()))
+
+    must_before_slot = py.InvalidHereAfter(context.last_block_slot + 10000)
+    # Since an InvalidHereAfter
+    tx_builder.ttl = must_before_slot.after
+
+    min_val = min_value(context, propietario.address, multi_asset)
+    tx_builder.add_output(py.TransactionOutput(propietario.address, py.Value(min_val, multi_asset)))
+
+    # min_val = min_value(context, propietario.address, nft_swap_multi_asset)
+    # tx_builder.add_output(py.TransactionOutput(propietario.address, py.Value(min_val, nft_swap_multi_asset)))
+
+    # min_val = min_value(context, "addr_test1wzt6z57f5d5crwt9s3dcat5ptr5d73gucndf9n7zeumaf2gkhmzjn", nft_swap_multi_asset)
+    # tx_builder.add_output(py.TransactionOutput("addr_test1wzt6z57f5d5crwt9s3dcat5ptr5d73gucndf9n7zeumaf2gkhmzjn", py.Value(min_val, nft_swap_multi_asset)))
+    
+    signed_tx = tx_builder.build_and_sign([propietario.signing_key], change_address=propietario.address)
+    result = context.evaluate_tx(signed_tx)
+
+    return signed_tx
+
+def test_unlock_order(
+    contracts_info: dict,
+    tokenA_name: str,
+    qTokenA: int,
+    price: int
+):
+    # swaptoken_contract = contracts_info["swaptoken_contract"]
+    # swaptoken_policy_id = swaptoken_contract.policy_id
+    swap_contract = contracts_info["swap_contract"]
+    swaptoken_address = swap_contract.testnet_addr
+    parent_mint_policyID = contracts_info["parent_mint_policyID"]
+    context = contracts_info["context"]
+    propietario = contracts_info["propietario"]
+    administrador = contracts_info["administrador"]
+
+    inversionista = setup_user(context, walletName="inversionista")
+    inversionista_address = inversionista.address
+
+    tx_builder = py.TransactionBuilder(context)
+
+    tx_builder.add_input_address(inversionista_address)
+
+    oracle_asset = build_multiAsset("bee96517f9dab275358a141351f4010b077d5997d382430604938b9a", "SuanOracleTest", 1)
+    oracle_address = py.Address.from_primitive("addr_test1vqk6jh4xqxmp80dv2tay9hu8cmzhezyes76alt8ezevlpssxz77zr")
+    oracle_utxo = find_utxos_with_tokens(context, oracle_address, multi_asset=oracle_asset)
+    tx_builder.reference_inputs.add(oracle_utxo)
+
+    signatures = []
+    signatures.append(py.VerificationKeyHash(bytes(inversionista_address.payment_part)))
+    # signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
+
+    tx_builder.required_signers = signatures
+    redeemer = pydantic_schemas.RedeemerBuy()
+    multi_asset = build_multiAsset(parent_mint_policyID, tokenA_name, qTokenA)
+    multi_asset_spend_utxo = find_utxos_with_tokens(context, swaptoken_address, multi_asset=multi_asset)
+    # nft_swap_token = "nft_swap_" + tokenName
+    # nft_swap_multi_asset = build_multiAsset(swaptoken_policy_id, nft_swap_token, 1)
+    # nft_swap_multi_asset_spend_utxo = find_utxos_with_tokens(context, swaptoken_address, multi_asset=nft_swap_multi_asset)
+    if multi_asset_spend_utxo:
+        tx_builder.add_script_input(
+            multi_asset_spend_utxo,
+            swap_contract.contract,
+            redeemer=py.Redeemer(redeemer)
+            )
+    else:
+        raise ValueError("No utxo found with both tokens")
+
+    # nft_swap_multi_asset_burn = build_multiAsset(swaptoken_policy_id, nft_swap_token, -1)
+    # tx_builder.mint = nft_swap_multi_asset_burn
+    # tx_builder.add_minting_script(script=swaptoken_contract.contract, redeemer=py.Redeemer(pydantic_schemas.RedeemerBurn()))
+    
+    must_before_slot = py.InvalidHereAfter(context.last_block_slot + 10000)
+    # Since an InvalidHereAfter
+    tx_builder.ttl = must_before_slot.after
+
+    min_val = min_value(context, inversionista_address, multi_asset)
+    tx_builder.add_output(py.TransactionOutput(inversionista_address, py.Value(min_val, multi_asset)))
+
+    tx_builder.add_output(py.TransactionOutput(propietario.address, py.Value(price * qTokenA)))
+    
+    signed_tx = tx_builder.build_and_sign([inversionista.signing_key], change_address=inversionista.address)
+    result = context.evaluate_tx(signed_tx)
+
+    return signed_tx
 
 def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
@@ -409,17 +503,17 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
         spend_contract = create_contract(plutus_contract)
         spend_contract.dump(base_dir / "inversionista")
 
-        contract_dir = base_dir / "swaptoken.py"
-        nft_swap_token = "nft_swap_" + tokenName
-        plutus_contract = build_mintSwapToken(contract_dir, context, administrador, nft_swap_token) 
+        # contract_dir = base_dir / "swaptoken.py"
+        # nft_swap_token = "nft_swap_" + tokenName
+        # plutus_contract = build_mintSwapToken(contract_dir, context, administrador, nft_swap_token) 
         
-        swaptoken_contract = create_contract(plutus_contract)
-        swaptoken_contract.dump(base_dir / "swaptoken")
+        # swaptoken_contract = create_contract(plutus_contract)
+        # swaptoken_contract.dump(base_dir / "swaptoken")
 
-        swaptoken_policy_id = swaptoken_contract.policy_id
+        # swaptoken_policy_id = swaptoken_contract.policy_id
 
         contract_dir = base_dir / "swap.py"
-        plutus_contract = build_swap(contract_dir, swaptoken_policy_id, nft_swap_token)
+        plutus_contract = build_swap(contract_dir, oracle_policy_id)
         
         swap_contract = create_contract(plutus_contract)
         swap_contract.dump(base_dir / "swap")
@@ -438,6 +532,12 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
         cbor = bytes.fromhex(cbor_hex)
         spend_contract = create_contract(py.PlutusV2Script(cbor))
+
+        # with(base_dir / "swaptoken/script.cbor").open("r") as f:
+        #     cbor_hex = f.read()
+
+        # cbor = bytes.fromhex(cbor_hex)
+        # swaptoken_contract = create_contract(py.PlutusV2Script(cbor))
 
         with(base_dir / "swap/script.cbor").open("r") as f:
             cbor_hex = f.read()
@@ -460,7 +560,7 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
         "propietario": propietario,
         "utxo_to_spend": utxo_to_spend,
         "spend_policyID": spend_policyID,
-        "swaptoken_contract": swaptoken_contract,
+        # "swaptoken_contract": swaptoken_contract,
         "swap_contract": swap_contract
     }
 
@@ -581,9 +681,9 @@ if __name__ == "__main__":
 
     oracle_policy_id ="bee96517f9dab275358a141351f4010b077d5997d382430604938b9a"
     tokenName = "PROJECTtOKEN3"
-    tokenQ = 1
-    price = 2_000_000
-    buyQ = 1
+    tokenQ = 20
+    price = 1_000_000
+    buyQ = 20
     # unlock = 1
     burnQ = -1
 
@@ -594,14 +694,15 @@ if __name__ == "__main__":
         logging.info(f"created oracle datum with tx_id: {tx_id}")
         tx_id = test_mint_lock(contracts_info, tokenName, tokenQ)
         logging.info(f"Locked tokens in spend contract tx_id: {tx_id}")
-        # TODO: confirm transaction
 
+        confirmation = monitor_transaction(tx_id)
 
-    tx_signed = test_unlock_buy(contracts_info, tokenName, buyQ)
+    # tx_signed = test_unlock_buy(contracts_info, tokenName, buyQ, price)
 
-    logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
+    # logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
 
-    test_confirm_and_submit(tx_signed)
+    # test_confirm_and_submit(tx_signed)
+    # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
     # tx_signed = test_unlock_unlist(contracts_info, tokenName)
 
@@ -610,13 +711,27 @@ if __name__ == "__main__":
     # Test swap
     tokenBPolicyId = ""
     tokenB = ""
+    qTokenA = 1
+    sellPrice = 2_500_000
 
-    tx_signed = test_create_order(contracts_info, tokenName, tokenBPolicyId, tokenB, 2_000_000)
+    # tx_signed = test_create_order(contracts_info, tokenName, qTokenA, tokenBPolicyId, tokenB, sellPrice)
     
-    logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
+    # logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
 
-    test_confirm_and_submit(tx_signed)
+    # test_confirm_and_submit(tx_signed)
 
+    # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+
+
+    # tx_signed = test_unlock_order(contracts_info, tokenName, qTokenA, sellPrice)
+    # test_confirm_and_submit(tx_signed)
+
+    # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+
+    # tx_signed = test_unlist_order(contracts_info, tokenName, qTokenA)
+    # test_confirm_and_submit(tx_signed)
+
+    # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
     tx_id = test_burn(contracts_info, tokenName, burnQ)
     logging.info(f"burned project tokens with tx_id: {tx_id}")

@@ -567,7 +567,7 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                 if send.metadata is not None and send.metadata != []:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
 
-                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [send.metadata]}})))
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({721: {f"{send.mint.asset.policyid}": send.metadata}})))
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
 
