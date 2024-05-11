@@ -165,8 +165,41 @@ def test_unlock_buy(
         spected_tx_output = py.TransactionOutput(spend_address, py.Value(min_val, multi_asset_return), datum=datum)
         tx_builder.add_output(spected_tx_output)
 
-    # tx_body = tx_builder.build(change_address=propietario.address)
-    tx_signed = tx_builder.build_and_sign([propietario.signing_key], change_address=propietario.address)
+    from copy import deepcopy
+    tmp_builder = deepcopy(tx_builder)
+    tx_body = tmp_builder.build(change_address=propietario.address)
+    tx_cbor = tx_body.to_cbor_hex()
+    tx_body1 = py.TransactionBody.from_cbor(tx_cbor)
+    # print(tx_cbor)
+
+    # sign_builder = py.TransactionBuilder(context)
+
+
+    signature = propietario.signing_key.sign(tx_body.hash())
+    payment_vk = propietario.verification_key
+    vk_witnesses = [py.VerificationKeyWitness(payment_vk, signature)]
+    
+    # witness_set.plutus_v2_script([spend_contract.contract])
+
+    redeemers = tmp_builder.redeemers
+    witness_set = py.TransactionWitnessSet(
+        vkey_witnesses=vk_witnesses,
+        plutus_v2_script=[spend_contract.contract],
+        redeemer=redeemers
+    )
+    tx_signed = py.Transaction(tx_body1, witness_set)
+
+    # signed_tx_cbor = signed_tx.to_cbor_hex()
+
+    # print(signed_tx_cbor)
+
+    # tx_signed = py.Transaction(
+    #     transaction_body=tx_body1,
+    #     transaction_witness_set=witness_set
+    # )
+
+    tx_signed1 = tx_builder.build_and_sign([propietario.signing_key], change_address=propietario.address)
+    # print(tx_signed1.to_cbor_hex())
 
     return tx_signed
 
@@ -278,7 +311,7 @@ def test_create_order(
         tokenB_policy_id: str,
         tokenB_name: str,
         price: int
-):
+    ):
 
     # swaptoken_contract = contracts_info["swaptoken_contract"]
     # swaptoken_policy_id = swaptoken_contract.policy_id
@@ -472,7 +505,6 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
     # 1. Initialize general variables
 
-    contract_dir = base_dir / "project.py"
 
     # 2. Create the context and fund test wallets in MockContext or Cardano
 
@@ -485,7 +517,9 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
     
     # 3. Build the mint contract and spend project contract
     utxo_to_spend = None
-    if not Path(base_dir / "project").exists():
+    if not Path(base_dir / "mintProjectToken").exists():
+        
+        contract_dir = base_dir / "mintProjectToken.py"
 
         logging.info("Create new set of contracts")
 
@@ -493,15 +527,15 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
         mint_contract = create_contract(plutus_contract)
 
-        mint_contract.dump(base_dir / "project")
+        mint_contract.dump(base_dir / "mintProjectToken")
 
         parent_mint_policyID = mint_contract.policy_id
 
-        contract_dir = base_dir / "inversionista.py"
+        contract_dir = base_dir / "spendProject.py"
         plutus_contract = build_spend(contract_dir, oracle_policy_id, parent_mint_policyID, tokenName)
 
         spend_contract = create_contract(plutus_contract)
-        spend_contract.dump(base_dir / "inversionista")
+        spend_contract.dump(base_dir / "spendProject")
 
         # contract_dir = base_dir / "swaptoken.py"
         # nft_swap_token = "nft_swap_" + tokenName
@@ -512,22 +546,22 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
         # swaptoken_policy_id = swaptoken_contract.policy_id
 
-        contract_dir = base_dir / "swap.py"
+        contract_dir = base_dir / "spendSwap.py"
         plutus_contract = build_swap(contract_dir, oracle_policy_id)
         
         swap_contract = create_contract(plutus_contract)
-        swap_contract.dump(base_dir / "swap")
+        swap_contract.dump(base_dir / "spendSwap")
 
     else:
         logging.info("Recover the contracts from files")
 
-        with (base_dir / "project/script.cbor").open("r") as f:
+        with (base_dir / "mintProjectToken/script.cbor").open("r") as f:
             cbor_hex = f.read()
 
         cbor = bytes.fromhex(cbor_hex)
         mint_contract = create_contract(py.PlutusV2Script(cbor))
 
-        with (base_dir / "inversionista/script.cbor").open("r") as f:
+        with (base_dir / "spendProject/script.cbor").open("r") as f:
             cbor_hex = f.read()
 
         cbor = bytes.fromhex(cbor_hex)
@@ -539,7 +573,7 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
         # cbor = bytes.fromhex(cbor_hex)
         # swaptoken_contract = create_contract(py.PlutusV2Script(cbor))
 
-        with(base_dir / "swap/script.cbor").open("r") as f:
+        with(base_dir / "spendSwap/script.cbor").open("r") as f:
             cbor_hex = f.read()
 
         cbor = bytes.fromhex(cbor_hex)
@@ -697,12 +731,12 @@ if __name__ == "__main__":
 
         confirmation = monitor_transaction(tx_id)
 
-    # tx_signed = test_unlock_buy(contracts_info, tokenName, buyQ, price)
+    tx_signed = test_unlock_buy(contracts_info, tokenName, buyQ, price)
 
-    # logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
+    logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
 
-    # test_confirm_and_submit(tx_signed)
-    # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+    test_confirm_and_submit(tx_signed)
+    confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
     # tx_signed = test_unlock_unlist(contracts_info, tokenName)
 

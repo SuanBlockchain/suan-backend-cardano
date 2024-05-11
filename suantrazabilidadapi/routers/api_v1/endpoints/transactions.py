@@ -4,9 +4,10 @@ from suantrazabilidadapi.utils.plataforma import Plataforma, CardanoApi, Helpers
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
 from suantrazabilidadapi.utils.generic import Constants, save_transaction, remove_file
 
-from typing import Union, Optional
+from typing import Union, Optional, List, Dict
 import logging
 import json
+from copy import deepcopy
 
 from pycardano import (
     TransactionBuilder, 
@@ -35,7 +36,10 @@ from pycardano import (
     TransactionWitnessSet,
     ScriptPubkey,
     ScriptAll,
-    Datum
+    Datum,
+    NativeScript,
+    PlutusV1Script,
+    DatumHash
 )
 import opshin.prelude as oprelude
 
@@ -59,8 +63,8 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
         ########################
         r = Plataforma().getWallet("id", send.wallet_id)
         if r["data"].get("data", None) is not None:
-            walletInfo = r["data"]["data"]["getWallet"]
-            if walletInfo is None:
+            userWalletInfo = r["data"]["data"]["getWallet"]
+            if userWalletInfo is None:
                 raise ValueError(f'Wallet with id: {send.wallet_id} does not exist in DynamoDB')
             else:
                 ########################
@@ -72,17 +76,19 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                 builder = TransactionBuilder(chain_context)
 
                 # Add user own address as the input address
-                master_address = Address.from_primitive(walletInfo["address"])
-                builder.add_input_address(master_address)
+                user_address = Address.from_primitive(userWalletInfo["address"])
+                builder.add_input_address(user_address)
 
                 must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
-                if send.metadata is not None and send.metadata != []:
+                if send.metadata is not None and send.metadata != {}:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
-
-                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [send.metadata]}})))
+                    main_key = int(list(send.metadata.keys())[0])
+                    if not isinstance(main_key, int):
+                        raise ValueError(f"Metadata is not enclosed by an integer index")
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({main_key: send.metadata[str(main_key)]})))
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
                 addresses = send.addresses
@@ -117,7 +123,7 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                     else:
                         builder.add_output(TransactionOutput(Address.decode(address.address), Value(address.lovelace, multi_asset), datum=datum))
 
-                build_body = builder.build(change_address=master_address, merge_change=True)
+                build_body = builder.build(change_address=user_address, merge_change=True)
 
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
@@ -162,7 +168,6 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
 
 async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
     try:
-
         ########################
         """1. Get wallet info"""
         ########################
@@ -192,15 +197,44 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
 
                 signature = payment_skey.sign(tx_body.hash())
                 vk_witnesses = [VerificationKeyWitness(payment_vk, signature)]
-                if signSubmit.metadata is not None and signSubmit.metadata != []:
+
+                auxiliary_data: Optional[AuxiliaryData] = None
+                native_scripts: List[NativeScript] = []
+                plutus_v1_scripts: List[PlutusV1Script] = []
+                plutus_v2_scripts: List[PlutusV2Script] = []
+                datums: Dict[DatumHash, Datum] = {}
+
+                #TODO: Put conditional for redeemer
+                redeemer = [Redeemer.from_cbor(bytes.fromhex(signSubmit.redeemer_cbor))]
+
+                r = Plataforma().getScript("id", signSubmit.scriptPolicyId)
+                if r["success"] == True:
+                    contractInfo = r["data"]["data"]["getScript"]
+                    if contractInfo is None:
+                        raise ValueError(f'Contract with id: {signSubmit.spendPolicyId} does not exist in DynamoDB')
+                    else:
+                        cbor_hex = contractInfo.get("cbor", None)
+
+                        cbor = bytes.fromhex(cbor_hex)
+                        plutus_v2_scripts = [PlutusV2Script(cbor)]
+
+                witness_set = TransactionWitnessSet(
+                    vkey_witnesses=vk_witnesses,
+                    native_scripts=native_scripts if native_scripts else None,
+                    plutus_v1_script=plutus_v1_scripts if plutus_v1_scripts else None,
+                    plutus_v2_script=plutus_v2_scripts if plutus_v2_scripts else None,
+                    redeemer= redeemer if redeemer else None,
+                    plutus_data=list(datums.values()) if datums else None,
+                )
+
+                if signSubmit.metadata is not None and signSubmit.metadata != {}:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
+                    main_key = int(list(signSubmit.metadata.keys())[0])
+                    if not isinstance(main_key, int):
+                        raise ValueError(f"Metadata is not enclosed by an integer index")
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({main_key: signSubmit.metadata[str(main_key)]})))
 
-                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [signSubmit.metadata]}})))
-
-                    signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses), auxiliary_data=auxiliary_data)
-                else:
-                    signed_tx = Transaction(tx_body, TransactionWitnessSet(vkey_witnesses=vk_witnesses))
-
+                signed_tx = Transaction(tx_body, witness_set, True, auxiliary_data)
                 chain_context = CardanoNetwork().get_chain_context()
                 chain_context.submit_tx(signed_tx.to_cbor())
                 tx_id = tx_body.hash().hex()
@@ -444,6 +478,7 @@ async def getFeeFromCbor(txcbor: str) -> int:
 async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_schemas.TokenGenesis) -> dict:
 
     try:
+        #TODO: check use of metadata cbor
         ########################
         """1. Get wallet info"""
         ########################
@@ -473,7 +508,7 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                 # Get input utxo
                 utxo_to_spend = None
                 for utxo in chain_context.utxos(master_address):
-                    if utxo.output.amount.coin > 3000000:
+                    if not utxo.output.amount.multi_asset and utxo.output.amount.coin > 3000000:
                         utxo_to_spend = utxo
                         break
                 assert utxo_to_spend is not None, "UTxO not found to spend! You must have a utxo with more than 3 ADA"
@@ -564,12 +599,16 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
-                if send.metadata is not None and send.metadata != []:
+                if send.metadata is not None and send.metadata != {}:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
-
-                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({721: {f"{send.mint.asset.policyid}": send.metadata}})))
+                    main_key = int(list(send.metadata.keys())[0])
+                    if not isinstance(main_key, int):
+                        raise ValueError(f"Metadata is not enclosed by an integer index")
+                    metadata=Metadata({main_key: send.metadata[str(main_key)]})
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
+
 
                 if send.addresses:
                     for address in send.addresses:
@@ -602,20 +641,11 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                 
                 hdwallet = HDWallet.from_seed(seed)
                 child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-                payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
 
-                signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=master_address)
-                
-                base_dir = Constants.PROJECT_ROOT.joinpath(".priv/transactions")
-                transaction_dir = base_dir / f"{str(signed_tx.id)}.signed"
-                save_transaction(signed_tx, transaction_dir)
-
-                # chain_context.submit_tx(signed_tx)
-
-                logging.info(f"transaction id: {signed_tx.id}")
-                logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")
-
-                build_body = signed_tx.transaction_body
+                build_body = builder.build(change_address=master_address)
+                tx_cbor = build_body.to_cbor_hex()
+                tmp_builder = deepcopy(builder)
+                redeemers = tmp_builder.redeemers
 
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
@@ -631,10 +661,11 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
                     "success": True,
                     "msg": f'Tx Mint Tokens',
                     "build_tx": format_body,
-                    "cbor": str(signed_tx.to_cbor_hex()),
+                    "cbor": str(tx_cbor),
+                    "redeemer_cbor": Redeemer.to_cbor_hex(redeemers[0]),
+                    "metadata_cbor": metadata.to_cbor_hex(),
                     "utxos_info": utxo_list_info,
-                    "tx_size": len(build_body.to_cbor()),
-                    "tx_id": str(signed_tx.id)
+                    "tx_size": len(build_body.to_cbor())
                 }
         else:
 
@@ -666,11 +697,10 @@ async def mintTokens(mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_
     # response_model=List[str],
 )
 
-async def claimTx(admin_id: str, claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_schemas.Claim) -> dict:
+async def claimTx(claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_schemas.Claim) -> dict:
 
     try:
         #TODO: include the oracle input in the endpoint
-        # TODO: 
         oracle_policy_id = "b11a367d61a2b8f6a77049a809d7b93c6d44c140678d69276ab77c12"
         oracle_token_name= "SuanOracle"
         ########################
@@ -718,10 +748,12 @@ async def claimTx(admin_id: str, claim_redeemer: pydantic_schemas.ClaimRedeem, c
                         parent_mint_policyID = contractInfo.get("scriptParentID", None)
                         tokenName = contractInfo.get("token_name", None)
 
-                if claim.metadata is not None and claim.metadata != []:
+                if claim.metadata is not None and claim.metadata != {}:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
-
-                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({674: {"msg": [claim.metadata]}})))
+                    main_key = int(list(claim.metadata.keys())[0])
+                    if not isinstance(main_key, int):
+                        raise ValueError(f"Metadata is not enclosed by an integer index")
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=Metadata({main_key: claim.metadata[str(main_key)]})))
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
                 quantity_request = 0
@@ -751,6 +783,8 @@ async def claimTx(admin_id: str, claim_redeemer: pydantic_schemas.ClaimRedeem, c
                 # Redeemer action
                 if claim_redeemer == "Buy":
                     redeemer = pydantic_schemas.RedeemerBuy()
+                elif claim_redeemer == "Sell":
+                    redeemer = pydantic_schemas.RedeemerSell()
                 elif claim_redeemer == "Unlist":
                     redeemer = pydantic_schemas.RedeemerUnlist()
                 else:
@@ -795,14 +829,20 @@ async def claimTx(admin_id: str, claim_redeemer: pydantic_schemas.ClaimRedeem, c
                 hdwallet = HDWallet.from_seed(seed)
                 child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
                 payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
-
-                signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=user_address)
                 
-                base_dir = Constants.PROJECT_ROOT.joinpath(".priv/transactions")
-                transaction_dir = base_dir / f"{str(signed_tx.id)}.signed"
-                save_transaction(signed_tx, transaction_dir)
+                build_body = builder.build(change_address=user_address)
+                tx_cbor = build_body.to_cbor_hex()
+                tmp_builder = deepcopy(builder)
+                redeemers = tmp_builder.redeemers
 
-                build_body = signed_tx.transaction_body
+
+                # signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=user_address)
+                
+                # base_dir = Constants.PROJECT_ROOT.joinpath(".priv/transactions")
+                # transaction_dir = base_dir / f"{str(signed_tx.id)}.signed"
+                # save_transaction(signed_tx, transaction_dir)
+
+                # build_body = signed_tx.transaction_body
 
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
@@ -818,10 +858,11 @@ async def claimTx(admin_id: str, claim_redeemer: pydantic_schemas.ClaimRedeem, c
                     "success": True,
                     "msg": f'Tx Build',
                     "build_tx": format_body,
-                    "cbor": str(build_body.to_cbor_hex()),
+                    "cbor": str(tx_cbor),
+                    "redeemers": redeemers,
                     "utxos_info": utxo_list_info,
                     "tx_size": len(build_body.to_cbor()),
-                    "tx_id": str(signed_tx.id)
+                    # "tx_id": str(signed_tx.id)
                 }
         else:
 

@@ -9,7 +9,7 @@ class Buy(PlutusData):
 @dataclass
 class Unlist(PlutusData):
     # Redeemer to unlist the values
-    CONSTR_ID = 1
+    CONSTR_ID = 2
 
 @dataclass
 class TokenFeed(PlutusData):

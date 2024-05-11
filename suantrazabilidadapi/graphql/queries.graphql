@@ -34,6 +34,7 @@ query getProjectById ($projectId: ID!) {
 query getWalletById ($walletId: ID!) {
   getWallet(id: $walletId) {
     id
+    name
     seed
     userID
     address

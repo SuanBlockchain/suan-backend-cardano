@@ -1,14 +1,11 @@
 import logging
 from opshin.prelude import TxOutRef, TxId
 from pycardano import (
-    Address,
-    ScriptPubkey,
-    ScriptAll
+    Address
 )
 from opshin.builder import build, PlutusContract
 from fastapi import APIRouter, HTTPException
 from typing import Optional
-import binascii
 
 from suantrazabilidadapi.utils.blockchain import Keys, CardanoNetwork
 from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string, recursion_limit
@@ -144,7 +141,8 @@ summary="From parameters build and create the smart contract",
 
 async def createContract(
     script_type: pydantic_schemas.ScriptType, 
-    name: str, wallet_id: str, 
+    name: str, 
+    wallet_id: str, 
     tokenName: str = "", 
     save_flag: bool = True, 
     parent_policy_id: str = "", 
@@ -179,7 +177,7 @@ async def createContract(
         # Handle to decide the contract to build
         #######################
         if script_type == "mintSuanCO2":
-            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type}.py")
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type.value}.py")
             contract = build(script_path, pkh, tn_bytes)
 
         
@@ -188,7 +186,8 @@ async def createContract(
             chain_context = CardanoNetwork().get_chain_context()
             utxo_to_spend = None
             for utxo in chain_context.utxos(payment_address):
-                if utxo.output.amount.coin > 3000000:
+                # TODO: check if transaction can be built with utxo with other token
+                if not utxo.output.amount.multi_asset and utxo.output.amount.coin > 3000000:
                     utxo_to_spend = utxo
                     break
             assert utxo_to_spend is not None, "UTxO not found to spend!"
@@ -199,8 +198,10 @@ async def createContract(
 
             logging.info(f"oref found to build the script: {oref.id.tx_id.hex()} and idx: {oref.idx}")
 
-            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type}.py")
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type.value}.py")
             contract = build(script_path, oref, pkh, tn_bytes)
+
+            # utxo_to_spend = f"{oref.id.tx_id.hex()}#{oref.idx}"
         
         elif script_type == "spendSwap":
             script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type.value}.py")
@@ -209,7 +210,7 @@ async def createContract(
             contract = build(script_path, bytes.fromhex(oracle_policy_id))
         
         elif script_type == "spendProject":
-            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type}.py")
+            script_path = Constants.PROJECT_ROOT.joinpath(Constants.CONTRACTS_DIR).joinpath(f"{script_type.value}.py")
 
             oracle_policy_id = Helpers().build_oraclePolicyId(oracle_wallet_name)
             # # Recreate oracle policyId
@@ -270,6 +271,7 @@ async def createContract(
                         if responseScript["data"]["data"] is not None:
                             final_response = {"success": True, "msg": f'Script created', "data": {
                                 "id": policy_id,
+                                # "utxo_to_spend": utxo if utxo else ""
                             }}
                         else: 
                             final_response = {"success": False, "msg": f'Problems creating the cript with id: {policy_id} in dynamoDB'}

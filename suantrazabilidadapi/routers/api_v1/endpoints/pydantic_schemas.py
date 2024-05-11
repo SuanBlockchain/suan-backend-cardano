@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Union, Optional, Annotated, Dict
 from pydantic import constr
-from typing import Dict
+from typing import Dict, Any
 
 from pydantic import BaseModel, validator
 
@@ -92,29 +92,32 @@ class MintRedeem(str, Enum):
 class BuildTx(BaseModel):
     wallet_id: str
     addresses: list[AddressDestin]
-    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
+    metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 class TokenGenesis(BaseModel):
     wallet_id: str
     addresses: Optional[list[AddressDestin]]
-    metadata: Optional[Dict[str, Annotated[str, constr(max_length=64)]]] = None
+    # metadata: Optional[Dict[str, Annotated[str, constr(max_length=64)]]] = None
+    metadata: Optional[Dict[str, Dict[str, Any]]] = None
     mint: Optional[Mint] = None
 
 class ClaimRedeem(str, Enum):
     buy = "Buy"
+    sell = "Sell"
     Unlist = "Unlist"
 
 class Claim(BaseModel):
     wallet_id: str
     spendPolicyId: str
     addresses: list[AddressDestin]
-    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
+    metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 class SignSubmit(BaseModel):
     wallet_id: str
     cbor: str
-    scriptCbor: Optional[str] = None
-    metadata: Optional[List[Annotated[str, constr(max_length=64)]]] = None
+    scriptPolicyId: Optional[str] = None
+    redeemer_cbor: Optional[str] = None
+    metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 class Index(BaseModel):
     policy_id: str
@@ -155,8 +158,13 @@ class RedeemerBuy(PlutusData):
 
 @dataclass
 class RedeemerSell(PlutusData):
-    # Redeemer to buy the listed values
+    # Redeemer to sell the listed values
     CONSTR_ID = 1
+
+@dataclass
+class RedeemerUnlist(PlutusData):
+    # Redeemer to unlist the listed values
+    CONSTR_ID = 2
 
 @dataclass
 class DatumProjectParams(PlutusData):
@@ -185,16 +193,6 @@ class DatumOracle(PlutusData):
     identifier: bytes
     validity: POSIXTime
     # signature: bytes
-
-@dataclass
-class RedeemerUnlist(PlutusData):
-    # Redeemer to buy the listed values
-    CONSTR_ID = 2
-
-@dataclass
-class Unlist(PlutusData):
-    # Redeemer to unlist the values
-    CONSTR_ID = 1
 
 class contractCommandName(str, Enum):
     id = "id"
