@@ -1,12 +1,11 @@
-from fastapi import FastAPI, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
-
-from suantrazabilidadapi.routers.api_v1.api import api_router
-from suantrazabilidadapi.core.config import settings
-from suantrazabilidadapi.utils.security import generate_api_key
-
-from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
+from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+
+from suantrazabilidadapi.core.config import settings
+from suantrazabilidadapi.routers.api_v1.api import api_router
+from suantrazabilidadapi.utils.security import generate_api_key
 
 load_dotenv()
 
@@ -38,6 +37,7 @@ suantrazabilidad.add_middleware(
 # Start of the endpoints
 ##################################################################
 
+
 @suantrazabilidad.get("/")
 async def root():
     """Basic HTML response."""
@@ -45,7 +45,7 @@ async def root():
         "<html>"
         "<body style='padding: 10px;'>"
         "<h1>Bienvenidos al API de la Billetera de Plataforma</h1>"
-    "<div>"
+        "<div>"
         "Check the docs: <a href='/docs'>here</a>"
         "</div>"
         "</body>"
@@ -54,10 +54,12 @@ async def root():
 
     return HTMLResponse(content=body)
 
+
 @suantrazabilidad.get("/generate-api-key")
 async def get_new_api_key():
     api_key = generate_api_key()
     return {"api_key": api_key}
+
 
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)
@@ -65,9 +67,11 @@ suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)
 if __name__ == "__main__":
     # Use this for debugging purposes only
     load_dotenv()
-    import uvicorn
-    import os
     import logging
+    import os
+
+    import uvicorn
+
     env = os.getenv("env")
     if env == "dev":
         logging.warning(f"Running in {env} mode. Do not run like this in production")

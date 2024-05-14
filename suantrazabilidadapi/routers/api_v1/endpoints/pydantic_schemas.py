@@ -1,24 +1,24 @@
 from enum import Enum
-from typing import List, Union, Optional, Annotated, Dict
-from pydantic import constr
-from typing import Dict, Any
+from typing import Annotated, Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, validator
+from opshin.prelude import *
+from pydantic import BaseModel, constr, validator
 
 from .examples import *
-from opshin.prelude import *
-
 
 ############################
 # Wallet section definition
 ############################
 
+
 class walletCommandName(str, Enum):
     id = "id"
     address = "address"
 
+
 class walletQueryParam(BaseModel):
     query_param: str
+
 
 class Words(str, Enum):
     twelve: str = "12"
@@ -27,14 +27,17 @@ class Words(str, Enum):
     twenty_one: str = "21"
     twenty_four: str = "24"
 
+
 class WalletStatus(str, Enum):
     active = "active"
     inactive = "inactive"
+
 
 class Wallet(BaseModel):
     save_flag: bool = True
     userID: str = ""
     words: str
+
 
 class WalletResponse(BaseModel):
     walletId: str
@@ -57,12 +60,15 @@ class KeyRecover(BaseModel):
 # Transaction section definition
 ############################
 
+
 class Asset(BaseModel):
     policyid: str
     tokens: Dict[str, int]
 
+
 class TempDatum(BaseModel):
     beneficiary: str
+
 
 class AddressDestin(BaseModel):
     address: Optional[str] = None
@@ -82,17 +88,21 @@ class AddressDestin(BaseModel):
             raise ValueError("Lovelace must be positive")
         return value
 
+
 class Mint(BaseModel):
     asset: Asset
+
 
 class MintRedeem(str, Enum):
     mint = "Mint"
     burn = "Burn"
 
+
 class BuildTx(BaseModel):
     wallet_id: str
     addresses: list[AddressDestin]
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
+
 
 class TokenGenesis(BaseModel):
     wallet_id: str
@@ -101,16 +111,19 @@ class TokenGenesis(BaseModel):
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
     mint: Optional[Mint] = None
 
+
 class ClaimRedeem(str, Enum):
     buy = "Buy"
     sell = "Sell"
     Unlist = "Unlist"
+
 
 class Claim(BaseModel):
     wallet_id: str
     spendPolicyId: str
     addresses: list[AddressDestin]
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
+
 
 class SignSubmit(BaseModel):
     wallet_id: str
@@ -119,22 +132,27 @@ class SignSubmit(BaseModel):
     redeemer_cbor: Optional[str] = None
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
+
 class Index(BaseModel):
     policy_id: str
     token: str
     price: int
 
+
 class Oracle(BaseModel):
-    data: List[Index] 
+    data: List[Index]
     validity: POSIXTime
+
 
 class OracleAction(str, Enum):
     create = "Create"
     update = "Update"
 
+
 ############################
 # Contracts section definition
 ############################
+
 
 class ScriptType(str, Enum):
     native = "native"
@@ -143,33 +161,40 @@ class ScriptType(str, Enum):
     spendSwap = "spendSwap"
     spendProject = "spendProject"
 
+
 @dataclass
 class RedeemerMint(PlutusData):
     CONSTR_ID = 0
 
+
 @dataclass
 class RedeemerBurn(PlutusData):
     CONSTR_ID = 1
+
 
 @dataclass
 class RedeemerBuy(PlutusData):
     # Redeemer to buy the listed values
     CONSTR_ID = 0
 
+
 @dataclass
 class RedeemerSell(PlutusData):
     # Redeemer to sell the listed values
     CONSTR_ID = 1
+
 
 @dataclass
 class RedeemerUnlist(PlutusData):
     # Redeemer to unlist the listed values
     CONSTR_ID = 2
 
+
 @dataclass
 class DatumProjectParams(PlutusData):
     CONSTR_ID = 0
     beneficiary: bytes
+
 
 @dataclass
 class DatumSwap(PlutusData):
@@ -180,13 +205,15 @@ class DatumSwap(PlutusData):
     tokenB: Token
     price: int
 
+
 @dataclass
 class TokenFeed(PlutusData):
     CONSTR_ID = 0
     tokenName: bytes
     price: int
 
-@dataclass 
+
+@dataclass
 class DatumOracle(PlutusData):
     CONSTR_ID = 0
     value_dict: Dict[bytes, TokenFeed]
@@ -194,13 +221,16 @@ class DatumOracle(PlutusData):
     validity: POSIXTime
     # signature: bytes
 
+
 class contractCommandName(str, Enum):
     id = "id"
     # address = "address"
 
+
 ############################
 # Projects section definition
 ############################
-    
+
+
 class projectCommandName(str, Enum):
     id = "id"

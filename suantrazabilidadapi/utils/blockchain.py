@@ -1,20 +1,24 @@
-from pycardano import *
-from dataclasses import dataclass
-import os
-from blockfrost import ApiUrls
 import logging
+import os
+from dataclasses import dataclass
+
+from blockfrost import ApiUrls
+from pycardano import *
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.utils.generic import Constants
 
 cardano = config(section="cardano")
 
+
 @dataclass()
 class Keys(Constants):
     def __post_init__(self):
         self.FULL_KEY_DIR = self.PROJECT_ROOT.joinpath(self.KEY_DIR)
-    
-    def load_or_create_key_pair(self, wallet_name: str, **kwargs) -> tuple[str, ExtendedSigningKey, PaymentVerificationKey, Address, str]:
+
+    def load_or_create_key_pair(
+        self, wallet_name: str, **kwargs
+    ) -> tuple[str, ExtendedSigningKey, PaymentVerificationKey, Address, str]:
         """Load payment keys or create them if they don't exist"""
         path = self.FULL_KEY_DIR / f"{wallet_name}"
 
@@ -36,13 +40,12 @@ class Keys(Constants):
             skey = ExtendedSigningKey.load(str(skey_path))
             vkey = PaymentVerificationKey.from_signing_key(skey)
 
-            with open(mnemonics_path, 'r') as file:
-                mnemonics =file.readline()
-            with open(address_path, 'r') as file:
-                address =file.readline()
-            with open(pkh_path, 'r') as file:
-                pkh =file.readline()
-
+            with open(mnemonics_path, "r") as file:
+                mnemonics = file.readline()
+            with open(address_path, "r") as file:
+                address = file.readline()
+            with open(pkh_path, "r") as file:
+                pkh = file.readline()
 
         else:
             if kwargs.get("localKeys", None) is not None:
@@ -66,31 +69,31 @@ class Keys(Constants):
 
                 # key_pair = PaymentKeyPair.from_signing_key(skey)
 
-                #Save mnemonics as words were provided
+                # Save mnemonics as words were provided
 
                 # mnemonics_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(mnemonics_path, 'w') as file:
+                with open(mnemonics_path, "w") as file:
                     file.write(mnemonic_words)
 
                 skey.save(str(skey_path))
                 vkey.save(str(vkey_path))
 
-                with open(address_path, 'w') as file:
+                with open(address_path, "w") as file:
                     file.write(str(address))
 
-                with open(pkh_path, 'w') as file:
+                with open(pkh_path, "w") as file:
                     file.write(str(pkh))
             else:
                 logging.info(f"Only generate key pair but not stored locally")
                 mnemonics = "Mnemonics not generated"
                 key_pair = PaymentKeyPair.generate()
-                
+
                 skey = key_pair.signing_key
                 vkey = key_pair.verification_key
 
                 pkh = vkey.hash()
                 address = Address(payment_part=pkh, network=Network.TESTNET)
-                
+
         return mnemonics, skey, vkey, address, pkh
 
     def getPkh(self, address: str) -> str:
@@ -106,10 +109,10 @@ class Keys(Constants):
         #     else:
         #         pkh = "wallet not found"
         return pkh
-    
+
+
 @dataclass()
 class CardanoNetwork(Constants):
-
     def __post_init__(self):
         self.NETWORK_NAME: str = os.getenv("cardano_net", "preview")
         if self.NETWORK_NAME == "mainnet":
@@ -122,8 +125,10 @@ class CardanoNetwork(Constants):
         if chain_backend == "blockfrost":
             if self.NETWORK_NAME == "preview":
                 self.BASE_URL = ApiUrls.preview.value
-                self.BLOCK_FROST_PROJECT_ID = os.getenv('block_frost_project_id')
-            return BlockFrostChainContext(self.BLOCK_FROST_PROJECT_ID, base_url=self.BASE_URL)
+                self.BLOCK_FROST_PROJECT_ID = os.getenv("block_frost_project_id")
+            return BlockFrostChainContext(
+                self.BLOCK_FROST_PROJECT_ID, base_url=self.BASE_URL
+            )
 
         # elif chain_backend == "ogmios":
         #     return OgmiosChainContext(ws_url=ogmios_url, network=network)
@@ -131,10 +136,10 @@ class CardanoNetwork(Constants):
         #     return OgmiosChainContext(ws_url=ogmios_url, network=network, kupo_url=kupo_url)
         else:
             raise ValueError(f"Chain backend not found: {chain_backend}")
-        
+
+
 @dataclass()
 class Contracts(Constants):
-
     def __post_init__(self):
         pass
 
@@ -144,4 +149,3 @@ class Contracts(Constants):
         plutusScript = PlutusV2Script(cbor)
 
         return plutusScript
-

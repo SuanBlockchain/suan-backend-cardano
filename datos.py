@@ -1,16 +1,16 @@
 import asyncio
 import logging
-import uvicorn
 
-from fastapi import FastAPI, APIRouter
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-from datosapi.routers.api_v1.api import api_router
-from datosapi.core.config import settings
 from datosapi.app.main import app as rocketryapp
+from datosapi.core.config import settings
+from datosapi.routers.api_v1.api import api_router
 
-from dotenv import load_dotenv
 load_dotenv()
 
 ########################
@@ -40,6 +40,7 @@ datos.add_middleware(
     allow_headers=["*"],
 )
 
+
 @datos.get("/")
 async def root():
     """Basic HTML response."""
@@ -47,7 +48,7 @@ async def root():
         "<html>"
         "<body style='padding: 10px;'>"
         "<h1>Bienvenidos al API de Suan Trazabilidad</h1>"
-    "<div>"
+        "<div>"
         "Check the docs: <a href='/docs'>here</a>"
         "</div>"
         "</body>"
@@ -56,17 +57,20 @@ async def root():
 
     return HTMLResponse(content=body)
 
+
 datos.include_router(root_router)
 datos.include_router(api_router, prefix=settings.API_V1_STR)
+
 
 ########################
 # New
 ########################
 class Server(uvicorn.Server):
     """Customized uvicorn.Server
-    
+
     Uvicorn server overrides signals and we need to include
     Rocketry to the signals."""
+
     def handle_exit(self, sig: int, frame) -> None:
         rocketryapp.session.shut_down()
         return super().handle_exit(sig, frame)
@@ -81,8 +85,8 @@ async def main():
 
     await asyncio.wait([api, sched])
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     # Print Rocketry's logs to terminal
     logger = logging.getLogger("rocketry.task")
     logger.addHandler(logging.StreamHandler())

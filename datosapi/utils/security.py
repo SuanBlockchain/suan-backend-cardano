@@ -1,22 +1,20 @@
+import os
+
+from fastapi import HTTPException, Security, status
 from fastapi.security import APIKeyHeader
-from fastapi import HTTPException, status, Security
 
 # from core.config import config
 from ..core.config import config
-import os
 
 security = config(section="security")
-graphqlEndpoint = os.getenv('endpoint')
+graphqlEndpoint = os.getenv("endpoint")
 
-API_KEYS = {
-        "data": os.getenv("data_api_key")
-    }
+API_KEYS = {"data": os.getenv("data_api_key")}
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
-def get_api_key(
-    api_key_header: str = Security(api_key_header)
-) -> str:
+
+def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
     """Retrieve and validate an API key from the query parameters or HTTP header.
 
     Args:
@@ -44,7 +42,7 @@ def get_api_key(
 
 # # Implement your token verification logic here
 # def verify_jwt(credentials: HTTPAuthorizationCredentials) -> bool:
-   
+
 #    token = str(credentials.credentials)
 #    # Implement your verification logic here, e.g., by checking against a database
 #    # Or Send a request to an authentication service to verify the token
@@ -54,7 +52,7 @@ def get_api_key(
 #    return True  # Replace this with your actual verification logic
 #    # if not valid
 #    # raise HTTPException(status_code=401, detail="Invalid credentials")
-   
+
 
 # class JWTBearer(HTTPBearer):
 #    async def __call__(self, request: Request):

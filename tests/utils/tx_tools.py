@@ -3,9 +3,9 @@ from typing import Optional
 
 import pyaiken
 import pycardano
+import pycardano as py
 import uplc
 from opshin.prelude import *
-import pycardano as py
 
 
 def to_staking_credential(
@@ -358,7 +358,7 @@ def evaluate_script(script_invocation: ScriptInvocation):
     # ((suc, err), logs, (remaining_cpu_steps, remaining_mem_steps)) = pyaiken.uplc.eval(
     #     uplc_program, program_args, allowed_cpu_steps, allowed_mem_steps
     # )
-    #Bypass the script validation since is not working
+    # Bypass the script validation since is not working
     logs = None
     suc = True
     err = None

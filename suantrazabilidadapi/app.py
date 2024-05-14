@@ -1,12 +1,12 @@
-from fastapi import FastAPI, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
-
-from .routers.api_v1.api import api_router
-from .core.config import settings
-from.utils.security import generate_api_key
-
-from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
+from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+
+from .core.config import settings
+from .routers.api_v1.api import api_router
+from .utils.security import generate_api_key
+
 load_dotenv()
 
 description = "Este API facilita la integración de datos con proyectos forestales para mejorar su trazabilidad - Suan"
@@ -45,7 +45,7 @@ async def root():
         "<html>"
         "<body style='padding: 10px;'>"
         "<h1>Bienvenidos al API de la Billetera de Plataforma</h1>"
-    "<div>"
+        "<div>"
         "Check the docs: <a href='/docs'>here</a>"
         "</div>"
         "</body>"
@@ -54,10 +54,12 @@ async def root():
 
     return HTMLResponse(content=body)
 
+
 @suantrazabilidad.get("/generate-api-key")
 async def get_new_api_key():
     api_key = generate_api_key()
     return {"api_key": api_key}
+
 
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)

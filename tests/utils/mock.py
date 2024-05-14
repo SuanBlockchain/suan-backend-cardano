@@ -1,16 +1,20 @@
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Union
 from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Union
 
+from opshin.prelude import Address as OpshinAddress
+from opshin.prelude import NoStakingCredential, PubKeyCredential
 from pycardano import (
     Address,
     ChainContext,
     ExecutionUnits,
     GenesisParameters,
+    MultiAsset,
     Network,
     PaymentSigningKey,
     PaymentVerificationKey,
     ProtocolParameters,
+    RedeemerTag,
     ScriptType,
     Transaction,
     TransactionId,
@@ -18,25 +22,22 @@ from pycardano import (
     TransactionOutput,
     UTxO,
     Value,
-    RedeemerTag,
     VerificationKeyHash,
-    MultiAsset
 )
-from opshin.prelude import PubKeyCredential, NoStakingCredential, Address as OpshinAddress
-
 from utils.protocol_params import (
     DEFAULT_GENESIS_PARAMETERS,
     DEFAULT_PROTOCOL_PARAMETERS,
-
 )
-# from contracts.code import inversionista
-
 from utils.tx_tools import (
+    ScriptInvocation,
     evaluate_script,
     generate_script_contexts_resolved,
-    ScriptInvocation,
 )
+
 from suantrazabilidadapi.utils.blockchain import Keys
+
+# from contracts.code import inversionista
+
 
 
 ValidatorType = Callable[[Any, Any, Any], Any]
@@ -198,10 +199,12 @@ class MockChainContext(ChainContext):
             posix - self.genesis_param.system_start
         ) // self.genesis_param.slot_length
 
+
 @dataclass
 class MockUser:
     context: Union[MockChainContext, ChainContext] = field(init=True)
     walletName: str = field(init=True)
+
     def __post_init__(self):
         self.network = Network.TESTNET
         if isinstance(self.context, MockChainContext):
@@ -215,7 +218,9 @@ class MockUser:
                 payment_part=self.verification_key.hash(), network=self.network
             )
         else:
-            mnemonics, skey, vkey, address, pkh = Keys().load_or_create_key_pair(self.walletName)
+            mnemonics, skey, vkey, address, pkh = Keys().load_or_create_key_pair(
+                self.walletName
+            )
 
             self.signing_key = skey
             self.verification_key = vkey
@@ -240,8 +245,6 @@ class MockUser:
             )
         else:
             pass
-
-
 
     # def special_fund(self, amount: Union[int, Value]):
     #     datum = inversionista.DatumProjectParams(

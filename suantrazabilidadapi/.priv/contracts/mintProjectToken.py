@@ -1,20 +1,24 @@
-#TODO: the minted amount must be limited by the amount of certified tokens during the swap transaction
-#TODO: the swap contract must be part of the inputs of the transaction. Or the swap process is done in 2 steps. First receiving the request to the swap contract and then calling the 
+# TODO: the minted amount must be limited by the amount of certified tokens during the swap transaction
+# TODO: the swap contract must be part of the inputs of the transaction. Or the swap process is done in 2 steps. First receiving the request to the swap contract and then calling the
 # minting contract with the correct redeemer.
 
 from opshin.prelude import *
 
+
 @dataclass
 class Mint(PlutusData):
     CONSTR_ID = 0
-    
+
+
 @dataclass
 class Burn(PlutusData):
     CONSTR_ID = 1
 
-#TODO: has_utxo does not work because the script is not really locked to create more tokens with the same name. We need to actually put the utxo as parameter and validate it as a fix value or simply limit the amount
+
+# TODO: has_utxo does not work because the script is not really locked to create more tokens with the same name. We need to actually put the utxo as parameter and validate it as a fix value or simply limit the amount
 def has_utxo(context: ScriptContext, oref: TxOutRef) -> bool:
     return any([oref == i.out_ref for i in context.tx_info.inputs])
+
 
 def signedFromMaster(context: ScriptContext, pkh: PubKeyHash) -> bool:
     return pkh in context.tx_info.signatories
@@ -30,9 +34,14 @@ def check_token_name(context: ScriptContext, tn: TokenName) -> bool:
                 valid = token_name == tn
     return valid
 
-def validator(oref: TxOutRef, pkh: PubKeyHash, tokenName: TokenName, redeemer: Union[Mint, Burn], context: ScriptContext
-) -> None:
 
+def validator(
+    oref: TxOutRef,
+    pkh: PubKeyHash,
+    tokenName: TokenName,
+    redeemer: Union[Mint, Burn],
+    context: ScriptContext,
+) -> None:
     purpose = context.purpose
     assert isinstance(purpose, Minting), "not minting purpose"
 
@@ -44,7 +53,6 @@ def validator(oref: TxOutRef, pkh: PubKeyHash, tokenName: TokenName, redeemer: U
     assert check_token_name(context, tokenName), "Wrong token Name"
 
     if isinstance(redeemer, Mint):
-
         assert has_utxo(context, oref), "UTxO not consumed"
 
     elif isinstance(redeemer, Burn):

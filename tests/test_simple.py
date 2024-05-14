@@ -1,23 +1,23 @@
-
 # from utils.mock import MockChainContext, MockUser
 # from typing import List, Optional
 # from functools import cache
 import sys
-sys.path.append('./')
+
+sys.path.append("./")
 from pathlib import Path
 
 import pycardano as py
 
-from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from tests.utils.helpers import (
     build_mintSwapToken,
+    build_multiAsset,
+    create_contract,
+    min_value,
     setup_user,
     setup_users,
-    create_contract,
-    build_multiAsset,
-    min_value
-) 
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/contracts")
@@ -62,14 +62,17 @@ base_dir = ROOT.joinpath("suantrazabilidadapi/.priv/contracts")
 #         validates = False
 #     assert not validates, "transaction must fail"
 
+
 def test_mint_swap():
     context = CardanoNetwork().get_chain_context()
     administrador = setup_user(context, walletName="administrador")
 
     contract_dir = base_dir / "swaptoken.py"
     nft_swap_token = "nft_swap_test"
-    plutus_contract = build_mintSwapToken(contract_dir, context, administrador, nft_swap_token) 
-    
+    plutus_contract = build_mintSwapToken(
+        contract_dir, context, administrador, nft_swap_token
+    )
+
     swaptoken_contract = create_contract(plutus_contract)
     swaptoken_contract.dump(base_dir / "swaptoken1")
 
@@ -78,10 +81,12 @@ def test_mint_swap():
 
     signatures = []
 
-    redeemer = pydantic_schemas.RedeemerMint() # to Mint the swapToken
+    redeemer = pydantic_schemas.RedeemerMint()  # to Mint the swapToken
     signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
 
-    tx_builder.add_minting_script(script=swaptoken_contract.contract, redeemer=py.Redeemer(redeemer))
+    tx_builder.add_minting_script(
+        script=swaptoken_contract.contract, redeemer=py.Redeemer(redeemer)
+    )
     multi_asset = build_multiAsset(swaptoken_contract.policy_id, nft_swap_token, 1)
 
     tx_builder.mint = multi_asset
@@ -93,9 +98,13 @@ def test_mint_swap():
 
     min_val = min_value(context, administrador.address, multi_asset)
 
-    tx_builder.add_output(py.TransactionOutput(administrador.address, py.Value(min_val, multi_asset)))
+    tx_builder.add_output(
+        py.TransactionOutput(administrador.address, py.Value(min_val, multi_asset))
+    )
 
-    signed_tx = tx_builder.build_and_sign([administrador.signing_key], change_address=administrador.address)
+    signed_tx = tx_builder.build_and_sign(
+        [administrador.signing_key], change_address=administrador.address
+    )
 
     result = context.evaluate_tx(signed_tx)
 
@@ -104,9 +113,9 @@ def test_mint_swap():
     print(result)
     return signed_tx
 
-def test_burn_swap():
 
-    with(base_dir / "swaptoken/script.cbor").open("r") as f:
+def test_burn_swap():
+    with (base_dir / "swaptoken/script.cbor").open("r") as f:
         cbor_hex = f.read()
 
     cbor = bytes.fromhex(cbor_hex)
@@ -133,11 +142,13 @@ def test_burn_swap():
 
     signatures = []
 
-    redeemer = pydantic_schemas.RedeemerBurn() # to Mint the swapToken
+    redeemer = pydantic_schemas.RedeemerBurn()  # to Mint the swapToken
     signatures.append(py.VerificationKeyHash(bytes(propietario.address.payment_part)))
     signatures.append(py.VerificationKeyHash(bytes(administrador.address.payment_part)))
 
-    tx_builder.add_minting_script(script=swaptoken_contract.contract, redeemer=py.Redeemer(redeemer))
+    tx_builder.add_minting_script(
+        script=swaptoken_contract.contract, redeemer=py.Redeemer(redeemer)
+    )
     multi_asset = build_multiAsset(swaptoken_contract.policy_id, nft_swap_token, -1)
 
     tx_builder.mint = multi_asset
@@ -151,7 +162,10 @@ def test_burn_swap():
 
     # tx_builder.add_output(py.TransactionOutput(administrador.address, py.Value(min_val, multi_asset)))
 
-    signed_tx = tx_builder.build_and_sign([administrador.signing_key, propietario.signing_key], change_address=propietario.address)
+    signed_tx = tx_builder.build_and_sign(
+        [administrador.signing_key, propietario.signing_key],
+        change_address=propietario.address,
+    )
 
     result = context.evaluate_tx(signed_tx)
 
@@ -159,7 +173,7 @@ def test_burn_swap():
 
     print(result)
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     # test_mint_swap()
     test_burn_swap()

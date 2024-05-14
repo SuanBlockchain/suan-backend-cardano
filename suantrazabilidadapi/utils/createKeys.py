@@ -1,13 +1,9 @@
-
 from pycardano import HDWallet
 
 from suantrazabilidadapi.utils.blockchain import Keys
 
 
-def create_wallets(
-    wallet_name: str
-):
-
+def create_wallets(wallet_name: str):
     mnemonic_words = HDWallet.generate_mnemonic(strength=256)
 
     localKeys = {"mnemonic_words": mnemonic_words}
@@ -16,7 +12,6 @@ def create_wallets(
 
 
 if __name__ == "__main__":
-
     options = [
         "suanco",
     ]

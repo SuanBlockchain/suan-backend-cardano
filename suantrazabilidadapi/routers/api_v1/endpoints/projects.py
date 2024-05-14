@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.plataforma import Plataforma
 
@@ -40,42 +41,44 @@ router = APIRouter()
 #                     "msg": "Error fetching data",
 #                     "data": r["error"]
 #                 }
-        
+
 #         return final_response
 
 
-    
 #     except ValueError as e:
 #         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/get-project/{command_name}", status_code=200,
-summary="Get the project with specific id as registered in Plataforma",
-    response_description="Project details",)
 
-async def getProject(command_name: pydantic_schemas.projectCommandName, query_param: str):
-    """Get the project with specific id as registered in Plataforma
-    """
+@router.get(
+    "/get-project/{command_name}",
+    status_code=200,
+    summary="Get the project with specific id as registered in Plataforma",
+    response_description="Project details",
+)
+async def getProject(
+    command_name: pydantic_schemas.projectCommandName, query_param: str
+):
+    """Get the project with specific id as registered in Plataforma"""
     try:
-
         if command_name == "id":
             # Validate the id
-            
+
             r = Plataforma().getProject(command_name, query_param)
 
             if r["data"].get("data", None) is not None:
                 projectInfo = r["data"]["data"]["getProduct"]
-                    
+
                 if projectInfo is None:
                     final_response = {
                         "success": True,
-                        "msg": f'Project with id: {query_param} does not exist in DynamoDB',
-                        "data": r["data"]
+                        "msg": f"Project with id: {query_param} does not exist in DynamoDB",
+                        "data": r["data"],
                     }
                 else:
                     final_response = {
                         "success": True,
-                        "msg": 'Project info',
-                        "data": projectInfo
+                        "msg": "Project info",
+                        "data": projectInfo,
                     }
 
             else:
@@ -83,18 +86,18 @@ async def getProject(command_name: pydantic_schemas.projectCommandName, query_pa
                     final_response = {
                         "success": False,
                         "msg": "Error fetching data",
-                        "data": r["data"]["errors"]
+                        "data": r["data"]["errors"],
                     }
                 else:
                     final_response = {
                         "success": False,
                         "msg": "Error fetching data",
-                        "data": r["error"]
+                        "data": r["error"],
                     }
 
         return final_response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        msg = f'Error with the endpoint'
+        msg = f"Error with the endpoint"
         raise HTTPException(status_code=500, detail=msg)

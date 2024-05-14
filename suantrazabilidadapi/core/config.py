@@ -1,10 +1,9 @@
+import os
 import pathlib
 from configparser import ConfigParser
+from typing import List, Union
 
 from pydantic import AnyHttpUrl, BaseSettings, EmailStr, validator
-from typing import List, Union
-import os
-
 
 # Project Directories
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -31,9 +30,13 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
 
+
 settings = Settings()
 
-def config(config_path: str = f'{ROOT}/credentials.local.ini', section: str = "") -> dict:
+
+def config(
+    config_path: str = f"{ROOT}/credentials.local.ini", section: str = ""
+) -> dict:
     # create a parser
     parser = ConfigParser()
     # read config file

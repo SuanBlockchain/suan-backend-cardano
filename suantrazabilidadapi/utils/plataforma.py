@@ -1,86 +1,81 @@
-
-from dataclasses import dataclass
-import requests
-import os
-import json
-from typing import Union, Optional
-from botocore.exceptions import ClientError
-import boto3
-import logging
-import pathlib
 import binascii
+import json
+import logging
+import os
+import pathlib
+from dataclasses import dataclass
+from typing import Optional, Union
 
+import boto3
+import requests
+from botocore.exceptions import ClientError
 from pycardano import (
-    TransactionBody,
-    MultiAsset,
+    Address,
     Asset,
     AssetName,
-    ScriptHash,
     ChainContext,
-    Address,
-    UTxO,
-    ScriptPubkey,
+    MultiAsset,
     ScriptAll,
-    )
-
-
+    ScriptHash,
+    ScriptPubkey,
+    TransactionBody,
+    UTxO,
+)
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.generic import Constants
 from suantrazabilidadapi.utils.blockchain import Keys
+from suantrazabilidadapi.utils.generic import Constants
 
 plataformaSecrets = config(section="plataforma")
 security = config(section="security")
 environment = security["env"]
 
+
 @dataclass()
 class Plataforma(Constants):
-
     def __post_init__(self):
         if environment == "dev":
-            self.graphqlEndpoint = os.getenv('endpoint_dev')
-            self.awsAppSyncApiKey = os.getenv('graphql_key_dev')
+            self.graphqlEndpoint = os.getenv("endpoint_dev")
+            self.awsAppSyncApiKey = os.getenv("graphql_key_dev")
         elif environment == "prod":
-            self.graphqlEndpoint = os.getenv('endpoint_prod')
-            self.awsAppSyncApiKey = os.getenv('graphql_key_prod')
+            self.graphqlEndpoint = os.getenv("endpoint_prod")
+            self.awsAppSyncApiKey = os.getenv("graphql_key_prod")
 
         self.HEADERS["x-api-key"] = self.awsAppSyncApiKey
-        self.S3_BUCKET_NAME = os.getenv('s3_bucket_name')
-        self.S3_BUCKET_NAME_HIERARCHY = os.getenv('s3_bucket_name_hierarchy')
-        self.AWS_ACCESS_KEY_ID = os.getenv('aws_access_key_id')
-        self.AWS_SECRET_ACCESS_KEY = os.getenv('aws_secret_access_key')
+        self.S3_BUCKET_NAME = os.getenv("s3_bucket_name")
+        self.S3_BUCKET_NAME_HIERARCHY = os.getenv("s3_bucket_name_hierarchy")
+        self.AWS_ACCESS_KEY_ID = os.getenv("aws_access_key_id")
+        self.AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
         # self.GRAPHQL = "graphql/queries.graphql"
         self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/queries.graphql")
 
-    def _post(self, operation_name: str, graphql_variables: Union[dict, None] = None) -> dict:
-
-        with open(self.GRAPHQL, 'r') as file:
+    def _post(
+        self, operation_name: str, graphql_variables: Union[dict, None] = None
+    ) -> dict:
+        with open(self.GRAPHQL, "r") as file:
             graphqlQueries = file.read()
         try:
             rawResult = requests.post(
                 self.graphqlEndpoint,
-                json={"query": graphqlQueries, "operationName": operation_name, "variables": graphql_variables},
-                headers=self.HEADERS
+                json={
+                    "query": graphqlQueries,
+                    "operationName": operation_name,
+                    "variables": graphql_variables,
+                },
+                headers=self.HEADERS,
             )
             rawResult.raise_for_status()
             data = json.loads(rawResult.content.decode("utf-8"))
-            response = {
-                "success": True,
-                "data": data
-            }
-        
+            response = {"success": True, "data": data}
+
         except requests.exceptions.RequestException as e:
             # Handle any exceptions that occur during the request
-            response = {
-                "success": False,
-                "error": str(e)
-            }
-        
+            response = {"success": False, "error": str(e)}
+
         return response
 
     def _nullDict(self, dictionary: dict) -> dict:
-
         for k, v in dictionary.items():
             if v is None:
                 dictionary[k] = ""
@@ -88,63 +83,50 @@ class Plataforma(Constants):
         return dictionary
 
     def getProject(self, command_name: str, query_param: str) -> dict:
-
         if command_name == "id":
-            graphql_variables = {
-                "projectId": query_param
-            }
+            graphql_variables = {"projectId": query_param}
 
-            data = self._post('getProjectById', graphql_variables)
+            data = self._post("getProjectById", graphql_variables)
 
         return data
-    
+
     def listProjects(self) -> dict:
-        return self._post('listProjects')
+        return self._post("listProjects")
+
     def getWallet(self, command_name: str, query_param: str) -> dict:
-
         if command_name == "id":
-            graphql_variables = {
-                "walletId": query_param
-            }
+            graphql_variables = {"walletId": query_param}
 
-            data = self._post('getWalletById', graphql_variables)
+            data = self._post("getWalletById", graphql_variables)
 
         elif command_name == "address":
-            graphql_variables = {
-                "address": query_param
-            }
+            graphql_variables = {"address": query_param}
 
             data = self._post("getWalletByAddress", graphql_variables)
 
         return data
-    
+
     def listWallets(self) -> dict:
-        return self._post('listWallets')
-    
+        return self._post("listWallets")
+
     def createWallet(self, values) -> list[dict]:
-
-        response = self._post('WalletMutation', values)
+        response = self._post("WalletMutation", values)
         return response
-    
-    def createContract(self, values) -> list[dict]:
 
-        response = self._post('ScriptMutation', values)
+    def createContract(self, values) -> list[dict]:
+        response = self._post("ScriptMutation", values)
         return response
 
     def getScript(self, command_name: str, query_param: str) -> dict:
-
         if command_name == "id":
+            graphql_variables = {"id": query_param}
 
-            graphql_variables = {
-                "id": query_param
-            }
-
-            data = self._post('getScriptById', graphql_variables)
+            data = self._post("getScriptById", graphql_variables)
 
             return data
 
     def listScripts(self) -> dict:
-        return self._post('listScripts')
+        return self._post("listScripts")
 
     def formatTxBody(self, txBody: TransactionBody) -> dict:
         """_summary_
@@ -156,60 +138,69 @@ class Plataforma(Constants):
             dict: dictionary with transaction body fields formatted
         """
         # Format inputs
-        utxoInputs = { index: f'{input.transaction_id.payload.hex()}#{input.index}' for index, input in enumerate(txBody.inputs)}
+        utxoInputs = {
+            index: f"{input.transaction_id.payload.hex()}#{input.index}"
+            for index, input in enumerate(txBody.inputs)
+        }
 
         # Format outputs
         utxoOutputs = {}
         for index, output in enumerate(txBody.outputs):
-            
             multi_asset = {}
             for k, v in output.amount.multi_asset.data.items():
-                assets = { assetName.payload: value for assetName, value in v.data.items()}
+                assets = {
+                    assetName.payload: value for assetName, value in v.data.items()
+                }
                 multi_asset[k.to_cbor_hex()[4:]] = assets
 
             utxoOutputs[index] = {
                 "address": output.address.encode(),
-                "amount": {
-                    "coin": output.amount.coin,
-                    "multi_asset": multi_asset
-                },
+                "amount": {"coin": output.amount.coin, "multi_asset": multi_asset},
                 "lovelace": output.lovelace,
                 "script": output.script,
                 # "datum": datum_dict,
                 # "datum_hash": output.datum_hash,
             }
 
-        utxoOutputs = { k: self._nullDict(v) for k, v in utxoOutputs.items() }
+        utxoOutputs = {k: self._nullDict(v) for k, v in utxoOutputs.items()}
 
         # Format mint
         mint_assets = {}
         if txBody.mint:
             for k, v in txBody.mint.data.items():
-                mint_asset = { assetName.payload: value for assetName, value in v.data.items()}
+                mint_asset = {
+                    assetName.payload: value for assetName, value in v.data.items()
+                }
                 mint_assets[k.to_cbor_hex()[4:]] = mint_asset
 
         # Format signers
         signersOutput = []
         if txBody.required_signers:
-
-            signersOutput = [ signers.payload.hex() for signers in txBody.required_signers]
+            signersOutput = [
+                signers.payload.hex() for signers in txBody.required_signers
+            ]
 
         collateral = {}
         if txBody.collateral:
-            collateral = { index: f'{input.transaction_id.payload.hex()}#{input.index}' for index, input in enumerate(txBody.collateral)}
+            collateral = {
+                index: f"{input.transaction_id.payload.hex()}#{input.index}"
+                for index, input in enumerate(txBody.collateral)
+            }
 
         collateral_return = {}
         if txBody.collateral_return:
             collateral_multi_asset = {}
             for k, v in txBody.collateral_return.amount.multi_asset.data.items():
-                collateral_assets = { assetName.payload: value for assetName, value in v.data.items()}
+                collateral_assets = {
+                    assetName.payload: value for assetName, value in v.data.items()
+                }
                 collateral_multi_asset[k.to_cbor_hex()[4:]] = collateral_assets
 
             collateral_return = {
                 "address": txBody.collateral_return.address.encode(),
                 "amount": {
                     "coin": txBody.collateral_return.amount.coin,
-                    "multi_asset": collateral_multi_asset
+                    "multi_asset": collateral_multi_asset,
                 },
                 "lovelace": txBody.collateral_return.lovelace,
                 "script": txBody.collateral_return.script,
@@ -224,31 +215,31 @@ class Plataforma(Constants):
             script_data_hash = txBody.script_data_hash.payload.hex()
 
         formatTxBody = {
-
-            "auxiliary_data_hash": txBody.auxiliary_data_hash.payload.hex() if txBody.auxiliary_data_hash else ""
-            ,"certificates": txBody.certificates
-            ,"collateral": collateral
-            ,"collateral_return": collateral_return
-            ,"fee": txBody.fee
-            ,"tx_id": txBody.id.payload.hex()
-            ,"inputs": utxoInputs
-            ,"outputs": utxoOutputs
-            ,"mint": mint_assets
-            ,"network_id": txBody.network_id
-            ,"reference_inputs": txBody.reference_inputs
-            ,"required_signers": signersOutput
-            ,"script_data_hash": script_data_hash
-            ,"total_collateral": txBody.total_collateral
-            ,"ttl": txBody.ttl
-            ,"update": txBody.update
-            ,"validity_start": txBody.validity_start
-            ,"withdraws": txBody.withdraws
-
+            "auxiliary_data_hash": txBody.auxiliary_data_hash.payload.hex()
+            if txBody.auxiliary_data_hash
+            else "",
+            "certificates": txBody.certificates,
+            "collateral": collateral,
+            "collateral_return": collateral_return,
+            "fee": txBody.fee,
+            "tx_id": txBody.id.payload.hex(),
+            "inputs": utxoInputs,
+            "outputs": utxoOutputs,
+            "mint": mint_assets,
+            "network_id": txBody.network_id,
+            "reference_inputs": txBody.reference_inputs,
+            "required_signers": signersOutput,
+            "script_data_hash": script_data_hash,
+            "total_collateral": txBody.total_collateral,
+            "ttl": txBody.ttl,
+            "update": txBody.update,
+            "validity_start": txBody.validity_start,
+            "withdraws": txBody.withdraws,
         }
 
         formatTxBody = self._nullDict(formatTxBody)
 
-        return formatTxBody 
+        return formatTxBody
 
     def _initializeBoto2Client(self):
         # Upload the file
@@ -259,15 +250,17 @@ class Plataforma(Constants):
             aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
         )
 
-    def list_files(self, folder_path= "") -> list:
+    def list_files(self, folder_path="") -> list:
         s3_client = self._initializeBoto2Client()
         try:
-            response = s3_client.list_objects_v2(Bucket=self.S3_BUCKET_NAME, Prefix=folder_path)
+            response = s3_client.list_objects_v2(
+                Bucket=self.S3_BUCKET_NAME, Prefix=folder_path
+            )
 
             # Extract file information from the response
             files = []
-            for obj in response.get('Contents', []):
-                files.append(obj['Key'])
+            for obj in response.get("Contents", []):
+                files.append(obj["Key"])
 
             return files
 
@@ -285,14 +278,16 @@ class Plataforma(Constants):
         # Upload the file
         s3_client = self._initializeBoto2Client()
         try:
-
-            response = s3_client.get_object(Bucket = self.S3_BUCKET_NAME, Key=f"{self.S3_BUCKET_NAME_HIERARCHY}/{file_name}")
-            content = response["Body"].read().decode('utf-8')
+            response = s3_client.get_object(
+                Bucket=self.S3_BUCKET_NAME,
+                Key=f"{self.S3_BUCKET_NAME_HIERARCHY}/{file_name}",
+            )
+            content = response["Body"].read().decode("utf-8")
             return {"success": True, "content": content}
 
         except Exception as e:
             logging.error(e)
-            return {"success":False, "error": str(e)}
+            return {"success": False, "error": str(e)}
 
     def upload_file(self, file_path: pathlib.Path) -> bool:
         """Upload a file to an S3 bucket
@@ -302,7 +297,11 @@ class Plataforma(Constants):
         """
         s3_client = self._initializeBoto2Client()
         try:
-            s3_client.upload_file(file_path, self.S3_BUCKET_NAME,  f"{self.S3_BUCKET_NAME_HIERARCHY}/{file_path.name}")
+            s3_client.upload_file(
+                file_path,
+                self.S3_BUCKET_NAME,
+                f"{self.S3_BUCKET_NAME_HIERARCHY}/{file_path.name}",
+            )
         except ClientError as e:
             logging.error(e)
             return False
@@ -315,7 +314,9 @@ class Plataforma(Constants):
         for root, dirs, files in os.walk(folder_path):
             for file in files:
                 local_file_path = os.path.join(root, file)
-                file_name = os.path.relpath(local_file_path, folder_path).replace('\\', '/')
+                file_name = os.path.relpath(local_file_path, folder_path).replace(
+                    "\\", "/"
+                )
                 folder = root.split("/")
                 folder = os.path.join(folder[-2], folder[-1])
                 s3_key = os.path.join(self.S3_BUCKET_NAME_HIERARCHY, file_name)
@@ -323,76 +324,90 @@ class Plataforma(Constants):
                 try:
                     s3_client.upload_file(local_file_path, self.S3_BUCKET_NAME, s3_key)
                     uploaded.append(file_name)
-                    print(f"Uploaded {file_name} to S3://{self.S3_BUCKET_NAME}/{s3_key}")
+                    print(
+                        f"Uploaded {file_name} to S3://{self.S3_BUCKET_NAME}/{s3_key}"
+                    )
                 except Exception as e:
                     error.append(file_name)
                     print(f"Error uploading {local_file_path} to S3: {e}")
-        
+
         return {"uploaded": uploaded, "error": error}
+
 
 @dataclass()
 class CardanoApi(Constants):
-
     def __post_init__(self):
         pass
 
     def getAddressInfo(self, address: Union[str, list[str]]) -> list[dict]:
-        
         address_response = self.KOIOS_API.get_address_info(address)
         asset_response = self.KOIOS_API.get_address_assets(address)
-        
+
         # # Group data2 by "address" key
         for item in address_response:
             assets = []
             for asset in asset_response:
                 if asset["address"] == item["address"]:
-                    assets.append(dict(map(lambda item: (item[0], bytes.fromhex(item[1]).decode("utf-8")) if item[0] == "asset_name" else item, filter(lambda item: item[0] != "address", asset.items()))))
+                    assets.append(
+                        dict(
+                            map(
+                                lambda item: (
+                                    item[0],
+                                    bytes.fromhex(item[1]).decode("utf-8"),
+                                )
+                                if item[0] == "asset_name"
+                                else item,
+                                filter(
+                                    lambda item: item[0] != "address", asset.items()
+                                ),
+                            )
+                        )
+                    )
 
             item["assets"] = assets
 
         return address_response
 
-    def getUtxoInfo(self, utxo: Union[str, list[str]], extended: bool=False) -> list[dict]:
-
+    def getUtxoInfo(
+        self, utxo: Union[str, list[str]], extended: bool = False
+    ) -> list[dict]:
         utxo_info = self.KOIOS_API.get_utxo_info(utxo, extended)
         return utxo_info
-    
-    def getAccountTxs(self, account: str, after_block_height: int = 0) -> list:
 
+    def getAccountTxs(self, account: str, after_block_height: int = 0) -> list:
         account_txs = self.KOIOS_API.get_account_txs(account, after_block_height)
         tx_hashes = [tx["tx_hash"] for tx in account_txs]
         transactions = self.KOIOS_API.get_tx_info(tx_hashes)
 
-        final_response = sorted(transactions, key=lambda x: x["absolute_slot"], reverse=True)
-        
-        return final_response
-    
-    def getAccountUtxos(self, account: str, skip: int, limit: int) -> list[dict]:
+        final_response = sorted(
+            transactions, key=lambda x: x["absolute_slot"], reverse=True
+        )
 
+        return final_response
+
+    def getAccountUtxos(self, account: str, skip: int, limit: int) -> list[dict]:
         return self.KOIOS_API.get_account_utxos(account, True, skip, limit)
 
     def txStatus(self, txId: Union[str, list[str]]) -> list:
-
         status_response = self.KOIOS_API.get_tx_status(txId)
 
         return status_response
-    
-    def assetInfo(self, policy_id: str) -> list:
 
+    def assetInfo(self, policy_id: str) -> list:
         asset_info = self.KOIOS_API.get_policy_asset_info(policy_id)
 
         return asset_info
 
-    
-    
+
 @dataclass()
 class Helpers:
-
     def __post_init__(self):
         pass
 
-    def makeMultiAsset(self, addressesDestin: pydantic_schemas.AddressDestin) -> Optional[MultiAsset]:
-        #TODO: deprecated. use build_multiAsset
+    def makeMultiAsset(
+        self, addressesDestin: pydantic_schemas.AddressDestin
+    ) -> Optional[MultiAsset]:
+        # TODO: deprecated. use build_multiAsset
         multi_asset = None
         if addressesDestin:
             multi_asset = MultiAsset()
@@ -405,8 +420,10 @@ class Helpers:
                     multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
 
         return multi_asset
-    
-    def build_multiAsset(self, policy_id: str, tokenName: str, quantity: int) -> MultiAsset:
+
+    def build_multiAsset(
+        self, policy_id: str, tokenName: str, quantity: int
+    ) -> MultiAsset:
         multi_asset = MultiAsset()
         my_asset = Asset()
         my_asset.data.update({AssetName(bytes(tokenName, encoding="utf-8")): quantity})
@@ -414,41 +431,51 @@ class Helpers:
 
         return multi_asset
 
-
     def build_DatumProjectParams(self, pkh: str) -> pydantic_schemas.DatumProjectParams:
-
-        datum = pydantic_schemas.DatumProjectParams(
-            beneficiary=bytes.fromhex(pkh)
-        )
+        datum = pydantic_schemas.DatumProjectParams(beneficiary=bytes.fromhex(pkh))
         return datum
-    
-    def find_utxos_with_tokens(self, context: ChainContext, address: Union[Address, str], multi_asset: MultiAsset) -> Union[UTxO, None]:
+
+    def find_utxos_with_tokens(
+        self,
+        context: ChainContext,
+        address: Union[Address, str],
+        multi_asset: MultiAsset,
+    ) -> Union[UTxO, None]:
         candidate_utxo = None
         if isinstance(address, Address):
             address = address.encode()
-        
+
         # TODO: acummulate utxos with tokens when there's more than one utxo and the request cannot be fulfill with just one
         for policy_id, asset in multi_asset.data.items():
             for tn_bytes, amount in asset.data.items():
-
                 for utxo in context.utxos(address):
+
                     def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
-                        return pi == policy_id and an.payload == tn_bytes.payload and a >= amount
+                        return (
+                            pi == policy_id
+                            and an.payload == tn_bytes.payload
+                            and a >= amount
+                        )
+
                     if utxo.output.amount.multi_asset.count(f):
                         candidate_utxo = utxo
                         break
-                
-                assert isinstance(candidate_utxo, UTxO), "Not enough tokens found in Utxo"
-        
+
+                assert isinstance(
+                    candidate_utxo, UTxO
+                ), "Not enough tokens found in Utxo"
+
         return candidate_utxo
 
-    def build_oraclePolicyId(self, oracle_wallet_name: Optional[str] = "SuanOracle") -> str:
+    def build_oraclePolicyId(
+        self, oracle_wallet_name: Optional[str] = "SuanOracle"
+    ) -> str:
         # Recreate oracle policyId
         oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
         pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
         # Combine two policies using ScriptAll policy
         policy = ScriptAll([pub_key_policy])
         # Calculate policy ID, which is the hash of the policy
-        oracle_policy_id = binascii.hexlify(policy.hash().payload).decode('utf-8')
+        oracle_policy_id = binascii.hexlify(policy.hash().payload).decode("utf-8")
 
         return oracle_policy_id

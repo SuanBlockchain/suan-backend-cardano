@@ -15,11 +15,11 @@ def get_repo_info(repo_name: str = "PrefectHQ/prefect"):
 
 if __name__ == "__main__":
     get_repo_info.from_source(
-        source="https://github.com/discdiver/demos.git", 
-        entrypoint="repo_info.py:get_repo_info"
+        source="https://github.com/discdiver/demos.git",
+        entrypoint="repo_info.py:get_repo_info",
     ).deploy(
-        name="my-first-deployment", 
-        work_pool_name="my-managed-pool", 
+        name="my-first-deployment",
+        work_pool_name="my-managed-pool",
     )
 
 # import time

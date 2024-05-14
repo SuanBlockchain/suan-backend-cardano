@@ -1,11 +1,15 @@
 from opshin.prelude import *
+
+
 @dataclass
 class Mint(PlutusData):
     CONSTR_ID = 0
-    
+
+
 @dataclass
 class Burn(PlutusData):
     CONSTR_ID = 1
+
 
 def assert_minting_purpose(context: ScriptContext) -> None:
     purpose = context.purpose
@@ -15,8 +19,10 @@ def assert_minting_purpose(context: ScriptContext) -> None:
         is_minting = False
     assert is_minting, "not minting purpose"
 
+
 def signedToBeneficiary(context: ScriptContext, pkh: PubKeyHash) -> bool:
     return pkh in context.tx_info.signatories
+
 
 def check_minted_amount(context: ScriptContext, tn: TokenName, q: int) -> bool:
     mint_value = context.tx_info.mint
@@ -43,7 +49,12 @@ def check_token_name(context: ScriptContext, tn: TokenName) -> bool:
                 valid = token_name == tn
     return valid
 
-def validator(pkh: PubKeyHash, tokenName: TokenName, redeemer: Union[Mint, Burn], context: ScriptContext
+
+def validator(
+    pkh: PubKeyHash,
+    tokenName: TokenName,
+    redeemer: Union[Mint, Burn],
+    context: ScriptContext,
 ) -> None:
     assert_minting_purpose(context)
     assert signedToBeneficiary(context, pkh), "beneficiary's signature missing"

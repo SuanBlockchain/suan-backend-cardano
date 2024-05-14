@@ -1,21 +1,25 @@
 #!/usr/bin/env -S opshin eval spending
 from opshin.prelude import *
 
+
 @dataclass
 class Buy(PlutusData):
     # Redeemer to buy the listed values
     CONSTR_ID = 0
+
 
 @dataclass
 class Unlist(PlutusData):
     # Redeemer to unlist the values
     CONSTR_ID = 1
 
+
 @dataclass
 class DatumProjectParams(PlutusData):
     CONSTR_ID = 0
     beneficiary: bytes
     price: int
+
 
 def check_single_utxo_spent(txins: List[TxInInfo], scriptAddr: Address) -> None:
     """To prevent double spending, count how many UTxOs are unlocked from the contract address"""
@@ -27,13 +31,20 @@ def check_single_utxo_spent(txins: List[TxInInfo], scriptAddr: Address) -> None:
             # NFT token name should be the project name with the expected policyID
     assert count == 1, f"Only 1 contract utxo allowed but found {count}"
 
+
 def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None:
     assert (
         owner in signatories
     ), f"Owner did not sign transaction, requires {owner.hex()} but got {[s.hex() for s in signatories]}"
 
 
-def validator(token_policy_id: bytes, token_name: bytes, datum: DatumProjectParams, redeemer: Union[Buy, Unlist], context: ScriptContext) -> None:
+def validator(
+    token_policy_id: bytes,
+    token_name: bytes,
+    datum: DatumProjectParams,
+    redeemer: Union[Buy, Unlist],
+    context: ScriptContext,
+) -> None:
     purpose = context.purpose
     tx_info = context.tx_info
 
@@ -41,16 +52,13 @@ def validator(token_policy_id: bytes, token_name: bytes, datum: DatumProjectPara
 
     assert isinstance(purpose, Spending), f"Wrong script purpose: {purpose}"
 
-
     own_utxo = resolve_spent_utxo(tx_info.inputs, purpose)
     own_addr = own_utxo.address
-    
 
     check_single_utxo_spent(tx_info.inputs, own_addr)
 
     # # It is recommended to explicitly check all options with isinstance for user input
     if isinstance(redeemer, Buy):
-
         ti = own_utxo.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
         tf = sum(
             [

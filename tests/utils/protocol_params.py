@@ -2,7 +2,7 @@
 Default parameters copied from preview testnet
 """
 
-from pycardano import ProtocolParameters, GenesisParameters
+from pycardano import GenesisParameters, ProtocolParameters
 
 DEFAULT_GENESIS_PARAMETERS = GenesisParameters(
     active_slots_coefficient=0.05,

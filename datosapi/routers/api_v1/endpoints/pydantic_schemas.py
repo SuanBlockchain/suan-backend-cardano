@@ -1,8 +1,5 @@
-from enum import Enum
-from typing import List, Union, Optional
 from datetime import datetime
-from pydantic import UUID4, constr
+from enum import Enum
+from typing import List, Optional, Union
 
-from pydantic import BaseModel, validator
-
-
+from pydantic import UUID4, BaseModel, constr, validator

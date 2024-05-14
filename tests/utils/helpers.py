@@ -1,14 +1,14 @@
-from opshin.builder import build, PlutusContract
-from pathlib import Path
-from opshin.prelude import *
-from typing import Optional, Final
-
-import logging
-import pycardano as py
 import json
+import logging
 import time
+from pathlib import Path
+from typing import Final, Optional
 
+import pycardano as py
+from opshin.builder import PlutusContract, build
+from opshin.prelude import *
 from utils.mock import MockChainContext, MockUser
+
 from suantrazabilidadapi.utils.generic import recursion_limit
 from suantrazabilidadapi.utils.plataforma import CardanoApi
 
@@ -19,7 +19,10 @@ tx_template: Final[dict] = {
     "cborHex": "",
 }
 
-def build_mintProjectToken(contract_dir: Path, context: MockChainContext, master: MockUser, tokenName: str) -> tuple[py.PlutusV2Script, py.UTxO]:
+
+def build_mintProjectToken(
+    contract_dir: Path, context: MockChainContext, master: MockUser, tokenName: str
+) -> tuple[py.PlutusV2Script, py.UTxO]:
     utxo_to_spend = None
     for utxo in context.utxos(master.address):
         if utxo.output.amount.coin > 3_000_000:
@@ -41,16 +44,26 @@ def build_mintProjectToken(contract_dir: Path, context: MockChainContext, master
 
     return contract, utxo_to_spend
 
-def build_spend(contract_dir: Path, oracle_policy_id: str, parent_mint_policyID: str, tokenName: str) -> py.PlutusV2Script:
+
+def build_spend(
+    contract_dir: Path, oracle_policy_id: str, parent_mint_policyID: str, tokenName: str
+) -> py.PlutusV2Script:
     tn_bytes = bytes(tokenName, encoding="utf-8")
     logging.info("Create contract with following parameters:")
     logging.info(f"Parent policy id from token mint contract : {parent_mint_policyID}")
     logging.info(f"token : {tokenName}")
-    
-    return build(contract_dir, bytes.fromhex(oracle_policy_id), bytes.fromhex(parent_mint_policyID), tn_bytes)
 
-def build_mintSwapToken(contract_dir: Path, context: MockChainContext, master: MockUser, tokenName: str) -> tuple[py.PlutusV2Script, py.UTxO]:
+    return build(
+        contract_dir,
+        bytes.fromhex(oracle_policy_id),
+        bytes.fromhex(parent_mint_policyID),
+        tn_bytes,
+    )
 
+
+def build_mintSwapToken(
+    contract_dir: Path, context: MockChainContext, master: MockUser, tokenName: str
+) -> tuple[py.PlutusV2Script, py.UTxO]:
     pkh = bytes(master.address.payment_part)
     tn_bytes = bytes(tokenName, encoding="utf-8")
 
@@ -62,6 +75,7 @@ def build_mintSwapToken(contract_dir: Path, context: MockChainContext, master: M
 
     return contract
 
+
 def build_swap(contract_dir: Path, oracle_policy_id: str) -> py.PlutusV2Script:
     # tn_bytes = bytes(tokenName, encoding="utf-8")
     logging.info("Create contract with following parameters:")
@@ -71,26 +85,43 @@ def build_swap(contract_dir: Path, oracle_policy_id: str) -> py.PlutusV2Script:
     return build(contract_dir, bytes.fromhex(oracle_policy_id))
 
 
-def find_utxos_with_tokens(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset) -> Union[py.UTxO, None]:
+def find_utxos_with_tokens(
+    context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset
+) -> Union[py.UTxO, None]:
     candidate_utxo = None
     for policy_id, asset in multi_asset.data.items():
         for tn_bytes, amount in asset.data.items():
-
             for utxo in context.utxos(address.encode()):
+
                 def f(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
-                    return pi == policy_id and an.payload == tn_bytes.payload and a >= amount
+                    return (
+                        pi == policy_id
+                        and an.payload == tn_bytes.payload
+                        and a >= amount
+                    )
+
                 if utxo.output.amount.multi_asset.count(f):
                     candidate_utxo = utxo
                     break
-            
-            assert isinstance(candidate_utxo, py.UTxO), "Not enough tokens found in Utxo"
-    
+
+            assert isinstance(
+                candidate_utxo, py.UTxO
+            ), "Not enough tokens found in Utxo"
+
     return candidate_utxo
 
-def min_value(context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset, datum: Optional[py.Datum] = None) -> int:
+
+def min_value(
+    context: MockChainContext,
+    address: py.Address,
+    multi_asset: py.MultiAsset,
+    datum: Optional[py.Datum] = None,
+) -> int:
     return py.min_lovelace(
-        context, output=py.TransactionOutput(address, py.Value(0, multi_asset), datum=datum)
+        context,
+        output=py.TransactionOutput(address, py.Value(0, multi_asset), datum=datum),
     )
+
 
 def save_transaction(trans: py.Transaction, file: str):
     """Save transaction helper function saves a Tx object to file."""
@@ -104,10 +135,12 @@ def save_transaction(trans: py.Transaction, file: str):
     with open(file, "w", encoding="utf-8") as tf:
         tf.write(json.dumps(tx, indent=4))
 
+
 def setup_user(context: MockChainContext, walletName: Optional[str] = ""):
     user = MockUser(context, walletName)
     user.fund(100000000)  # 100 ADA
     return user
+
 
 def setup_users(context: MockChainContext) -> List[MockUser]:
     users = []
@@ -117,8 +150,8 @@ def setup_users(context: MockChainContext) -> List[MockUser]:
         users.append(u)
     return users
 
-def create_contract(contract: py.PlutusV2Script) -> PlutusContract:
 
+def create_contract(contract: py.PlutusV2Script) -> PlutusContract:
     # Build the contract
     plutus_contract = PlutusContract(contract)
 
@@ -134,8 +167,8 @@ def create_contract(contract: py.PlutusV2Script) -> PlutusContract:
 
     return plutus_contract
 
-def build_multiAsset(policy_id: str, tokenName: str, quantity: int) -> py.MultiAsset:
 
+def build_multiAsset(policy_id: str, tokenName: str, quantity: int) -> py.MultiAsset:
     multi_asset = py.MultiAsset()
     my_asset = py.Asset()
     my_asset.data.update({py.AssetName(bytes(tokenName, encoding="utf-8")): quantity})
@@ -145,7 +178,6 @@ def build_multiAsset(policy_id: str, tokenName: str, quantity: int) -> py.MultiA
 
 
 def monitor_transaction(transaction_id: str) -> bool:
-
     # Wait to confirm the transaction in the blockchain
     confirmation = False
     while not confirmation:  # type: ignore
@@ -159,7 +191,6 @@ def monitor_transaction(transaction_id: str) -> bool:
         else:
             print(f"Transaction {transaction_id} not yet confirmed")
             time.sleep(10)
-
 
     print(f"transaction succesfully submitted with Hash: {transaction_id}")
 

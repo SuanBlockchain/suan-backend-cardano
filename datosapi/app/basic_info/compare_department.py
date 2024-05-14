@@ -1,27 +1,32 @@
-import httpx
 import pathlib
+
+import httpx
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-import boto3
-import os
-from botocore.exceptions import ClientError
 import logging
+import os
+
+import boto3
+from botocore.exceptions import ClientError
 
 from ...core.config import config
 
 security = config(section="security")
 
+
 class Constants:
     REGION_NAME = "us-east-1"
-    aws_access_key_id = os.getenv('aws_access_key_id')
-    aws_secret_access_key = os.getenv('aws_secret_access_key')
-    S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
-    S3_BUCKET_NAME_HIERARCHY = os.getenv('S3_BUCKET_NAME_HIERARCHY')
+    aws_access_key_id = os.getenv("aws_access_key_id")
+    aws_secret_access_key = os.getenv("aws_secret_access_key")
+    S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+    S3_BUCKET_NAME_HIERARCHY = os.getenv("S3_BUCKET_NAME_HIERARCHY")
 
 
 def get_department(url: str, params: dict = None):
     response = httpx.get(url, params=params)
     response.raise_for_status()
     return response.json()
+
 
 def upload_file(file_name, bucket, object_name=None):
     """Upload a file to an S3 bucket
@@ -50,9 +55,13 @@ def upload_file(file_name, bucket, object_name=None):
         return False
     return True
 
-def compare_files(department_file: str = f"{ROOT}/basic_info/department.json"):
 
-    return upload_file(department_file, f'{Constants.S3_BUCKET_NAME}', f"{Constants.S3_BUCKET_NAME_HIERARCHY}/department.json")
+def compare_files(department_file: str = f"{ROOT}/basic_info/department.json"):
+    return upload_file(
+        department_file,
+        f"{Constants.S3_BUCKET_NAME}",
+        f"{Constants.S3_BUCKET_NAME_HIERARCHY}/department.json",
+    )
 
 
 if __name__ == "__main__":
