@@ -243,28 +243,34 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
                 plutus_v2_scripts: List[PlutusV2Script] = []
                 datums: Dict[DatumHash, Datum] = {}
 
-                # TODO: Put conditional for redeemer
-                redeemer = [Redeemer.from_cbor(bytes.fromhex(signSubmit.redeemer_cbor))]
+                redeemers: List[Redeemer] = []
+                for redeemer_cbor in signSubmit.redeemers_cbor:
+                    if redeemer_cbor is not None and redeemer_cbor !=[]:
+                        redeemer = Redeemer.from_cbor(bytes.fromhex(redeemer_cbor))
+                        redeemers.append(redeemer)
 
-                r = Plataforma().getScript("id", signSubmit.scriptPolicyId)
-                if r["success"] == True:
-                    contractInfo = r["data"]["data"]["getScript"]
-                    if contractInfo is None:
-                        raise ValueError(
-                            f"Contract with id: {signSubmit.spendPolicyId} does not exist in DynamoDB"
-                        )
-                    else:
-                        cbor_hex = contractInfo.get("cbor", None)
+                for scriptId in signSubmit.scriptIds:
+                    r = Plataforma().getScript("id", scriptId)
+                    if r["success"] == True:
+                        contractInfo = r["data"]["data"]["getScript"]
+                        if contractInfo is None:
+                            raise ValueError(
+                                f"Contract with id: {scriptId} does not exist in DynamoDB"
+                            )
+                        else:
+                            cbor_hex = contractInfo.get("cbor", None)
 
-                        cbor = bytes.fromhex(cbor_hex)
-                        plutus_v2_scripts = [PlutusV2Script(cbor)]
+                            cbor = bytes.fromhex(cbor_hex)
+                            plutus_v2_script = PlutusV2Script(cbor)
+                            plutus_v2_scripts.append(plutus_v2_script)
+
 
                 witness_set = TransactionWitnessSet(
                     vkey_witnesses=vk_witnesses,
                     native_scripts=native_scripts if native_scripts else None,
                     plutus_v1_script=plutus_v1_scripts if plutus_v1_scripts else None,
                     plutus_v2_script=plutus_v2_scripts if plutus_v2_scripts else None,
-                    redeemer=redeemer if redeemer else None,
+                    redeemer=redeemers if redeemers else None,
                     plutus_data=list(datums.values()) if datums else None,
                 )
 
@@ -694,6 +700,7 @@ async def mintTokens(
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
+                metadata = {}
                 if send.metadata is not None and send.metadata != {}:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
                     main_key = int(list(send.metadata.keys())[0])
@@ -744,7 +751,7 @@ async def mintTokens(
                             )
                 else:
                     if amount > 0:
-                        # Calculate the minimum amount of lovelace that need to be transfered in the utxo
+                        # Calculate the minimum amount of lovelace to be transfered in the utxo
                         min_val = min_lovelace(
                             chain_context,
                             output=TransactionOutput(
@@ -758,15 +765,6 @@ async def mintTokens(
                                 datum=datum,
                             )
                         )
-
-                seed = walletInfo.get("seed", None)
-                if not seed:
-                    raise ValueError(
-                        f"No seed found for wallet with id: {send.wallet_id}"
-                    )
-
-                hdwallet = HDWallet.from_seed(seed)
-                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
 
                 build_body = builder.build(change_address=master_address)
                 tx_cbor = build_body.to_cbor_hex()
@@ -788,8 +786,8 @@ async def mintTokens(
                     "msg": f"Tx Mint Tokens",
                     "build_tx": format_body,
                     "cbor": str(tx_cbor),
-                    "redeemer_cbor": Redeemer.to_cbor_hex(redeemers[0]),
-                    "metadata_cbor": metadata.to_cbor_hex(),
+                    "redeemer_cbor": Redeemer.to_cbor_hex(redeemers[0]), # Redeemers is a list, but assume that only 1 redeemer is passed
+                    "metadata_cbor": metadata.to_cbor_hex() if metadata else "",
                     "utxos_info": utxo_list_info,
                     "tx_size": len(build_body.to_cbor()),
                 }
@@ -881,6 +879,7 @@ async def claimTx(
                         parent_mint_policyID = contractInfo.get("scriptParentID", None)
                         tokenName = contractInfo.get("token_name", None)
 
+                metadata = {}
                 if claim.metadata is not None and claim.metadata != {}:
                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
                     main_key = int(list(claim.metadata.keys())[0])
@@ -888,11 +887,8 @@ async def claimTx(
                         raise ValueError(
                             f"Metadata is not enclosed by an integer index"
                         )
-                    auxiliary_data = AuxiliaryData(
-                        AlonzoMetadata(
-                            metadata=Metadata({main_key: claim.metadata[str(main_key)]})
-                        )
-                    )
+                    metadata = Metadata({main_key: claim.metadata[str(main_key)]})
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
                     # Set transaction metadata
                     builder.auxiliary_data = auxiliary_data
                 quantity_request = 0
@@ -989,29 +985,15 @@ async def claimTx(
                 assert oracle_utxo is not None, "Oracle UTxO not found!"
                 builder.reference_inputs.add(oracle_utxo)
 
-                # Get the wallet from user to sign transaction
-                seed = userWalletInfo.get("seed", None)
-                if not seed:
-                    raise ValueError(
-                        f"No seed found for wallet with id: {claim.wallet_id}"
-                    )
-
-                hdwallet = HDWallet.from_seed(seed)
-                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-                payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+                pkh = bytes(user_address.payment_part)
+                signatures = []
+                signatures.append(VerificationKeyHash(pkh))
+                builder.required_signers = signatures
 
                 build_body = builder.build(change_address=user_address)
                 tx_cbor = build_body.to_cbor_hex()
                 tmp_builder = deepcopy(builder)
                 redeemers = tmp_builder.redeemers
-
-                # signed_tx = builder.build_and_sign(signing_keys=[payment_skey], change_address=user_address)
-
-                # base_dir = Constants.PROJECT_ROOT.joinpath(".priv/transactions")
-                # transaction_dir = base_dir / f"{str(signed_tx.id)}.signed"
-                # save_transaction(signed_tx, transaction_dir)
-
-                # build_body = signed_tx.transaction_body
 
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
@@ -1028,7 +1010,8 @@ async def claimTx(
                     "msg": f"Tx Build",
                     "build_tx": format_body,
                     "cbor": str(tx_cbor),
-                    "redeemers": redeemers,
+                    "redeemer_cbor": Redeemer.to_cbor_hex(redeemers[0]), # Redeemers is a list, but assume that only 1 redeemer is passed
+                    "metadata_cbor": metadata.to_cbor_hex() if metadata else "",
                     "utxos_info": utxo_list_info,
                     "tx_size": len(build_body.to_cbor()),
                     # "tx_id": str(signed_tx.id)

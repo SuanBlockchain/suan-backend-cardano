@@ -128,8 +128,8 @@ class Claim(BaseModel):
 class SignSubmit(BaseModel):
     wallet_id: str
     cbor: str
-    scriptPolicyId: Optional[str] = None
-    redeemer_cbor: Optional[str] = None
+    scriptIds: Optional[list[str]] = None
+    redeemers_cbor: Optional[list[str]] = None
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 
