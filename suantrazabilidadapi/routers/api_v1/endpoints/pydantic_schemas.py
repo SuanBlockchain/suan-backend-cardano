@@ -74,7 +74,7 @@ class AddressDestin(BaseModel):
     address: Optional[str] = None
     lovelace: Optional[int] = 0
     multiAsset: Optional[list[Asset]] = None
-    datum: Optional[TempDatum] = None
+    datum: Optional[TempDatum] = None  # TODO: make datum more generic
 
     @validator("address", always=True)
     def check_address(cls, value):
@@ -100,14 +100,13 @@ class MintRedeem(str, Enum):
 
 class BuildTx(BaseModel):
     wallet_id: str
-    addresses: list[AddressDestin]
+    addresses: Optional[list[AddressDestin]]
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 
 class TokenGenesis(BaseModel):
     wallet_id: str
     addresses: Optional[list[AddressDestin]]
-    # metadata: Optional[Dict[str, Annotated[str, constr(max_length=64)]]] = None
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
     mint: Optional[Mint] = None
 

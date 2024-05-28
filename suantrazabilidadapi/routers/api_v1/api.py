@@ -2,7 +2,7 @@ from fastapi import APIRouter, Security
 
 from suantrazabilidadapi.utils.security import get_api_key
 
-from .endpoints import contracts, projects, transactions, wallet
+from .endpoints import contracts, projects, transactions, wallet, helpers
 
 api_router = APIRouter()
 
@@ -28,5 +28,11 @@ api_router.include_router(
     contracts.router,
     prefix="/contracts",
     tags=["Contracts"],
+    dependencies=[Security(get_api_key)],
+)
+api_router.include_router(
+    helpers.router,
+    prefix="/helpers",
+    tags=["Helpers"],
     dependencies=[Security(get_api_key)],
 )
