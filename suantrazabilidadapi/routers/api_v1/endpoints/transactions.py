@@ -34,7 +34,6 @@ from pycardano import (
     min_lovelace,
     plutus_script_hash,
 )
-
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
@@ -80,20 +79,15 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
+                metadata = {}
                 if send.metadata is not None and send.metadata != {}:
-                    # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
-                    main_key = int(list(send.metadata.keys())[0])
-                    if not isinstance(main_key, int):
-                        raise ValueError(
-                            f"Metadata is not enclosed by an integer index"
-                        )
-                    auxiliary_data = AuxiliaryData(
-                        AlonzoMetadata(
-                            metadata=Metadata({main_key: send.metadata[str(main_key)]})
-                        )
-                    )
+                    auxiliary_data, metadata = Helpers().build_metadata(send.metadata)
                     # Set transaction metadata
-                    builder.auxiliary_data = auxiliary_data
+                    if isinstance(auxiliary_data, AuxiliaryData):
+                        builder.auxiliary_data = auxiliary_data
+                    else:
+                        raise ValueError(auxiliary_data)
+
                 addresses = send.addresses
                 for address in addresses:
                     multi_asset = MultiAsset()
@@ -168,6 +162,7 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                     "msg": f"Tx Build",
                     "build_tx": format_body,
                     "cbor": str(build_body.to_cbor_hex()),
+                    "metadata_cbor": metadata.to_cbor_hex() if metadata else "",
                     "utxos_info": utxo_list_info,
                     "tx_size": len(build_body.to_cbor()),
                 }
@@ -357,16 +352,12 @@ async def mintTokens(
 
                 metadata = {}
                 if send.metadata is not None and send.metadata != {}:
-                    # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
-                    main_key = int(list(send.metadata.keys())[0])
-                    if not isinstance(main_key, int):
-                        raise ValueError(
-                            f"Metadata is not enclosed by an integer index"
-                        )
-                    metadata = Metadata({main_key: send.metadata[str(main_key)]})
-                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
+                    auxiliary_data, metadata = Helpers().build_metadata(send.metadata)
                     # Set transaction metadata
-                    builder.auxiliary_data = auxiliary_data
+                    if isinstance(auxiliary_data, AuxiliaryData):
+                        builder.auxiliary_data = auxiliary_data
+                    else:
+                        raise ValueError(auxiliary_data)
 
                 if send.addresses:
                     for address in send.addresses:
@@ -481,7 +472,6 @@ async def claimTx(
 ) -> dict:
     try:
         # TODO: include the oracle input in the endpoint
-        # TODO: merge claimTx, mintTokens and createOrder in one endpoint
         oracle_policy_id = "b11a367d61a2b8f6a77049a809d7b93c6d44c140678d69276ab77c12"
         oracle_token_name = "SuanOracle"
         ########################
@@ -539,16 +529,13 @@ async def claimTx(
 
                 metadata = {}
                 if claim.metadata is not None and claim.metadata != {}:
-                    # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
-                    main_key = int(list(claim.metadata.keys())[0])
-                    if not isinstance(main_key, int):
-                        raise ValueError(
-                            f"Metadata is not enclosed by an integer index"
-                        )
-                    metadata = Metadata({main_key: claim.metadata[str(main_key)]})
-                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
+                    auxiliary_data, metadata = Helpers().build_metadata(claim.metadata)
                     # Set transaction metadata
-                    builder.auxiliary_data = auxiliary_data
+                    if isinstance(auxiliary_data, AuxiliaryData):
+                        builder.auxiliary_data = auxiliary_data
+                    else:
+                        raise ValueError(auxiliary_data)
+
                 quantity_request = 0
                 addresses = claim.addresses
                 for address in addresses:
@@ -605,6 +592,7 @@ async def claimTx(
                     raise ValueError(f"Wrong redeemer")
 
                 # Get script utxo to spend where tokens are located
+                # TODO: check that the utxo also contains the token to be claimed
                 utxo_from_contract = None
                 for utxo in chain_context.utxos(testnet_address):
                     if utxo.output.amount.coin >= 1_000_000:
@@ -697,233 +685,144 @@ async def claimTx(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# @router.post(
-#     "/create-order/",
-#     status_code=201,
-#     summary="Create order to sell tokens for specific tokenA/tokenB pair",
-#     response_description="Response with transaction details and in cborhex format",
-#     # response_model=List[str],
-# )
-# async def createOrder(
-#     send: pydantic_schemas.Claim, wallet_id: str, script_id: str, order_beneficiary: str, order_side: pydantic_schemas.ClaimRedeem, tokenA: str, tokenB: str, price: int
-# ) -> dict:
-#     try:
-#         # TODO: include the oracle input in the endpoint
-#         oracle_policy_id = "b11a367d61a2b8f6a77049a809d7b93c6d44c140678d69276ab77c12"
-#         oracle_token_name = "SuanOracle"
-#         ########################
-#         """1. Get wallet info"""
-#         ########################
-#         r = Plataforma().getWallet("id", send.wallet_id)
-#         if r["data"].get("data", None) is not None:
-#             userWalletInfo = r["data"]["data"]["getWallet"]
-#             if userWalletInfo is None:
-#                 raise ValueError(
-#                     f"Wallet with id: {send.wallet_id} does not exist in DynamoDB"
-#                 )
-#             else:
-#                 ########################
-#                 """2. Build transaction"""
-#                 ########################
-#                 chain_context = CardanoNetwork().get_chain_context()
+@router.post(
+    "/create-order/",
+    status_code=201,
+    summary="Create order to sell tokens for specific tokenA/tokenB pair",
+    response_description="Response with transaction details and in cborhex format",
+    # response_model=List[str],
+)
+async def createOrder(
+    order: pydantic_schemas.Order, order_side: pydantic_schemas.ClaimRedeem
+) -> dict:
+    try:
+        ########################
+        """1. Get wallet info"""
+        ########################
+        r = Plataforma().getWallet("id", order.wallet_id)
+        if r["data"].get("data", None) is not None:
+            userWalletInfo = r["data"]["data"]["getWallet"]
+            if userWalletInfo is None:
+                raise ValueError(
+                    f"Wallet with id: {order.wallet_id} does not exist in DynamoDB"
+                )
+            else:
+                ########################
+                """2. Build transaction"""
+                ########################
+                chain_context = CardanoNetwork().get_chain_context()
 
-#                 # Create a transaction builder
-#                 builder = TransactionBuilder(chain_context)
+                # Create a transaction builder
+                builder = TransactionBuilder(chain_context)
 
-#                 # Add user own address as the input address
-#                 user_address = Address.from_primitive(userWalletInfo["address"])
-#                 builder.add_input_address(user_address)
-#                 utxo_to_spend = None
-#                 for utxo in chain_context.utxos(user_address):
-#                     if utxo.output.amount.coin > 3_000_000:
-#                         utxo_to_spend = utxo
-#                         break
-#                 assert (
-#                     utxo_to_spend is not None
-#                 ), "UTxO not found to spend! You must have a utxo with more than 3 ADA"
+                # Add user own address as the input address
+                owner_address = Address.from_primitive(userWalletInfo["address"])
+                builder.add_input_address(owner_address)
 
-#                 builder.add_input(utxo_to_spend)
-#                 must_before_slot = InvalidHereAfter(
-#                     chain_context.last_block_slot + 10000
-#                 )
-#                 # Since an InvalidHereAfter
-#                 builder.ttl = must_before_slot.after
+                # builder.add_input(utxo_to_spend)
+                must_before_slot = InvalidHereAfter(
+                    chain_context.last_block_slot + 10000
+                )
+                # Since an InvalidHereAfter
+                builder.ttl = must_before_slot.after
 
-#                 # Get the contract address and cbor from policyId
+                multi_asset = Helpers().build_multiAsset(
+                    order.tokenA.policy_id.decode("utf-8"),
+                    order.tokenA.token_name.decode("utf-8"),
+                    order.qtokenA,
+                )
 
-#                 r = Plataforma().getScript("id", send.spendPolicyId)
-#                 if r["success"] == True:
-#                     contractInfo = r["data"]["data"]["getScript"]
-#                     if contractInfo is None:
-#                         raise ValueError(
-#                             f"Contract with id: {script_id} does not exist in DynamoDB"
-#                         )
-#                     else:
-#                         testnet_address = contractInfo.get("testnetAddr", None)
-#                         cbor_hex = contractInfo.get("cbor", None)
-#                         parent_mint_policyID = contractInfo.get("scriptParentID", None)
-#                         tokenName = contractInfo.get("token_name", None)
+                order_side = pydantic_schemas.RedeemerBuy()
 
-#                 metadata = {}
+                pkh = bytes(owner_address.payment_part)
 
-#                 if send.metadata is not None and send.metadata != {}:
-#                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
-#                     main_key = int(list(send.metadata.keys())[0])
-#                     if not isinstance(main_key, int):
-#                         raise ValueError(
-#                             f"Metadata is not enclosed by an integer index"
-#                         )
-#                     metadata = Metadata({main_key: send.metadata[str(main_key)]})
-#                     auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
-#                     # Set transaction metadata
-#                     builder.auxiliary_data = auxiliary_data
+                datum = pydantic_schemas.DatumSwap(
+                    owner=pkh,
+                    order_side=order_side,
+                    tokenA=order.tokenA,
+                    tokenB=order.tokenB,
+                    price=order.price,
+                )
 
-#                 quantity_request = 0
-#                 addresses = send.addresses
-#                 for address in addresses:
-#                     multi_asset = Helpers().makeMultiAsset(address)
-#                     if multi_asset:
-#                         quantity = multi_asset.data.get(
-#                             ScriptHash(bytes.fromhex(parent_mint_policyID)), 0
-#                         ).data.get(AssetName(bytes(tokenName, encoding="utf-8")), 0)
-#                         if quantity > 0:
-#                             quantity_request += quantity
+                # Get the contract address and cbor from policyId
 
-#                     multi_asset_value = Value(0, multi_asset)
+                r = Plataforma().getScript("id", order.orderPolicyId)
+                if r["success"] == True:
+                    contractInfo = r["data"]["data"]["getScript"]
+                    if contractInfo is None:
+                        raise ValueError(
+                            f"Contract with id: {order.orderPolicyId} does not exist in DynamoDB"
+                        )
+                    else:
+                        order_address = contractInfo.get("testnetAddr", None)
 
-#                     datum = None
-#                     if address.datum:
-#                         datum = Helpers().build_DatumProjectParams(
-#                             pkh=address.datum.beneficiary
-#                         )
+                min_val = min_lovelace(
+                    chain_context,
+                    output=TransactionOutput(
+                        order_address, Value(0, multi_asset), datum=datum
+                    ),
+                )
+                builder.add_output(
+                    TransactionOutput(
+                        order_address,
+                        Value(min_val, multi_asset),
+                        datum=datum,
+                    )
+                )
+                metadata = {}
+                if order.metadata is not None and order.metadata != {}:
+                    auxiliary_data, metadata = Helpers().build_metadata(order.metadata)
+                    # Set transaction metadata
+                    if isinstance(auxiliary_data, AuxiliaryData):
+                        builder.auxiliary_data = auxiliary_data
+                    else:
+                        raise ValueError(auxiliary_data)
 
-#                     # Calculate the minimum amount of lovelace that need to be transfered in the utxo
-#                     min_val = min_lovelace(
-#                         chain_context,
-#                         output=TransactionOutput(
-#                             Address.decode(address.address),
-#                             multi_asset_value,
-#                             datum=datum,
-#                         ),
-#                     )
-#                     if address.lovelace <= min_val:
-#                         builder.add_output(
-#                             TransactionOutput(
-#                                 Address.decode(address.address),
-#                                 Value(min_val, multi_asset),
-#                                 datum=datum,
-#                             )
-#                         )
-#                     else:
-#                         builder.add_output(
-#                             TransactionOutput(
-#                                 Address.decode(address.address),
-#                                 Value(address.lovelace, multi_asset),
-#                                 datum=datum,
-#                             )
-#                         )
+                signatures = []
+                signatures.append(VerificationKeyHash(pkh))
+                builder.required_signers = signatures
 
-#                 # Redeemer action
-#                 if claim_redeemer == "Buy":
-#                     redeemer = pydantic_schemas.RedeemerBuy()
-#                 elif claim_redeemer == "Sell":
-#                     redeemer = pydantic_schemas.RedeemerSell()
-#                 elif claim_redeemer == "Unlist":
-#                     redeemer = pydantic_schemas.RedeemerUnlist()
-#                 else:
-#                     raise ValueError(f"Wrong redeemer")
+                build_body = builder.build(change_address=owner_address)
+                tx_cbor = build_body.to_cbor_hex()
 
-#                 # Get script utxo to spend where tokens are located
-#                 utxo_from_contract = None
-#                 for utxo in chain_context.utxos(testnet_address):
-#                     if utxo.output.amount.coin >= 1_000_000:
-#                         utxo_from_contract = utxo
-#                         break
-#                 assert utxo_from_contract is not None, "UTxO not found to spend!"
-#                 logging.info(
-#                     f"Found utxo to spend: {utxo_from_contract.input.transaction_id} and index: {utxo_from_contract.input.index}"
-#                 )
+                # Processing the tx body
+                format_body = Plataforma().formatTxBody(build_body)
 
-#                 # Calculate the change of tokens back to the contract
-#                 balance = utxo_from_contract.output.amount.multi_asset.data.get(
-#                     ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}
-#                 ).get(AssetName(bytes(tokenName, encoding="utf-8")), {b"": 0})
-#                 new_token_balance = balance - quantity_request
-#                 if new_token_balance < 0:
-#                     raise ValueError(f"Not enough tokens found in script address")
+                transaction_id_list = []
+                for utxo in build_body.inputs:
+                    transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
+                    transaction_id_list.append(transaction_id)
 
-#                 cbor = bytes.fromhex(cbor_hex)
-#                 plutus_script = PlutusV2Script(cbor)
+                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
 
-#                 builder.add_script_input(
-#                     utxo_from_contract,
-#                     plutus_script,
-#                     redeemer=Redeemer(redeemer),
-#                 )
+                final_response = {
+                    "success": True,
+                    "msg": f"Tx Build",
+                    "build_tx": format_body,
+                    "cbor": str(tx_cbor),
+                    "metadata_cbor": metadata.to_cbor_hex() if metadata else "",
+                    "utxos_info": utxo_list_info,
+                    "tx_size": len(build_body.to_cbor()),
+                }
+        else:
+            if r["success"] == True:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["data"]["errors"],
+                }
+            else:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["error"],
+                }
 
-#                 oracle_walletInfo = Keys().load_or_create_key_pair("SuanOracle")
-#                 oracle_address = oracle_walletInfo[3]
-#                 oracle_asset = Helpers().build_multiAsset(
-#                     oracle_policy_id, oracle_token_name, 1
-#                 )
-#                 oracle_utxo = Helpers().find_utxos_with_tokens(
-#                     chain_context, oracle_address, multi_asset=oracle_asset
-#                 )
-#                 assert oracle_utxo is not None, "Oracle UTxO not found!"
-#                 builder.reference_inputs.add(oracle_utxo)
-
-#                 pkh = bytes(user_address.payment_part)
-#                 signatures = []
-#                 signatures.append(VerificationKeyHash(pkh))
-#                 builder.required_signers = signatures
-
-#                 build_body = builder.build(change_address=user_address)
-#                 tx_cbor = build_body.to_cbor_hex()
-#                 tmp_builder = deepcopy(builder)
-#                 redeemers = tmp_builder.redeemers
-
-#                 # Processing the tx body
-#                 format_body = Plataforma().formatTxBody(build_body)
-
-#                 transaction_id_list = []
-#                 for utxo in build_body.inputs:
-#                     transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
-#                     transaction_id_list.append(transaction_id)
-
-#                 utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
-
-#                 final_response = {
-#                     "success": True,
-#                     "msg": f"Tx Build",
-#                     "build_tx": format_body,
-#                     "cbor": str(tx_cbor),
-#                     "redeemer_cbor": Redeemer.to_cbor_hex(
-#                         redeemers[0]
-#                     ),  # Redeemers is a list, but assume that only 1 redeemer is passed
-#                     "metadata_cbor": metadata.to_cbor_hex() if metadata else "",
-#                     "utxos_info": utxo_list_info,
-#                     "tx_size": len(build_body.to_cbor()),
-#                     # "tx_id": str(signed_tx.id)
-#                 }
-#         else:
-#             if r["success"] == True:
-#                 final_response = {
-#                     "success": False,
-#                     "msg": "Error fetching data",
-#                     "data": r["data"]["errors"],
-#                 }
-#             else:
-#                 final_response = {
-#                     "success": False,
-#                     "msg": "Error fetching data",
-#                     "data": r["error"],
-#                 }
-
-#         return final_response
-#     except ValueError as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+        return final_response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post(
@@ -1002,20 +901,11 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
                     plutus_data=list(datums.values()) if datums else None,
                 )
 
-                if signSubmit.metadata is not None and signSubmit.metadata != {}:
-                    # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
-                    main_key = int(list(signSubmit.metadata.keys())[0])
-                    if not isinstance(main_key, int):
-                        raise ValueError(
-                            f"Metadata is not enclosed by an integer index"
-                        )
-                    auxiliary_data = AuxiliaryData(
-                        AlonzoMetadata(
-                            metadata=Metadata(
-                                {main_key: signSubmit.metadata[str(main_key)]}
-                            )
-                        )
+                if signSubmit.metadata_cbor:
+                    metadata = Metadata.from_cbor(
+                        bytes.fromhex(signSubmit.metadata_cbor)
                     )
+                    auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
 
                 signed_tx = Transaction(tx_body, witness_set, True, auxiliary_data)
                 chain_context = CardanoNetwork().get_chain_context()
@@ -1051,3 +941,342 @@ async def signSubmit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
     except Exception as e:
         # Handling other types of exceptions
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# @router.post(
+#     "/build-tx-conctracts/{send_redeemer}",
+#     status_code=201,
+#     summary="Build the transaction off-chain for validation before signing",
+#     response_description="Response with transaction details and in cborhex format",
+#     # response_model=List[str],
+# )
+# async def buildTxContracts(
+#     send_redeemer: pydantic_schemas.ClaimRedeem, send: pydantic_schemas.Claim
+# ) -> dict:
+#     try:
+#         # TODO: include the oracle input in the endpoint
+#         # TODO: merge claimTx, mintTokens and createOrder in one endpoint
+#         oracle_policy_id = "b11a367d61a2b8f6a77049a809d7b93c6d44c140678d69276ab77c12"
+#         oracle_token_name = "SuanOracle"
+#         ########################
+#         """1. Get wallet info"""
+#         ########################
+#         r = Plataforma().getWallet("id", send.wallet_id)
+#         if r["data"].get("data", None) is not None:
+#             userWalletInfo = r["data"]["data"]["getWallet"]
+#             if userWalletInfo is None:
+#                 raise ValueError(
+#                     f"Wallet with id: {send.wallet_id} does not exist in DynamoDB"
+#                 )
+#             else:
+#                 ########################
+#                 """2. Build transaction"""
+#                 ########################
+#                 chain_context = CardanoNetwork().get_chain_context()
+
+#                 # Create a transaction builder
+#                 builder = TransactionBuilder(chain_context)
+
+#                 # Add user own address as the input address
+#                 user_address = Address.from_primitive(userWalletInfo["address"])
+#                 builder.add_input_address(user_address)
+#                 utxo_to_spend = None
+#                 for utxo in chain_context.utxos(user_address):
+#                     if utxo.output.amount.coin > 3_000_000:
+#                         utxo_to_spend = utxo
+#                         break
+#                 assert (
+#                     utxo_to_spend is not None
+#                 ), "UTxO not found to spend! You must have a utxo with more than 3 ADA"
+
+#                 builder.add_input(utxo_to_spend)
+#                 must_before_slot = InvalidHereAfter(
+#                     chain_context.last_block_slot + 10000
+#                 )
+#                 # Since an InvalidHereAfter
+#                 builder.ttl = must_before_slot.after
+
+#                 signatures = []
+#                 if send.mint is not None or send.mint != {}:
+#                     tokens_bytes = {
+#                         bytes(tokenName, encoding="utf-8"): q
+#                         for tokenName, q in send.mint.asset.tokens.items()
+#                     }
+#                     pkh = bytes(user_address.payment_part)
+#                     signatures.append(VerificationKeyHash(pkh))
+
+#                     # Consultar en base de datos
+#                     script_id = send.mint.asset.policyid
+
+#                     r = Plataforma().getScript("id", script_id)
+#                     if r["data"].get("data", None) is not None:
+#                         contractInfo = r["data"]["data"]["getScript"]
+#                         if contractInfo is None:
+#                             raise ValueError(
+#                                 f"Script with policyId does not exist in database"
+#                             )
+#                         else:
+#                             cbor_hex = contractInfo.get("cbor", None)
+#                             cbor = bytes.fromhex(cbor_hex)
+#                             plutus_script = PlutusV2Script(cbor)
+#                     else:
+#                         raise ValueError(f"Error fetching Script from database")
+
+#                     script_hash = plutus_script_hash(plutus_script)
+#                     logging.info(f"script_hash: {script_hash}")
+
+#                     # Redeemer action
+#                     if send_redeemer == "Mint":
+#                         redeemer = pydantic_schemas.RedeemerMint()
+#                     elif send_redeemer == "Burn":
+#                         redeemer = pydantic_schemas.RedeemerBurn()
+#                     else:
+#                         raise ValueError(f"Wrong redeemer")
+
+#                     builder.add_minting_script(
+#                         script=plutus_script, redeemer=Redeemer(redeemer)
+#                     )
+
+#                     mint_multiassets = MultiAsset.from_primitive(
+#                         {bytes(script_hash): tokens_bytes}
+#                     )
+
+#                     builder.mint = mint_multiassets
+
+#                     # If burn, insert the utxo that contains the asset
+#                     for tn_bytes, amount in tokens_bytes.items():
+#                         if amount < 0:
+#                             burn_utxo = None
+#                             candidate_burn_utxo = []
+#                             for utxo in chain_context.utxos(user_address):
+
+#                                 def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
+#                                     return (
+#                                         pi == script_hash
+#                                         and an.payload == tn_bytes
+#                                         and a >= -amount
+#                                     )
+
+#                                 if utxo.output.amount.multi_asset.count(f):
+#                                     burn_utxo = utxo
+
+#                                     builder.add_input(burn_utxo)
+
+#                             if not burn_utxo:
+#                                 q = 0
+#                                 for utxo in chain_context.utxos(user_address):
+
+#                                     def f1(
+#                                         pi: ScriptHash, an: AssetName, a: int
+#                                     ) -> bool:
+#                                         return (
+#                                             pi == script_hash and an.payload == tn_bytes
+#                                         )
+
+#                                     if utxo.output.amount.multi_asset.count(f1):
+#                                         candidate_burn_utxo.append(utxo)
+#                                         union_multiasset = (
+#                                             utxo.output.amount.multi_asset.data
+#                                         )
+#                                         for asset in union_multiasset.values():
+#                                             q += int(list(asset.data.values())[0])
+
+#                                 if q >= -amount:
+#                                     for x in candidate_burn_utxo:
+#                                         builder.add_input(x)
+#                                 else:
+#                                     raise ValueError(
+#                                         "UTxO containing token to burn not found!"
+#                                     )
+
+#                 else:
+#                     # Redeemer action
+#                     if redeemer == "Buy":
+#                         redeemer = pydantic_schemas.RedeemerBuy()
+#                     elif redeemer == "Sell":
+#                         redeemer = pydantic_schemas.RedeemerSell()
+#                     elif redeemer == "Unlist":
+#                         redeemer = pydantic_schemas.RedeemerUnlist()
+#                     else:
+#                         raise ValueError(f"Wrong redeemer")
+
+#                     # Get script utxo to spend where tokens are located
+#                     utxo_from_contract = None
+#                     for utxo in chain_context.utxos(testnet_address):
+#                         if utxo.output.amount.coin >= 1_000_000:
+#                             utxo_from_contract = utxo
+#                             break
+#                     assert utxo_from_contract is not None, "UTxO not found to spend!"
+#                     logging.info(
+#                         f"Found utxo to spend: {utxo_from_contract.input.transaction_id} and index: {utxo_from_contract.input.index}"
+#                     )
+
+#                     # Calculate the change of tokens back to the contract
+#                     balance = utxo_from_contract.output.amount.multi_asset.data.get(
+#                         ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}
+#                     ).get(AssetName(bytes(tokenName, encoding="utf-8")), {b"": 0})
+#                     new_token_balance = balance - quantity_request
+#                     if new_token_balance < 0:
+#                         raise ValueError(f"Not enough tokens found in script address")
+
+#                     cbor = bytes.fromhex(cbor_hex)
+#                     plutus_script = PlutusV2Script(cbor)
+
+#                     builder.add_script_input(
+#                         utxo_from_contract,
+#                         plutus_script,
+#                         redeemer=Redeemer(redeemer),
+#                     )
+
+#                     oracle_walletInfo = Keys().load_or_create_key_pair("SuanOracle")
+#                     oracle_address = oracle_walletInfo[3]
+#                     oracle_asset = Helpers().build_multiAsset(
+#                         oracle_policy_id, oracle_token_name, 1
+#                     )
+#                     oracle_utxo = Helpers().find_utxos_with_tokens(
+#                         chain_context, oracle_address, multi_asset=oracle_asset
+#                     )
+#                     assert oracle_utxo is not None, "Oracle UTxO not found!"
+#                     builder.reference_inputs.add(oracle_utxo)
+
+#                     pkh = bytes(user_address.payment_part)
+#                     signatures.append(VerificationKeyHash(pkh))
+#                     builder.required_signers = signatures
+
+#                     # Get the spend contract address and cbor from policyId
+
+#                     r = Plataforma().getScript("id", send.spendPolicyId)
+#                     if r["success"] == True:
+#                         contractInfo = r["data"]["data"]["getScript"]
+#                         if contractInfo is None:
+#                             raise ValueError(
+#                                 f"Contract with id: {send.spendPolicyId} does not exist in DynamoDB"
+#                             )
+#                         else:
+#                             testnet_address = contractInfo.get("testnetAddr", None)
+#                             cbor_hex = contractInfo.get("cbor", None)
+#                             parent_mint_policyID = contractInfo.get("scriptParentID", None)
+#                             tokenName = contractInfo.get("token_name", None)
+
+#                 metadata = {}
+#                 if send.metadata is not None and send.metadata != {}:
+#                     # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
+#                     main_key = int(list(send.metadata.keys())[0])
+#                     if not isinstance(main_key, int):
+#                         raise ValueError(
+#                             f"Metadata is not enclosed by an integer index"
+#                         )
+#                     metadata = Metadata({main_key: send.metadata[str(main_key)]})
+#                     auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
+#                     # Set transaction metadata
+#                     builder.auxiliary_data = auxiliary_data
+
+#                 if send.addresses:
+#                     quantity_request = 0
+#                     addresses = send.addresses
+#                     for address in addresses:
+#                         multi_asset = Helpers().makeMultiAsset(address)
+#                         if multi_asset:
+#                             quantity = multi_asset.data.get(
+#                                 ScriptHash(bytes.fromhex(parent_mint_policyID)), 0
+#                             ).data.get(AssetName(bytes(tokenName, encoding="utf-8")), 0)
+#                             if quantity > 0:
+#                                 quantity_request += quantity
+
+#                         multi_asset_value = Value(0, multi_asset)
+
+#                         datum = None
+#                         if address.datum:
+#                             datum = Helpers().build_DatumProjectParams(
+#                                 pkh=address.datum.beneficiary
+#                             )
+
+#                         # Calculate the minimum amount of lovelace that need to be transfered in the utxo
+#                         min_val = min_lovelace(
+#                             chain_context,
+#                             output=TransactionOutput(
+#                                 Address.decode(address.address),
+#                                 multi_asset_value,
+#                                 datum=datum,
+#                             ),
+#                         )
+#                         if address.lovelace <= min_val:
+#                             builder.add_output(
+#                                 TransactionOutput(
+#                                     Address.decode(address.address),
+#                                     Value(min_val, multi_asset),
+#                                     datum=datum,
+#                                 )
+#                             )
+#                         else:
+#                             builder.add_output(
+#                                 TransactionOutput(
+#                                     Address.decode(address.address),
+#                                     Value(address.lovelace, multi_asset),
+#                                     datum=datum,
+#                                 )
+#                             )
+#                 else:
+#                     if amount > 0:
+#                         # Calculate the minimum amount of lovelace to be transfered in the utxo
+#                         min_val = min_lovelace(
+#                             chain_context,
+#                             output=TransactionOutput(
+#                                 user_address, Value(0, mint_multiassets), datum=datum
+#                             ),
+#                         )
+#                         builder.add_output(
+#                             TransactionOutput(
+#                                 user_address,
+#                                 Value(min_val, mint_multiassets),
+#                                 datum=datum,
+#                             )
+#                         )
+
+#                 build_body = builder.build(change_address=user_address)
+#                 tx_cbor = build_body.to_cbor_hex()
+#                 tmp_builder = deepcopy(builder)
+#                 redeemers = tmp_builder.redeemers
+
+#                 # Processing the tx body
+#                 format_body = Plataforma().formatTxBody(build_body)
+
+#                 transaction_id_list = []
+#                 for utxo in build_body.inputs:
+#                     transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
+#                     transaction_id_list.append(transaction_id)
+
+#                 utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
+
+#                 final_response = {
+#                     "success": True,
+#                     "msg": f"Tx Build",
+#                     "build_tx": format_body,
+#                     "cbor": str(tx_cbor),
+#                     "redeemer_cbor": Redeemer.to_cbor_hex(
+#                         redeemers[0]
+#                     ),  # Redeemers is a list, but assume that only 1 redeemer is passed
+#                     "metadata_cbor": metadata.to_cbor_hex() if metadata else "",
+#                     "utxos_info": utxo_list_info,
+#                     "tx_size": len(build_body.to_cbor()),
+#                     # "tx_id": str(signed_tx.id)
+#                 }
+#         else:
+#             if r["success"] == True:
+#                 final_response = {
+#                     "success": False,
+#                     "msg": "Error fetching data",
+#                     "data": r["data"]["errors"],
+#                 }
+#             else:
+#                 final_response = {
+#                     "success": False,
+#                     "msg": "Error fetching data",
+#                     "data": r["error"],
+#                 }
+
+#         return final_response
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))

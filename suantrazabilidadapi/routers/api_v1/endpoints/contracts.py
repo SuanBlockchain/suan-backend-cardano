@@ -280,29 +280,12 @@ async def createContract(
                         "script_type": script_type,
                         "Active": True,
                         "token_name": tokenName,
-                        "scriptParentID": parent_policy_id
-                        if parent_policy_id != ""
-                        else policy_id,
+                        "scriptParentID": (
+                            parent_policy_id if parent_policy_id != "" else policy_id
+                        ),
                     }
-                    # Check if project_id was provided
-                    if (
-                        script_type != "mintSuanCO2" or script_type != "spendSwap"
-                    ) and not project_id:
-                        raise ValueError(
-                            f"Project Id must be provided to interact with this contract"
-                        )
-                    else:
-                        # Validate that the project exists in table products
-                        r = Plataforma().getProject("id", project_id)
-                        if (
-                            not r["data"].get("data", None)
-                            or not r["data"]["data"]["getProduct"]
-                        ):
-                            raise ValueError(
-                                f"Project with id {project_id} does not exist in DynamoDB"
-                            )
 
-                        variables["productID"] = project_id
+                    variables["productID"] = project_id if project_id else None
 
                     responseScript = Plataforma().createContract(variables)
                     if responseScript["success"] == True:

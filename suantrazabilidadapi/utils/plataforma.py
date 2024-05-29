@@ -4,7 +4,7 @@ import logging
 import os
 import pathlib
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, Any, Dict
 
 import boto3
 import requests
@@ -20,6 +20,9 @@ from pycardano import (
     ScriptPubkey,
     TransactionBody,
     UTxO,
+    AuxiliaryData,
+    Metadata,
+    AlonzoMetadata,
 )
 
 from suantrazabilidadapi.core.config import config
@@ -215,9 +218,11 @@ class Plataforma(Constants):
             script_data_hash = txBody.script_data_hash.payload.hex()
 
         formatTxBody = {
-            "auxiliary_data_hash": txBody.auxiliary_data_hash.payload.hex()
-            if txBody.auxiliary_data_hash
-            else "",
+            "auxiliary_data_hash": (
+                txBody.auxiliary_data_hash.payload.hex()
+                if txBody.auxiliary_data_hash
+                else ""
+            ),
             "certificates": txBody.certificates,
             "collateral": collateral,
             "collateral_return": collateral_return,
@@ -352,11 +357,13 @@ class CardanoApi(Constants):
                         dict(
                             map(
                                 lambda item: (
-                                    item[0],
-                                    bytes.fromhex(item[1]).decode("utf-8"),
-                                )
-                                if item[0] == "asset_name"
-                                else item,
+                                    (
+                                        item[0],
+                                        bytes.fromhex(item[1]).decode("utf-8"),
+                                    )
+                                    if item[0] == "asset_name"
+                                    else item
+                                ),
                                 filter(
                                     lambda item: item[0] != "address", asset.items()
                                 ),
@@ -479,3 +486,18 @@ class Helpers:
         oracle_policy_id = binascii.hexlify(policy.hash().payload).decode("utf-8")
 
         return oracle_policy_id
+
+    def build_metadata(
+        metadata: Dict[str, Dict[str, Any]]
+    ) -> tuple[Union[AuxiliaryData, str], Metadata]:
+        # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
+        main_key = int(list(metadata.keys())[0])
+        metadata_f = {}
+        if not isinstance(main_key, int):
+            auxiliary_data = "Metadata is not enclosed by an integer index"
+        else:
+            metadata_f = Metadata({main_key: metadata[str(main_key)]})
+            auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
+        # Set transaction metadata
+
+        return auxiliary_data, metadata_f

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Annotated, Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from opshin.prelude import *
 from pydantic import BaseModel, constr, validator
@@ -114,7 +114,7 @@ class TokenGenesis(BaseModel):
 class ClaimRedeem(str, Enum):
     buy = "Buy"
     sell = "Sell"
-    Unlist = "Unlist"
+    unlist = "Unlist"
 
 
 class Claim(BaseModel):
@@ -129,7 +129,7 @@ class SignSubmit(BaseModel):
     cbor: str
     scriptIds: Optional[list[str]] = None
     redeemers_cbor: Optional[list[str]] = None
-    metadata: Optional[Dict[str, Dict[str, Any]]] = None
+    metadata_cbor: Optional[str] = None
 
 
 class Index(BaseModel):
@@ -146,6 +146,16 @@ class Oracle(BaseModel):
 class OracleAction(str, Enum):
     create = "Create"
     update = "Update"
+
+
+class Order(BaseModel):
+    wallet_id: str
+    orderPolicyId: str
+    tokenA: Token
+    qtokenA: int
+    tokenB: Token
+    price: int
+    metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 
 ############################
