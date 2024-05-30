@@ -309,20 +309,9 @@ async def accountTx(
 ):
     """Get a list of all Txs for a given stake address (account) \n"""
     try:
-        accountTxs = CardanoApi().getAccountTxs(stake, after_block_height)
-
-        total_count = len(accountTxs)
-        page_size = limit
-
-        current_page = (skip / page_size) + 1
-        total_pages = int(total_count / page_size) + 1
-
-        if all:
-            data = accountTxs
-            current_page = 1
-            page_size = total_count
-        else:
-            data = accountTxs[skip : skip + limit]
+        data, total_count, page_size, current_page = CardanoApi().getAccountTxs(
+            stake, after_block_height, skip, limit, all
+        )
 
         result = {
             "data": data,

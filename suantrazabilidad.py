@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from suantrazabilidadapi.core.config import settings
 from suantrazabilidadapi.routers.api_v1.api import api_router
 from suantrazabilidadapi.utils.security import generate_api_key
+from suantrazabilidadapi.utils.generic import Constants
 
 load_dotenv()
 
@@ -59,6 +60,12 @@ async def root():
 async def get_new_api_key():
     api_key = generate_api_key()
     return {"api_key": api_key}
+
+
+@suantrazabilidad.get(path="/query-tip")
+async def query_tip():
+    tip = Constants().KOIOS_API.get_tip()
+    return tip[0]
 
 
 suantrazabilidad.include_router(root_router)

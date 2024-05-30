@@ -35,9 +35,8 @@ from pycardano import (
     plutus_script_hash,
 )
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
-from suantrazabilidadapi.utils.generic import Constants
 
 router = APIRouter()
 

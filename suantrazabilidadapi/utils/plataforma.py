@@ -5,7 +5,7 @@ import logging
 import os
 import pathlib
 from dataclasses import dataclass
-from typing import Optional, Union, Any, Dict
+from typing import Literal, Optional, Union, Any, Dict
 
 import boto3
 import requests
@@ -382,16 +382,32 @@ class CardanoApi(Constants):
         utxo_info = self.KOIOS_API.get_utxo_info(utxo, extended)
         return utxo_info
 
-    def getAccountTxs(self, account: str, after_block_height: int = 0) -> list:
+    def getAccountTxs(
+        self, account: str, after_block_height: int, skip: int, limit: int, all: bool
+    ) -> tuple[list[Any], int, int, float | Literal[1]]:
         account_txs = self.KOIOS_API.get_account_txs(account, after_block_height)
-        tx_hashes = [tx["tx_hash"] for tx in account_txs]
+
+        total_count = len(account_txs)
+        page_size = limit
+
+        current_page = (skip / page_size) + 1
+        total_pages = int(total_count / page_size) + 1
+
+        if all:
+            data = account_txs
+            current_page = 1
+            page_size = total_count
+        else:
+            data = account_txs[skip : skip + limit]
+
+        tx_hashes = [tx["tx_hash"] for tx in data]
         transactions = self.KOIOS_API.get_tx_info(tx_hashes)
 
         final_response = sorted(
             transactions, key=lambda x: x["absolute_slot"], reverse=True
         )
 
-        return final_response
+        return final_response, total_count, page_size, current_page
 
     def getAccountUtxos(self, account: str, skip: int, limit: int) -> list[dict]:
         return self.KOIOS_API.get_account_utxos(account, True, skip, limit)
