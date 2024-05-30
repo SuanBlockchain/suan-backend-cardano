@@ -7,8 +7,6 @@ from typing import Final
 
 from pycardano import Network, Transaction
 
-# from suantrazabilidadapi.core.config import config
-
 
 class Constants:
     KEY_DIR: str = ".priv/wallets"
@@ -30,6 +28,9 @@ class Constants:
     HEADERS = {"Content-Type": "application/json"}
     KOIOS_API = importlib.import_module("koios_api")
     REGION_NAME = "us-east-1"
+    ORACLE_WALLET_NAME = "SuanOracle"
+    # ORACLE_POLICY_ID = "b11a367d61a2b8f6a77049a809d7b93c6d44c140678d69276ab77c12"
+    ORACLE_TOKEN_NAME = "SuanOracle"
 
 
 def is_valid_hex_string(s: str) -> bool:

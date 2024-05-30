@@ -820,18 +820,20 @@ if __name__ == "__main__":
     qTokenA = 1
     sellPrice = 2_500_000
 
-    # tx_signed = test_create_order(contracts_info, tokenName, qTokenA, tokenBPolicyId, tokenB, sellPrice)
+    tx_signed = test_create_order(
+        contracts_info, tokenName, qTokenA, tokenBPolicyId, tokenB, sellPrice
+    )
 
-    # logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
+    logging.info(f"transaction signed: {tx_signed.transaction_body.hash().hex()}")
 
-    # test_confirm_and_submit(tx_signed)
+    test_confirm_and_submit(tx_signed)
 
-    # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+    confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
-    # tx_signed = test_unlock_order(contracts_info, tokenName, qTokenA, sellPrice)
-    # test_confirm_and_submit(tx_signed)
+    tx_signed = test_unlock_order(contracts_info, tokenName, qTokenA, sellPrice)
+    test_confirm_and_submit(tx_signed)
 
-    # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+    confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
     # tx_signed = test_unlist_order(contracts_info, tokenName, qTokenA)
     # test_confirm_and_submit(tx_signed)

@@ -1,3 +1,4 @@
+from asyncio import constants
 import binascii
 import json
 import logging
@@ -411,7 +412,7 @@ class Helpers:
     def __post_init__(self):
         pass
 
-    def makeMultiAsset(
+    def multiAssetFromAddress(
         self, addressesDestin: pydantic_schemas.AddressDestin
     ) -> Optional[MultiAsset]:
         # TODO: deprecated. use build_multiAsset
@@ -488,7 +489,7 @@ class Helpers:
         return oracle_policy_id
 
     def build_metadata(
-        metadata: Dict[str, Dict[str, Any]]
+        self, metadata: Dict[str, Dict[str, Any]]
     ) -> tuple[Union[AuxiliaryData, str], Metadata]:
         # https://github.com/cardano-foundation/CIPs/tree/master/CIP-0020
         main_key = int(list(metadata.keys())[0])
@@ -497,7 +498,23 @@ class Helpers:
             auxiliary_data = "Metadata is not enclosed by an integer index"
         else:
             metadata_f = Metadata({main_key: metadata[str(main_key)]})
-            auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata))
+            auxiliary_data = AuxiliaryData(AlonzoMetadata(metadata=metadata_f))
         # Set transaction metadata
 
         return auxiliary_data, metadata_f
+
+    def build_reference_input_oracle(
+        self, chain_context: ChainContext
+    ) -> Union[UTxO, None]:
+
+        oracle_walletInfo = Keys().load_or_create_key_pair(Constants.ORACLE_WALLET_NAME)
+        oracle_address = oracle_walletInfo[3]
+        oracle_asset = self.build_multiAsset(
+            self.build_oraclePolicyId(Constants.ORACLE_WALLET_NAME),
+            Constants.ORACLE_TOKEN_NAME,
+            1,
+        )
+        oracle_utxo = self.find_utxos_with_tokens(
+            chain_context, oracle_address, multi_asset=oracle_asset
+        )
+        return oracle_utxo

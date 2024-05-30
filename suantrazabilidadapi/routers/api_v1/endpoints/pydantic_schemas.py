@@ -148,13 +148,22 @@ class OracleAction(str, Enum):
     update = "Update"
 
 
+class UnlockOrder(BaseModel):
+    wallet_id: str
+    orderPolicyId: str
+    tokenA: Token
+    qtokenA: int
+    addresses: list[AddressDestin]
+    metadata: Optional[Dict[str, Dict[str, Any]]] = None
+
+
 class Order(BaseModel):
     wallet_id: str
     orderPolicyId: str
     tokenA: Token
     qtokenA: int
-    tokenB: Token
     price: int
+    tokenB: Token
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 

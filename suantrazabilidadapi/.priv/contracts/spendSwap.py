@@ -1,4 +1,4 @@
-# TODO: Use the oracle inline datum to validate the list of available tokens to commercialize. It means that there's no need to use NFT to confirm validity of the utxo
+# TODO: allow partial spends
 # if the utxo is valid, it must contain a token to swap avaiable in the list from the inline datum in oracle. The price is free to set for the time being, so oracle is only used to check the list of valid
 # Tokens to list as valid orders.
 #!/usr/bin/env -S opshin eval spending

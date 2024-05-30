@@ -157,7 +157,7 @@ async def createContract(
     save_flag: bool = True,
     parent_policy_id: str = "",
     project_id: Optional[str] = None,
-    oracle_wallet_name: Optional[str] = "SuanOracle",
+    oracle_wallet_name: Optional[str] = Constants.ORACLE_WALLET_NAME,
 ) -> dict:
     """From parameters build a smart contract"""
     try:

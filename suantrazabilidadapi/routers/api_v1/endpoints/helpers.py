@@ -348,14 +348,14 @@ async def oracleDatum(
         chain_context.submit_tx(signed_tx)
 
         logging.info(f"transaction id: {tx_id}")
-        logging.info(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}")
+        logging.info(f"https://preview.cardanoscan.io/transaction/{tx_id}")
 
         ####################################################
         final_response = {
             "success": True,
             "msg": msg,
             "tx_id": tx_id,
-            "cardanoScan": f"Cardanoscan: https://preview.cardanoscan.io/transaction/{tx_id}",
+            "cardanoScan": f"https://preview.cardanoscan.io/transaction/{tx_id}",
         }
 
         return final_response
