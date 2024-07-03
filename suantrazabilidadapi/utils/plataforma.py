@@ -387,24 +387,29 @@ class CardanoApi(Constants):
     ) -> tuple[list[Any], int, int, float | Literal[1]]:
         account_txs = self.KOIOS_API.get_account_txs(account, after_block_height)
 
-        total_count = len(account_txs)
+        sorted_account_txs = sorted(
+            account_txs, key=lambda x: x["block_height"], reverse=True
+        )
+
+        total_count = len(sorted_account_txs)
         page_size = limit
 
         current_page = (skip / page_size) + 1
         total_pages = int(total_count / page_size) + 1
 
         if all:
-            data = account_txs
+            data = sorted_account_txs
             current_page = 1
             page_size = total_count
         else:
-            data = account_txs[skip : skip + limit]
+            data = sorted_account_txs[skip : skip + limit]
 
         tx_hashes = [tx["tx_hash"] for tx in data]
+        print(tx_hashes)
         transactions = self.KOIOS_API.get_tx_info(tx_hashes)
 
         final_response = sorted(
-            transactions, key=lambda x: x["absolute_slot"], reverse=True
+            transactions, key=lambda x: x["tx_timestamp"], reverse=True
         )
 
         return final_response, total_count, page_size, current_page
@@ -445,12 +450,13 @@ class Helpers:
 
         return multi_asset
 
-    def build_multiAsset(
-        self, policy_id: str, tokenName: str, quantity: int
-    ) -> MultiAsset:
+    def build_multiAsset(self, policy_id: str, tq_dict: dict) -> MultiAsset:
         multi_asset = MultiAsset()
         my_asset = Asset()
-        my_asset.data.update({AssetName(bytes(tokenName, encoding="utf-8")): quantity})
+        for tokenName, quantity in tq_dict.items():
+            my_asset.data.update(
+                {AssetName(bytes(tokenName, encoding="utf-8")): quantity}
+            )
         multi_asset[ScriptHash(bytes.fromhex(policy_id))] = my_asset
 
         return multi_asset
@@ -491,6 +497,18 @@ class Helpers:
 
         return candidate_utxo
 
+    def validate_utxos_existente(
+        self, context: ChainContext, address: Union[Address, str], utxo: str
+    ) -> tuple[bool, UTxO]:
+        utxo_existence = False
+        for utxo_in_context in context.utxos(address):
+            if utxo_in_context.input.transaction_id.payload.hex() == utxo:
+                utxo_existence = True
+                utxo_is = utxo_in_context
+                break
+
+        return utxo_existence, utxo_is
+
     def build_oraclePolicyId(
         self, oracle_wallet_name: Optional[str] = "SuanOracle"
     ) -> str:
@@ -526,11 +544,11 @@ class Helpers:
         oracle_walletInfo = Keys().load_or_create_key_pair(Constants.ORACLE_WALLET_NAME)
         oracle_address = oracle_walletInfo[3]
         oracle_asset = self.build_multiAsset(
-            self.build_oraclePolicyId(Constants.ORACLE_WALLET_NAME),
-            Constants.ORACLE_TOKEN_NAME,
-            1,
+            policy_id=self.build_oraclePolicyId(Constants.ORACLE_WALLET_NAME),
+            tq_dict={Constants.ORACLE_TOKEN_NAME: 1},
         )
         oracle_utxo = self.find_utxos_with_tokens(
             chain_context, oracle_address, multi_asset=oracle_asset
         )
+        print(oracle_utxo)
         return oracle_utxo

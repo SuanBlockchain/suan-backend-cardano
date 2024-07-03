@@ -1,3 +1,4 @@
+from itertools import chain
 import logging
 from copy import deepcopy
 from typing import Dict, List, Optional
@@ -720,19 +721,30 @@ async def createOrder(
                 builder.ttl = must_before_slot.after
 
                 multi_asset = Helpers().build_multiAsset(
-                    order.tokenA.policy_id.decode("utf-8"),
-                    order.tokenA.token_name.decode("utf-8"),
-                    order.qtokenA,
+                    policy_id=order.tokenA.policy_id.decode("utf-8"),
+                    tq_dict={order.tokenA.token_name.decode("utf-8"): order.qtokenA},
                 )
 
                 order_side = pydantic_schemas.RedeemerBuy()
 
                 pkh = bytes(owner_address.payment_part)
 
+                policy_id_tokenA = order.tokenA.policy_id.decode("utf-8")
+
+                token_name_tokenA = order.tokenA.token_name
+                tokenA = pydantic_schemas.Token(
+                    policy_id=oprelude.PolicyId(bytes.fromhex(policy_id_tokenA)),
+                    token_name=token_name_tokenA,
+                )
+                # tokenB = pydantic_schemas.Token(
+                #     policy_id=oprelude.PolicyId(bytes.fromhex(order.tokenB.policy_id)),
+                #     token_name=bytes(order.tokenB.token_name, encoding="utf-8"),
+                # )
+
                 datum = pydantic_schemas.DatumSwap(
                     owner=pkh,
                     order_side=order_side,
-                    tokenA=order.tokenA,
+                    tokenA=tokenA,
                     tokenB=order.tokenB,
                     price=order.price,
                 )
@@ -858,11 +870,10 @@ async def unlockOrder(
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
-                multi_asset = Helpers().build_multiAsset(
-                    order.tokenA.policy_id.decode("utf-8"),
-                    order.tokenA.token_name.decode("utf-8"),
-                    order.qtokenA,
-                )
+                # multi_asset = Helpers().build_multiAsset(
+                #     policy_id=order.tokenA.policy_id.decode("utf-8"),
+                #     tq_dict={order.tokenA.token_name.decode("utf-8"): order.qtokenA},
+                # )
 
                 # Get the contract address and cbor from policyId
 
@@ -879,28 +890,37 @@ async def unlockOrder(
                         # parent_mint_policyID = contractInfo.get("scriptParentID", None)
                         # tokenName = contractInfo.get("token_name", None)
 
-                utxo_from_contract = Helpers().find_utxos_with_tokens(
-                    chain_context, order_address, multi_asset=multi_asset
-                )
+                # utxo_from_contract = Helpers().find_utxos_with_tokens(
+                #     chain_context, order_address, multi_asset=multi_asset
+                # )
 
                 # Redeemer action
                 if order_side == "Buy":
                     redeemer = pydantic_schemas.RedeemerBuy()
                 elif order_side == "Sell":
                     redeemer = pydantic_schemas.RedeemerSell()
+                elif order_side == "Unlist":
+                    redeemer = pydantic_schemas.RedeemerUnlist()
                 else:
                     raise ValueError(f"Wrong redeemer")
 
-                if utxo_from_contract:
-                    cbor = bytes.fromhex(cbor_hex)
-                    plutus_script = PlutusV2Script(cbor)
-                    builder.add_script_input(
-                        utxo_from_contract,
-                        plutus_script,
-                        redeemer=Redeemer(redeemer),
+                # Validate utxo
+                if order.utxo:
+                    utxo_results = Helpers().validate_utxos_existente(
+                        chain_context, order_address, order.utxo
                     )
+                    if utxo_results[0]:
+                        cbor = bytes.fromhex(cbor_hex)
+                        plutus_script = PlutusV2Script(cbor)
+                        builder.add_script_input(
+                            utxo=utxo_results[1],
+                            script=plutus_script,
+                            redeemer=Redeemer(redeemer),
+                        )
+                    else:
+                        raise ValueError("No utxo found in contract")
                 else:
-                    raise ValueError("No utxo found with both tokens")
+                    raise ValueError("No utxo found in body message")
 
                 oracle_utxo = Helpers().build_reference_input_oracle(chain_context)
 

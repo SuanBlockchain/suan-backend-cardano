@@ -35,10 +35,6 @@ class DatumProjectParams(PlutusData):
     beneficiary: bytes
 
 
-# oracle_policy_id = b'\xbe\xe9e\x17\xf9\xda\xb2u5\x8a\x14\x13Q\xf4\x01\x0b\x07}Y\x97\xd3\x82C\x06\x04\x93\x8b\x9a' #For internal test
-# oracle_policy_id = b"\xb1\x1a6}a\xa2\xb8\xf6\xa7pI\xa8\t\xd7\xb9<mD\xc1@g\x8di'j\xb7|\x12"
-
-
 def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None:
     assert (
         owner in signatories
@@ -179,7 +175,6 @@ def validator(
         check_datum_constant(own_utxo.datum, datum)
 
     elif isinstance(redeemer, Unlist):
-        True
-        # check_owner_signed(tx_info.signatories, datum.beneficiary)
+        check_owner_signed(tx_info.signatories, datum.beneficiary)
     else:
         assert False, "Wrong redeemer"

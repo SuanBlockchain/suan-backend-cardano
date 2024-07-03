@@ -86,6 +86,12 @@ def check_oracle_datum(
     check_token_in_datum(oracle_datum, token_policy_id, token_name)
 
 
+def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None:
+    assert (
+        owner in signatories
+    ), f"Owner did not sign transaction, requires {owner.hex()} but got {[s.hex() for s in signatories]}"
+
+
 def validator(
     oracle_policy_id: bytes,
     datum: DatumSwap,
@@ -139,5 +145,4 @@ def validator(
         assert res, "destination token quantity not found in tx output"
 
     elif isinstance(redeemer, Unlist):
-        True
-        # check_owner_signed(tx_info.signatories, datum.beneficiary)
+        check_owner_signed(tx_info.signatories, datum.owner)

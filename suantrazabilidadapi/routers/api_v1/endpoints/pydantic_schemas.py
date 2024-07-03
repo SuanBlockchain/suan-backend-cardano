@@ -1,4 +1,5 @@
 from enum import Enum
+from importlib.metadata import distribution
 from typing import Any, Dict, List, Optional, Union
 
 from opshin.prelude import *
@@ -151,8 +152,9 @@ class OracleAction(str, Enum):
 class UnlockOrder(BaseModel):
     wallet_id: str
     orderPolicyId: str
-    tokenA: Token
-    qtokenA: int
+    utxo: str
+    # tokenA: Token
+    # qtokenA: int
     addresses: list[AddressDestin]
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
 

@@ -1,25 +1,22 @@
-# TODO: the minted amount must be limited by the amount of certified tokens during the swap transaction
-# TODO: the swap contract must be part of the inputs of the transaction. Or the swap process is done in 2 steps. First receiving the request to the swap contract and then calling the
-# minting contract with the correct redeemer.
-
 from opshin.prelude import *
 
 
-def assert_minting_purpose(context: ScriptContext) -> None:
-    purpose = context.purpose
-    if isinstance(purpose, Minting):
-        is_minting = True
-    else:
-        is_minting = False
-    assert is_minting, "not minting purpose"
+@dataclass
+class Mint(PlutusData):
+    CONSTR_ID = 0
 
 
-def signedToBeneficiary(context: ScriptContext, pkh: PubKeyHash) -> bool:
+@dataclass
+class Burn(PlutusData):
+    CONSTR_ID = 1
+
+
+def has_utxo(context: ScriptContext, oref: TxOutRef) -> bool:
+    return any([oref == i.out_ref for i in context.tx_info.inputs])
+
+
+def signedFromMaster(context: ScriptContext, pkh: PubKeyHash) -> bool:
     return pkh in context.tx_info.signatories
-
-
-# def has_utxo(context: ScriptContext, params: ReferenceParams) -> bool:
-#     return any([oref == i.out_ref for i in context.tx_info.inputs])
 
 
 def check_token_name(context: ScriptContext, tn: TokenName) -> bool:
@@ -33,10 +30,36 @@ def check_token_name(context: ScriptContext, tn: TokenName) -> bool:
     return valid
 
 
-# test
 def validator(
-    pkh: PubKeyHash, tokenName: TokenName, redeemer: None, context: ScriptContext
+    oref: TxOutRef,
+    pkh: PubKeyHash,
+    redeemer: Union[Mint, Burn],
+    context: ScriptContext,
 ) -> None:
-    assert_minting_purpose(context)
-    assert signedToBeneficiary(context, pkh), "beneficiary's signature missing"
-    assert check_token_name(context, tokenName), "wrong amount minted"
+    tokenName = b"SUANCO2"
+    purpose = context.purpose
+    assert isinstance(purpose, Minting), "not minting purpose"
+
+    tx_info = context.tx_info
+
+    # Always check that the Master address has signed
+    assert signedFromMaster(context, pkh), "Master's signature missing"
+    # Always check token name
+    assert check_token_name(context, tokenName), "Wrong token Name"
+
+    if isinstance(redeemer, Mint):
+        assert has_utxo(context, oref), "UTxO not consumed"
+
+    if isinstance(redeemer, Burn):
+        assert (
+            sum(
+                [
+                    sum(o.value.get(purpose.policy_id, {b"": 0}).values())
+                    for o in tx_info.outputs
+                ]
+            )
+            == 0
+        ), "Can not send tokens anywhere as output"
+
+    else:
+        assert False, "Wrong redeemer"

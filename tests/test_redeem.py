@@ -20,7 +20,7 @@ from utils.mock import MockChainContext, MockUser
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from tests.utils.helpers import (
-    build_mintProjectToken,
+    build_mintSuanCO2,
     build_multiAsset,
     build_spend,
     build_swap,
@@ -574,20 +574,33 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
     # 3. Build the mint contract and spend project contract
     utxo_to_spend = None
-    if not Path(base_dir / "mintProjectToken").exists():
-        contract_dir = base_dir / "mintProjectToken.py"
+    if not Path(base_dir / "mintSuanCO2").exists():
+        contract_dir = base_dir / "mintSuanCO2.py"
 
         logging.info("Create new set of contracts")
 
-        (plutus_contract, utxo_to_spend) = build_mintProjectToken(
+        (plutus_contract, utxo_to_spend) = build_mintSuanCO2(
             contract_dir, context, administrador, tokenName
         )
 
         mint_contract = create_contract(plutus_contract)
 
-        mint_contract.dump(base_dir / "mintProjectToken")
+        mint_contract.dump(base_dir / "mintSuanCO2")
 
         parent_mint_policyID = mint_contract.policy_id
+
+
+
+
+
+
+
+
+
+
+
+
+        
 
         contract_dir = base_dir / "spendProject.py"
         plutus_contract = build_spend(
@@ -596,15 +609,6 @@ def build_contracts(toBC: bool, tokenName: str, oracle_policy_id: str) -> dict:
 
         spend_contract = create_contract(plutus_contract)
         spend_contract.dump(base_dir / "spendProject")
-
-        # contract_dir = base_dir / "swaptoken.py"
-        # nft_swap_token = "nft_swap_" + tokenName
-        # plutus_contract = build_mintSwapToken(contract_dir, context, administrador, nft_swap_token)
-
-        # swaptoken_contract = create_contract(plutus_contract)
-        # swaptoken_contract.dump(base_dir / "swaptoken")
-
-        # swaptoken_policy_id = swaptoken_contract.policy_id
 
         contract_dir = base_dir / "spendSwap.py"
         plutus_contract = build_swap(contract_dir, oracle_policy_id)

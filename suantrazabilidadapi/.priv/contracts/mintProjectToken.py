@@ -1,7 +1,3 @@
-# TODO: the minted amount must be limited by the amount of certified tokens during the swap transaction
-# TODO: the swap contract must be part of the inputs of the transaction. Or the swap process is done in 2 steps. First receiving the request to the swap contract and then calling the
-# minting contract with the correct redeemer.
-
 from opshin.prelude import *
 
 
@@ -15,7 +11,6 @@ class Burn(PlutusData):
     CONSTR_ID = 1
 
 
-# TODO: has_utxo does not work because the script is not really locked to create more tokens with the same name. We need to actually put the utxo as parameter and validate it as a fix value or simply limit the amount
 def has_utxo(context: ScriptContext, oref: TxOutRef) -> bool:
     return any([oref == i.out_ref for i in context.tx_info.inputs])
 

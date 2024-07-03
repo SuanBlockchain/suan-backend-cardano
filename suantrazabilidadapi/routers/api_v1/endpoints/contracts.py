@@ -322,7 +322,7 @@ async def createContract(
                     }
             else:
                 final_response = {
-                    "success": True,
+                    "success": False,
                     "msg": f"Script with id: {policy_id} already exists in DynamoDB",
                     "data": r["data"],
                 }

@@ -53,6 +53,8 @@ def build_spend(
     logging.info(f"Parent policy id from token mint contract : {parent_mint_policyID}")
     logging.info(f"token : {tokenName}")
 
+    recursion_limit(2000)
+
     return build(
         contract_dir,
         bytes.fromhex(oracle_policy_id),
@@ -83,6 +85,31 @@ def build_swap(contract_dir: Path, oracle_policy_id: str) -> py.PlutusV2Script:
     # logging.info(f"token : {tokenName}")
     recursion_limit(2000)
     return build(contract_dir, bytes.fromhex(oracle_policy_id))
+
+
+def build_mintSuanCO2(
+    contract_dir: Path,
+    context: MockChainContext,
+    master: MockUser,
+) -> tuple[py.PlutusV2Script, py.UTxO]:
+    utxo_to_spend = None
+    for utxo in context.utxos(master.address):
+        if utxo.output.amount.coin > 3_000_000:
+            utxo_to_spend = utxo
+            break
+    assert utxo_to_spend is not None, "UTxO not found to spend!"
+    oref = TxOutRef(
+        id=TxId(utxo_to_spend.input.transaction_id.payload),
+        idx=utxo_to_spend.input.index,
+    )
+    pkh = bytes(master.address.payment_part)
+    logging.info("Create contract with following parameters:")
+    logging.info(f"oref : {oref.id.tx_id.hex()} and idx: {oref.idx}")
+    logging.info(f"pkh : {pkh}")
+
+    contract = build(contract_dir, oref, pkh)
+
+    return contract, utxo_to_spend
 
 
 def find_utxos_with_tokens(

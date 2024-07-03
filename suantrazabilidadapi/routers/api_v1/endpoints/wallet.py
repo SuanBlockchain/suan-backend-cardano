@@ -264,7 +264,7 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
 
             else:
                 final_response = {
-                    "success": True,
+                    "success": False,
                     "msg": f"Wallet with id: {wallet_id} already exists in DynamoDB",
                     "data": r["data"],
                 }

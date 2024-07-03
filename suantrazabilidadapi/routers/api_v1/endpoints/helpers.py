@@ -23,7 +23,6 @@ from pycardano import (
     Value,
     min_lovelace,
 )
-from pycardano.key import Key
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
@@ -197,10 +196,19 @@ async def minLovelace(addressDestin: pydantic_schemas.AddressDestin) -> int:
     """Min Ada required for the utxo in lovelace \n"""
     try:
         address = addressDestin.address
+
         # Get Multiassets
-        multiAsset = Helpers().makeMultiAsset(addressDestin)
+        multiAsset = None
+        if addressDestin.multiAsset:
+            for multiasset in addressDestin.multiAsset:
+                policy_id = multiasset.policyid
+                tokens = multiasset.tokens
+                multiAsset = Helpers().build_multiAsset(
+                    policy_id=policy_id, tq_dict=tokens
+                )
         # Create Value type
         amount = Value(addressDestin.lovelace, multiAsset)
+
         if addressDestin.datum:
             datum = Datum(addressDestin.datum)
         else:
