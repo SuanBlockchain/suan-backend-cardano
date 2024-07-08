@@ -110,8 +110,15 @@ class Plataforma(Constants):
 
         return data
 
+    def getWalletbyToken(self) -> dict:
+        return self._post("getWalletByToken")
+
     def listWallets(self) -> dict:
         return self._post("listWallets")
+
+    def updateWalletWithToken(self, values) -> list[dict]:
+        response = self._post("WalletTokenUpdate", values)
+        return response
 
     def createWallet(self, values) -> list[dict]:
         response = self._post("WalletMutation", values)
@@ -385,6 +392,7 @@ class CardanoApi(Constants):
     def getAccountTxs(
         self, account: str, after_block_height: int, skip: int, limit: int, all: bool
     ) -> tuple[list[Any], int, int, float | Literal[1]]:
+
         account_txs = self.KOIOS_API.get_account_txs(account, after_block_height)
 
         sorted_account_txs = sorted(

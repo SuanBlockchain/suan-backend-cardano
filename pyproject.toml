@@ -26,6 +26,9 @@ uplc = "^0.6.7"
 opshin = "^0.20.0"
 pyaiken = "^0.5.5"
 streamlit = "^1.35.0"
+alembic = "^1.13.2"
+psycopg2 = "^2.9.9"
+rocketry = "^2.5.1"
 
 
 [tool.poetry.group.dev.dependencies]

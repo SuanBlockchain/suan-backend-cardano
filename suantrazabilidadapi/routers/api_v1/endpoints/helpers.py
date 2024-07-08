@@ -2,7 +2,7 @@ import logging
 from typing import Optional, Union
 
 from cbor2 import loads
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pycardano import (
     Address,
     AlonzoMetadata,
@@ -24,10 +24,15 @@ from pycardano import (
     min_lovelace,
 )
 
+# from sqlalchemy.orm import Session
+
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
 from suantrazabilidadapi.utils.generic import Constants
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
+
+# from suantrazabilidadapi.db.dblib import get_db
+# from suantrazabilidadapi.db.models import dbmodels
 
 router = APIRouter()
 
@@ -59,6 +64,9 @@ async def sendAccessToken(wallet_id: str, destinAddress: str):
         ########################
         """1. Obtain the MasterKey to pay and mint"""
         ########################
+
+        # db_wallet = db.query(dbmodels.TokenAccess).filter(dbmodels.TokenAccess.requester == destinAddress).first()
+
         r = Plataforma().getWallet("id", wallet_id)
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]

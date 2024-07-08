@@ -3,10 +3,15 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
+# import asyncio
+# import uvicorn
+
 from suantrazabilidadapi.core.config import settings
 from suantrazabilidadapi.routers.api_v1.api import api_router
 from suantrazabilidadapi.utils.security import generate_api_key
 from suantrazabilidadapi.utils.generic import Constants
+
+# from suantrazabilidadapi.utils.backend_tasks import app as app_rocketry
 
 load_dotenv()
 
@@ -32,6 +37,17 @@ suantrazabilidad.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# class Server(uvicorn.Server):
+#     """Customized uvicorn.Server
+
+#     Uvicorn server overrides signals and we need to include
+#     Rocketry to the signals."""
+
+#     def handle_exit(self, sig: int, frame) -> None:
+#         app_rocketry.session.shut_down()
+#         return super().handle_exit(sig, frame)
 
 
 ##################################################################
@@ -71,12 +87,22 @@ async def query_tip():
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)
 
+
+# async def main():
+#     "Run Rocketry and FastAPI"
+#     server = Server(config=uvicorn.Config(suantrazabilidad, workers=1, loop="asyncio"))
+
+#     api = asyncio.create_task(server.serve())
+#     sched = asyncio.create_task(app_rocketry.serve())
+
+#     await asyncio.wait([sched, api])
+
+
 if __name__ == "__main__":
     # Use this for debugging purposes only
     load_dotenv()
     import logging
     import os
-
     import uvicorn
 
     env = os.getenv("env")
@@ -84,6 +110,11 @@ if __name__ == "__main__":
         logging.warning(f"Running in {env} mode. Do not run like this in production")
     elif env == "prod":
         logging.warning(f"Running in {env} mode. Change the mode to run locally")
+
+    # logger = logging.getLogger("rocketry.task")
+    # logger.addHandler(logging.StreamHandler())
+    # asyncio.run(main())
+
     uvicorn.run(
         suantrazabilidad, host="0.0.0.0", port=8001, reload=False, log_level="debug"
     )

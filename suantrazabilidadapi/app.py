@@ -3,9 +3,14 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
+# import uvicorn
+# import asyncio
+
 from .core.config import settings
 from .routers.api_v1.api import api_router
 from .utils.security import generate_api_key
+
+# from .utils.backend_tasks import app as app_rocketry
 
 load_dotenv()
 
@@ -31,6 +36,17 @@ suantrazabilidad.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# class Server(uvicorn.Server):
+#     """Customized uvicorn.Server
+
+#     Uvicorn server overrides signals and we need to include
+#     Rocketry to the signals."""
+
+#     def handle_exit(self, sig: int, frame) -> None:
+#         app_rocketry.session.shut_down()
+#         return super().handle_exit(sig, frame)
 
 
 ##################################################################
@@ -64,6 +80,19 @@ async def get_new_api_key():
 suantrazabilidad.include_router(root_router)
 suantrazabilidad.include_router(api_router, prefix=settings.API_V1_STR)
 
+
+# async def main():
+#     "Run Rocketry and FastAPI"
+#     server = Server(
+#         config=uvicorn.Config(suantrazabilidad, workers=1, loop="asyncio", port=8083)
+#     )
+
+#     api = asyncio.create_task(server.serve())
+#     sched = asyncio.create_task(app_rocketry.serve())
+
+#     await asyncio.wait([sched, api])
+
+
 if __name__ == "__main__":
     # Use this for debugging purposes only
     # logger.warning("Running in development mode. Do not run like this in production.")
@@ -72,3 +101,9 @@ if __name__ == "__main__":
     uvicorn.run(
         suantrazabilidad, host="0.0.0.0", port=8001, reload=False, log_level="debug"
     )
+
+    # import logging
+
+    # logger = logging.getLogger("rocketry.task")
+    # logger.addHandler(logging.StreamHandler())
+    # asyncio.run(main())

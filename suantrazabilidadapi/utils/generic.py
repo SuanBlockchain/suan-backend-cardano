@@ -7,6 +7,8 @@ from typing import Final
 
 from pycardano import Network, Transaction
 
+import koios_api
+
 
 class Constants:
     KEY_DIR: str = ".priv/wallets"

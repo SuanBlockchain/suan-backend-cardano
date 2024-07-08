@@ -51,6 +51,15 @@ query getWalletByAddress ($address: String!) {
   }
 }
 
+query getWalletByToken {
+  listWallets(filter: {claimed_token: {eq: false}}) {
+    items {
+      id
+      address
+    }
+  }
+}
+
 query listWallets {
   listWallets {
     items {
@@ -58,6 +67,7 @@ query listWallets {
       name
       userID
       address
+      claimed_token
     }
   }
 }
@@ -117,6 +127,12 @@ mutation DocumentMutation ($productFeatureID: ID!, $url: AWSURL!, $isApproved: B
 
 mutation WalletMutation ($id: ID!, $seed: String!, $userID: ID!, $address: String!, $stake_address: String!) {
   createWallet(input: {id: $id, seed: $seed, userID: $userID, address: $address, stake_address: $stake_address}) {
+    id
+  }
+}
+
+mutation WalletTokenUpdate ($id: ID!) {
+  updateWallet(input: {claimed_token: true, id: $id}) {
     id
   }
 }
