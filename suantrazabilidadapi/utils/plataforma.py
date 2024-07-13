@@ -24,7 +24,9 @@ from pycardano import (
     AuxiliaryData,
     Metadata,
     AlonzoMetadata,
+    TransactionInput,
 )
+from blockfrost import ApiUrls, BlockFrostApi
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
@@ -53,6 +55,11 @@ class Plataforma(Constants):
         self.AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
         # self.GRAPHQL = "graphql/queries.graphql"
         self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/queries.graphql")
+        self.BASE_URL = ApiUrls.preview.value
+        self.BLOCK_FROST_PROJECT_ID = plataformaSecrets["block_frost_project_id"]
+        self.BLOCKFROST_API = BlockFrostApi(
+            project_id=self.BLOCK_FROST_PROJECT_ID, base_url=self.BASE_URL
+        )
 
     def _post(
         self, operation_name: str, graphql_variables: Union[dict, None] = None
@@ -413,7 +420,10 @@ class CardanoApi(Constants):
             data = sorted_account_txs[skip : skip + limit]
 
         tx_hashes = [tx["tx_hash"] for tx in data]
-        print(tx_hashes)
+
+        for tx_hash in tx_hashes:
+            print(self.BLOCKFROST_API.transaction_utxos(tx_hash))
+
         transactions = self.KOIOS_API.get_tx_info(tx_hashes)
 
         final_response = sorted(
@@ -506,16 +516,35 @@ class Helpers:
         return candidate_utxo
 
     def validate_utxos_existente(
-        self, context: ChainContext, address: Union[Address, str], utxo: str
+        self,
+        context: ChainContext,
+        address: Union[Address, str],
+        transaction_id: str,
+        index: int,
     ) -> tuple[bool, UTxO]:
         utxo_existence = False
         for utxo_in_context in context.utxos(address):
-            if utxo_in_context.input.transaction_id.payload.hex() == utxo:
+            if (
+                utxo_in_context.input.transaction_id.payload.hex() == transaction_id
+                and utxo_in_context.input.index == index
+            ):
                 utxo_existence = True
                 utxo_is = utxo_in_context
                 break
 
         return utxo_existence, utxo_is
+
+    # def validate_utxos_existente1(
+    #     self, context: ChainContext, address: Union[Address, str], utxo: str
+    # ) -> tuple[bool, UTxO]:
+    #     utxo_existence = False
+    #     for utxo_in_context in context.utxos(address):
+    #         if utxo_in_context.input.transaction_id.payload.hex() == utxo:
+    #             utxo_existence = True
+    #             utxo_is = utxo_in_context
+    #             break
+
+    #     return utxo_existence, utxo_is
 
     def build_oraclePolicyId(
         self, oracle_wallet_name: Optional[str] = "SuanOracle"

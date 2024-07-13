@@ -220,36 +220,19 @@ async def mintTokens(
 
                 # Add user own address as the input address
                 master_address = Address.from_primitive(walletInfo["address"])
-                # builder.add_input_address(master_address)
+                builder.add_input_address(master_address)
 
                 pkh = bytes(master_address.payment_part)
 
-                # Other method to find the utxo needed to cover transaction with Plutus script,
-                # but I prefered to find a utxo for the collateral and input the address instead
-                # Get input utxo
-                utxo_to_spend = None
-                for utxo in chain_context.utxos(master_address):
-                    if (
-                        not utxo.output.amount.multi_asset
-                        and utxo.output.amount.coin > 3000000
-                    ):
-                        utxo_to_spend = utxo
-                        break
-                assert (
-                    utxo_to_spend is not None
-                ), "UTxO not found to spend! You must have a utxo with more than 3 ADA"
+                # Validate utxo
+                if send.utxo:
+                    transaction_id = send.utxo.transaction_id
+                    index = send.utxo.index
+                    utxo_results = Helpers().validate_utxos_existente(
+                        chain_context, master_address, transaction_id, index
+                    )
 
-                builder.add_input(utxo_to_spend)
-
-                # Find a collateral UTxO
-                # non_nft_utxo = None
-                # for utxo in chain_context.utxos(master_address):
-                #     # multi_asset should be empty for collateral utxo
-                #     if not utxo.output.amount.multi_asset and utxo.output.amount.coin >= 5000000:
-                #         non_nft_utxo = utxo
-                #         break
-                # assert isinstance(non_nft_utxo, UTxO), "No collateral UTxOs found!"
-                # builder.collaterals.append(non_nft_utxo)
+                builder.add_input(utxo_results[1])
 
                 signatures = []
                 if send.mint is not None or send.mint != {}:
@@ -736,10 +719,6 @@ async def createOrder(
                     policy_id=oprelude.PolicyId(bytes.fromhex(policy_id_tokenA)),
                     token_name=token_name_tokenA,
                 )
-                # tokenB = pydantic_schemas.Token(
-                #     policy_id=oprelude.PolicyId(bytes.fromhex(order.tokenB.policy_id)),
-                #     token_name=bytes(order.tokenB.token_name, encoding="utf-8"),
-                # )
 
                 datum = pydantic_schemas.DatumSwap(
                     owner=pkh,
@@ -870,11 +849,6 @@ async def unlockOrder(
                 # Since an InvalidHereAfter
                 builder.ttl = must_before_slot.after
 
-                # multi_asset = Helpers().build_multiAsset(
-                #     policy_id=order.tokenA.policy_id.decode("utf-8"),
-                #     tq_dict={order.tokenA.token_name.decode("utf-8"): order.qtokenA},
-                # )
-
                 # Get the contract address and cbor from policyId
 
                 r = Plataforma().getScript("id", order.orderPolicyId)
@@ -887,12 +861,6 @@ async def unlockOrder(
                     else:
                         order_address = contractInfo.get("testnetAddr", None)
                         cbor_hex = contractInfo.get("cbor", None)
-                        # parent_mint_policyID = contractInfo.get("scriptParentID", None)
-                        # tokenName = contractInfo.get("token_name", None)
-
-                # utxo_from_contract = Helpers().find_utxos_with_tokens(
-                #     chain_context, order_address, multi_asset=multi_asset
-                # )
 
                 # Redeemer action
                 if order_side == "Buy":
@@ -906,8 +874,10 @@ async def unlockOrder(
 
                 # Validate utxo
                 if order.utxo:
+                    transaction_id = order.utxo.transaction_id
+                    index = order.utxo.index
                     utxo_results = Helpers().validate_utxos_existente(
-                        chain_context, order_address, order.utxo
+                        chain_context, order_address, transaction_id, index
                     )
                     if utxo_results[0]:
                         cbor = bytes.fromhex(cbor_hex)

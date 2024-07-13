@@ -6,8 +6,9 @@ import pathlib
 from typing import Final
 
 from pycardano import Network, Transaction
+from dotenv import load_dotenv
 
-import koios_api
+load_dotenv()
 
 
 class Constants:

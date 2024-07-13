@@ -105,8 +105,14 @@ class BuildTx(BaseModel):
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 
+class Utxo(BaseModel):
+    transaction_id: str
+    index: int
+
+
 class TokenGenesis(BaseModel):
     wallet_id: str
+    utxo: Utxo
     addresses: Optional[list[AddressDestin]]
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
     mint: Optional[Mint] = None
@@ -152,9 +158,7 @@ class OracleAction(str, Enum):
 class UnlockOrder(BaseModel):
     wallet_id: str
     orderPolicyId: str
-    utxo: str
-    # tokenA: Token
-    # qtokenA: int
+    utxo: Utxo
     addresses: list[AddressDestin]
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
 

@@ -186,6 +186,7 @@ async def createContract(
         #######################
         # Handle to decide the contract to build
         #######################
+        utxo_to_spend = None
         if script_type == "mintSuanCO2":
             script_path = Constants.PROJECT_ROOT.joinpath(
                 Constants.CONTRACTS_DIR
@@ -194,7 +195,6 @@ async def createContract(
 
         elif script_type == "mintProjectToken":
             chain_context = CardanoNetwork().get_chain_context()
-            utxo_to_spend = None
             for utxo in chain_context.utxos(payment_address):
                 # TODO: check if transaction can be built with utxo with other token
                 if (
@@ -295,7 +295,16 @@ async def createContract(
                                 "msg": f"Script created",
                                 "data": {
                                     "id": policy_id,
-                                    # "utxo_to_spend": utxo if utxo else ""
+                                    "utxo_to_spend": (
+                                        {
+                                            "transaction_id": oref.id.tx_id.hex(),
+                                            "index": oref.idx,
+                                        }
+                                        if utxo_to_spend
+                                        else ""
+                                    ),
+                                    "mainnet_address": mainnet_address.encode(),
+                                    "testnet_address": testnet_address.encode(),
                                 },
                             }
                         else:

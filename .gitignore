@@ -181,3 +181,6 @@ mint.py
 transactions
 wallets
 # ! suantrazabilidadapi/.priv/contracts/*
+db-mainnet/kupo.sqlite3
+suantrazabilidadapi/utils/json
+suantrazabilidadapi/utils/json copy
