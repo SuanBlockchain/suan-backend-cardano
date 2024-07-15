@@ -7,7 +7,10 @@ from typing import Final
 
 from pycardano import Network, Transaction
 from dotenv import load_dotenv
+from blockfrost import ApiUrls, BlockFrostApi
+from suantrazabilidadapi.core.config import config
 
+plataformaSecrets = config(section="plataforma")
 load_dotenv()
 
 
@@ -34,6 +37,9 @@ class Constants:
     ORACLE_WALLET_NAME = "SuanOracle"
     # ORACLE_POLICY_ID = "b11a367d61a2b8f6a77049a809d7b93c6d44c140678d69276ab77c12"
     ORACLE_TOKEN_NAME = "SuanOracle"
+    BASE_URL = ApiUrls.preview.value
+    BLOCK_FROST_PROJECT_ID = plataformaSecrets["block_frost_project_id"]
+    BLOCKFROST_API = BlockFrostApi(project_id=BLOCK_FROST_PROJECT_ID, base_url=BASE_URL)
 
 
 def is_valid_hex_string(s: str) -> bool:

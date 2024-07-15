@@ -1,62 +1,224 @@
-[
-    {
-        "tx_hash": "7aa702aeb63d280f4416b03161804e1b07f17f447b97082e2c7c41d01e5fe0a4",
-        "epoch_no": 608,
-        "block_height": 2225088,
-        "block_time": 1719257262
+{
+    "success": true,
+    "msg": "Tx Build",
+    "build_tx": {
+        "auxiliary_data_hash": "",
+        "certificates": "",
+        "collateral": {
+            "0": "6021a3ef0f51d941f37cc91bc4fb83c557b8ba948e042881c2ddb0d8448ed656#1"
+        },
+        "collateral_return": {
+            "address": "addr_test1qre2h3396cktqa073rwl9xzg6hs8fep8uv096ylj7yd76e0j40rzt43vkp6lazxa72vy340qwnjz0cc7t5fl9ugma4jspts7x5",
+            "amount": {
+                "coin": 9310740733,
+                "multi_asset": {
+                    "19eb9e48cea864ba9bf6141aacd92b493f161d670cfda4a8e112d73f": {
+                        "proyectoCarbonoToken": 17
+                    },
+                    "2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f": {
+                        "SandboxSuanAccess1": 1
+                    },
+                    "d1d29fb080a04a9a6c8bad9fdd49952ae38b9ca1ce1348317dfeae34": {
+                        "ProyectoYToken": 1
+                    }
+                }
+            },
+            "lovelace": 9310740733,
+            "script": "",
+            "datum": "",
+            "datum_hash": ""
+        },
+        "fee": 690583,
+        "tx_id": "64701332946716583edc9506c9cd159731d0c9b9cc8a98b99b71c705a8edd891",
+        "inputs": {
+            "0": "6021a3ef0f51d941f37cc91bc4fb83c557b8ba948e042881c2ddb0d8448ed656#1",
+            "1": "bd9a66c92597bee8ea2e32a8c8c96ea055d75f67635e7fc13ae78651a3df38fa#2",
+            "2": "bd9a66c92597bee8ea2e32a8c8c96ea055d75f67635e7fc13ae78651a3df38fa#6"
+        },
+        "outputs": {
+            "0": {
+                "address": "addr_test1qpt45lcpyukajk5m5f5ka83afz2luwd3ydg0075g5vqm8t2htflszfedm9dfhgnfd60r6jy4lcumzg6s7lag3gcpkwks0nnfl0",
+                "amount": {
+                    "coin": 928123380,
+                    "multi_asset": {}
+                },
+                "lovelace": 928123380,
+                "script": ""
+            },
+            "1": {
+                "address": "addr_test1qre2h3396cktqa073rwl9xzg6hs8fep8uv096ylj7yd76e0j40rzt43vkp6lazxa72vy340qwnjz0cc7t5fl9ugma4jspts7x5",
+                "amount": {
+                    "coin": 1168010,
+                    "multi_asset": {
+                        "bd26c91b5d32e43c91ec915a9692d010b1e6f50f793290bc5c21c046": {
+                            "PCToken": 270
+                        }
+                    }
+                },
+                "lovelace": 1168010,
+                "script": ""
+            },
+            "2": {
+                "address": "addr_test1wpwpf9xvp989lcqn6ca97p5hez9rk3kfy97n3k7h3ad0xcs8gzy2w",
+                "amount": {
+                    "coin": 1245590,
+                    "multi_asset": {
+                        "bd26c91b5d32e43c91ec915a9692d010b1e6f50f793290bc5c21c046": {
+                            "PCToken": 230
+                        }
+                    }
+                },
+                "lovelace": 1245590,
+                "script": ""
+            },
+            "3": {
+                "address": "addr_test1qre2h3396cktqa073rwl9xzg6hs8fep8uv096ylj7yd76e0j40rzt43vkp6lazxa72vy340qwnjz0cc7t5fl9ugma4jspts7x5",
+                "amount": {
+                    "coin": 8385560245,
+                    "multi_asset": {
+                        "19eb9e48cea864ba9bf6141aacd92b493f161d670cfda4a8e112d73f": {
+                            "proyectoCarbonoToken": 17
+                        },
+                        "2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f": {
+                            "SandboxSuanAccess1": 1
+                        },
+                        "d1d29fb080a04a9a6c8bad9fdd49952ae38b9ca1ce1348317dfeae34": {
+                            "ProyectoYToken": 1
+                        }
+                    }
+                },
+                "lovelace": 8385560245,
+                "script": ""
+            }
+        },
+        "mint": {},
+        "network_id": "",
+        "reference_inputs": [
+            {
+                "transaction_id": {},
+                "index": 0
+            }
+        ],
+        "required_signers": [
+            "f2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed65"
+        ],
+        "script_data_hash": "d2df2d30e4503c742404a74a0a5be67bd83a07694e9d9a9ba545a96112db59ba",
+        "total_collateral": 3607615,
+        "ttl": 54421796,
+        "update": "",
+        "validity_start": 54411007,
+        "withdraws": ""
     },
-    {
-        "tx_hash": "dd71cedac474983fc61f825617070ec29e1cf863428bb4f79d16d44c66484427",
-        "epoch_no": 607,
-        "block_height": 2222222,
-        "block_time": 1719169411
-    },
-    {
-        "tx_hash": "f596f2ff47190849b5d00967eba27a0b9301548965498fadf90265117de330b1",
-        "epoch_no": 605,
-        "block_height": 2216943,
-        "block_time": 1719013504
-    },
-    {
-        "tx_hash": "a9565b521f19f5d933b1cd9f3a63bec0ed063f8b3073a9f5b7c49ed693e1e55e",
-        "epoch_no": 605,
-        "block_height": 2216917,
-        "block_time": 1719013001
-    },
-    {
-        "tx_hash": "1cd323b51bfb470f9058b3d7f94d2ffda0e3a91a89aaa686de33c680ae810f9a",
-        "epoch_no": 605,
-        "block_height": 2216901,
-        "block_time": 1719012722
-    },
-    {
-        "tx_hash": "bb8848355964d84e0664250fa45184b78e29307902ccad71bfd40be61c95cdf5",
-        "epoch_no": 605,
-        "block_height": 2216861,
-        "block_time": 1719011946
-    },
-    {
-        "tx_hash": "49c9e62216b42806310cfa1560c8631cbebd75b6f00403697c686f8923eb0265",
-        "epoch_no": 605,
-        "block_height": 2216688,
-        "block_time": 1719007216
-    },
-    {
-        "tx_hash": "140f226fc334d4066bb399ffc397ed7e89590d4d46fcd713c769692fef623fca",
-        "epoch_no": 605,
-        "block_height": 2215993,
-        "block_time": 1718986847
-    },
-    {
-        "tx_hash": "789e7136c900a33dd51fdb5ae9d1177453b0c4e41637500bec4656f1bc1a0823",
-        "epoch_no": 605,
-        "block_height": 2215993,
-        "block_time": 1718986847
-    },
-    {
-        "tx_hash": "11026eb101e145770b5c093869d98c2a131a91c091715a0f3426719089afb3c3",
-        "epoch_no": 605,
-        "block_height": 2215988,
-        "block_time": 1718986624
-    }
-]
+    "cbor": "ab00838258206021a3ef0f51d941f37cc91bc4fb83c557b8ba948e042881c2ddb0d8448ed65601825820bd9a66c92597bee8ea2e32a8c8c96ea055d75f67635e7fc13ae78651a3df38fa02825820bd9a66c92597bee8ea2e32a8c8c96ea055d75f67635e7fc13ae78651a3df38fa06018482583900575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad1a375209f482583900f2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed65f2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed65821a0011d28aa1581cbd26c91b5d32e43c91ec915a9692d010b1e6f50f793290bc5c21c046a1475043546f6b656e19010ea300581d705c1494cc094e5fe013d63a5f0697c88a3b46c9217d38dbd78f5af36201821a00130196a1581cbd26c91b5d32e43c91ec915a9692d010b1e6f50f793290bc5c21c046a1475043546f6b656e18e6028201d8185828d8799f5822d8799f581c575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3adffff82583900f2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed65f2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed65821b00000001f3d17eb5a3581c19eb9e48cea864ba9bf6141aacd92b493f161d670cfda4a8e112d73fa15470726f796563746f436172626f6e6f546f6b656e11581c2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453fa15253616e64626f785375616e4163636573733101581cd1d29fb080a04a9a6c8bad9fdd49952ae38b9ca1ce1348317dfeae34a14e50726f796563746f59546f6b656e01021a000a8997031a033e6924081a033e3eff0b5820d2df2d30e4503c742404a74a0a5be67bd83a07694e9d9a9ba545a96112db59ba0d818258206021a3ef0f51d941f37cc91bc4fb83c557b8ba948e042881c2ddb0d8448ed656010e81581cf2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed651082583900f2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed65f2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed65821b000000022af6a0fda3581c19eb9e48cea864ba9bf6141aacd92b493f161d670cfda4a8e112d73fa15470726f796563746f436172626f6e6f546f6b656e11581c2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453fa15253616e64626f785375616e4163636573733101581cd1d29fb080a04a9a6c8bad9fdd49952ae38b9ca1ce1348317dfeae34a14e50726f796563746f59546f6b656e01111a00370c3f128182582011f21532da80aa02814d2a637d250519e272e0be35554dc3c684b9176a95757500",
+    "redeemer_cbor": "840001d87980821a000cf3081a10b68cac",
+    "metadata_cbor": "",
+    "utxos_info": [
+        {
+            "tx_hash": "6021a3ef0f51d941f37cc91bc4fb83c557b8ba948e042881c2ddb0d8448ed656",
+            "tx_index": 1,
+            "address": "addr_test1qre2h3396cktqa073rwl9xzg6hs8fep8uv096ylj7yd76e0j40rzt43vkp6lazxa72vy340qwnjz0cc7t5fl9ugma4jspts7x5",
+            "value": "9314348348",
+            "stake_address": "stake_test1ure2h3396cktqa073rwl9xzg6hs8fep8uv096ylj7yd76egq4dfvl",
+            "payment_cred": "f2abc625d62cb075fe88ddf29848d5e074e427e31e5d13f2f11bed65",
+            "epoch_no": 629,
+            "block_height": 2291646,
+            "block_time": 1721051242,
+            "datum_hash": null,
+            "inline_datum": null,
+            "reference_script": null,
+            "asset_list": [
+                {
+                    "decimals": 0,
+                    "quantity": "17",
+                    "policy_id": "19eb9e48cea864ba9bf6141aacd92b493f161d670cfda4a8e112d73f",
+                    "asset_name": "70726f796563746f436172626f6e6f546f6b656e",
+                    "fingerprint": "asset1vm0hq8nf7e45d3aezf8lkz4m2z27mpsevd3yzz"
+                },
+                {
+                    "decimals": 0,
+                    "quantity": "1",
+                    "policy_id": "2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f",
+                    "asset_name": "53616e64626f785375616e41636365737331",
+                    "fingerprint": "asset1gznxxpalw5ydu2rsuy0vyxp2dfkgjtlpvjsjzd"
+                },
+                {
+                    "decimals": 0,
+                    "quantity": "1",
+                    "policy_id": "d1d29fb080a04a9a6c8bad9fdd49952ae38b9ca1ce1348317dfeae34",
+                    "asset_name": "50726f796563746f59546f6b656e",
+                    "fingerprint": "asset1xkm8yxt4frp5rmf829m04a8ajdw40a5740xl2j"
+                }
+            ],
+            "is_spent": false
+        },
+        {
+            "tx_hash": "bd9a66c92597bee8ea2e32a8c8c96ea055d75f67635e7fc13ae78651a3df38fa",
+            "tx_index": 2,
+            "address": "addr_test1wpwpf9xvp989lcqn6ca97p5hez9rk3kfy97n3k7h3ad0xcs8gzy2w",
+            "value": "1219730",
+            "stake_address": null,
+            "payment_cred": "5c1494cc094e5fe013d63a5f0697c88a3b46c9217d38dbd78f5af362",
+            "epoch_no": 629,
+            "block_height": 2291658,
+            "block_time": 1721051668,
+            "datum_hash": "e1d201221c879fc8f531649047e6be5a87b5df1f887a0855593667f77456af14",
+            "inline_datum": {
+                "bytes": "d8799f581c575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3adff",
+                "value": {
+                    "fields": [
+                        {
+                            "bytes": "575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad"
+                        }
+                    ],
+                    "constructor": 0
+                }
+            },
+            "reference_script": null,
+            "asset_list": [
+                {
+                    "decimals": 0,
+                    "quantity": "250",
+                    "policy_id": "bd26c91b5d32e43c91ec915a9692d010b1e6f50f793290bc5c21c046",
+                    "asset_name": "5043546f6b656e",
+                    "fingerprint": "asset14nvfpvdyxla8drxe55kyffynmadj6qdazpjgyf"
+                }
+            ],
+            "is_spent": false
+        },
+        {
+            "tx_hash": "bd9a66c92597bee8ea2e32a8c8c96ea055d75f67635e7fc13ae78651a3df38fa",
+            "tx_index": 6,
+            "address": "addr_test1wpwpf9xvp989lcqn6ca97p5hez9rk3kfy97n3k7h3ad0xcs8gzy2w",
+            "value": "1219730",
+            "stake_address": null,
+            "payment_cred": "5c1494cc094e5fe013d63a5f0697c88a3b46c9217d38dbd78f5af362",
+            "epoch_no": 629,
+            "block_height": 2291658,
+            "block_time": 1721051668,
+            "datum_hash": "e1d201221c879fc8f531649047e6be5a87b5df1f887a0855593667f77456af14",
+            "inline_datum": {
+                "bytes": "d8799f581c575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3adff",
+                "value": {
+                    "fields": [
+                        {
+                            "bytes": "575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad"
+                        }
+                    ],
+                    "constructor": 0
+                }
+            },
+            "reference_script": null,
+            "asset_list": [
+                {
+                    "decimals": 0,
+                    "quantity": "250",
+                    "policy_id": "bd26c91b5d32e43c91ec915a9692d010b1e6f50f793290bc5c21c046",
+                    "asset_name": "5043546f6b656e",
+                    "fingerprint": "asset14nvfpvdyxla8drxe55kyffynmadj6qdazpjgyf"
+                }
+            ],
+            "is_spent": false
+        }
+    ],
+    "tx_size": 1028
+}

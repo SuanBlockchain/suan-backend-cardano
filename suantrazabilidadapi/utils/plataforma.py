@@ -24,9 +24,9 @@ from pycardano import (
     AuxiliaryData,
     Metadata,
     AlonzoMetadata,
-    TransactionInput,
 )
-from blockfrost import ApiUrls, BlockFrostApi
+
+# from blockfrost import ApiUrls, BlockFrostApi
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
@@ -55,11 +55,11 @@ class Plataforma(Constants):
         self.AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
         # self.GRAPHQL = "graphql/queries.graphql"
         self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/queries.graphql")
-        self.BASE_URL = ApiUrls.preview.value
-        self.BLOCK_FROST_PROJECT_ID = plataformaSecrets["block_frost_project_id"]
-        self.BLOCKFROST_API = BlockFrostApi(
-            project_id=self.BLOCK_FROST_PROJECT_ID, base_url=self.BASE_URL
-        )
+        # self.BASE_URL = ApiUrls.preview.value
+        # self.BLOCK_FROST_PROJECT_ID = plataformaSecrets["block_frost_project_id"]
+        # self.BLOCKFROST_API = BlockFrostApi(
+        #     project_id=self.BLOCK_FROST_PROJECT_ID, base_url=self.BASE_URL
+        # )
 
     def _post(
         self, operation_name: str, graphql_variables: Union[dict, None] = None
@@ -419,16 +419,58 @@ class CardanoApi(Constants):
         else:
             data = sorted_account_txs[skip : skip + limit]
 
-        tx_hashes = [tx["tx_hash"] for tx in data]
+        # tx_hashes = [tx["tx_hash"] for tx in data]
 
-        for tx_hash in tx_hashes:
-            print(self.BLOCKFROST_API.transaction_utxos(tx_hash))
+        from types import SimpleNamespace as Namespace
 
-        transactions = self.KOIOS_API.get_tx_info(tx_hashes)
+        def namespace_to_dict(obj):
+            if isinstance(obj, list):
+                return [namespace_to_dict(item) for item in obj]
+            elif isinstance(obj, Namespace):
+                return {
+                    key: namespace_to_dict(value) for key, value in vars(obj).items()
+                }
+            else:
+                return obj
 
-        final_response = sorted(
-            transactions, key=lambda x: x["tx_timestamp"], reverse=True
-        )
+        # for tx_hash in tx_hashes:
+        final_response = []
+        for value in data:
+            trx = self.BLOCKFROST_API.transaction_utxos(value["tx_hash"]).to_dict()
+            if trx:
+                # final_response_dict["hash"] = trx["hash"]
+                inputs_dict = {}
+                outputs_dict = {}
+
+                for i, inputs in enumerate(trx["inputs"]):
+                    obj_dict = {
+                        key: namespace_to_dict(value)
+                        for key, value in inputs.to_dict().items()
+                    }
+                    inputs_dict[i] = obj_dict
+
+                # items_dict[i] = inputs.to_dict()
+                # final_response_dict["inputs"] = items_dict
+                for i, outputs in enumerate(trx["outputs"]):
+                    obj_dict = {
+                        key: namespace_to_dict(value)
+                        for key, value in outputs.to_dict().items()
+                    }
+                    outputs_dict[i] = obj_dict
+                # final_response_dict["outputs"] = items_dict
+            value["inputs"] = inputs_dict
+            value["outputs"] = outputs_dict
+            # final_response = {
+            #     tx_hash: {"inputs": inputs_dict, "outputs": outputs_dict},
+            # }
+            # tx_hash["inputs"] = inputs_dict
+            # tx_hash["outputs"] = outputs_dict
+            final_response.append(value)
+        # transactions = self.KOIOS_API.get_tx_info(tx_hashes)
+
+        # final_response = sorted(
+        #     transactions, key=lambda x: x["tx_timestamp"], reverse=True
+        # )
 
         return final_response, total_count, page_size, current_page
 
@@ -587,5 +629,4 @@ class Helpers:
         oracle_utxo = self.find_utxos_with_tokens(
             chain_context, oracle_address, multi_asset=oracle_asset
         )
-        print(oracle_utxo)
         return oracle_utxo

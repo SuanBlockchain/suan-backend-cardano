@@ -521,22 +521,17 @@ async def claimTx(
 
                 quantity_request = 0
                 addresses = claim.addresses
+                script_hash = ScriptHash(bytes.fromhex(parent_mint_policyID))
                 for address in addresses:
                     multi_asset = Helpers().multiAssetFromAddress(address)
                     if multi_asset:
-                        quantity = multi_asset.data.get(
-                            ScriptHash(bytes.fromhex(parent_mint_policyID)), 0
-                        ).data.get(AssetName(bytes(tokenName, encoding="utf-8")), 0)
-                        if quantity > 0:
+                        quantity = multi_asset.data.get(script_hash, 0).data.get(
+                            AssetName(bytes(tokenName, encoding="utf-8")), 0
+                        )
+                        if quantity > 0 and not address.datum:
                             quantity_request += quantity
 
                     multi_asset_value = Value(0, multi_asset)
-
-                    datum = None
-                    if address.datum:
-                        datum = Helpers().build_DatumProjectParams(
-                            pkh=address.datum.beneficiary
-                        )
 
                     # Calculate the minimum amount of lovelace that need to be transfered in the utxo
                     min_val = min_lovelace(
@@ -544,7 +539,6 @@ async def claimTx(
                         output=TransactionOutput(
                             Address.decode(address.address),
                             multi_asset_value,
-                            datum=datum,
                         ),
                     )
                     if address.lovelace <= min_val:
@@ -552,7 +546,6 @@ async def claimTx(
                             TransactionOutput(
                                 Address.decode(address.address),
                                 Value(min_val, multi_asset),
-                                datum=datum,
                             )
                         )
                     else:
@@ -560,7 +553,6 @@ async def claimTx(
                             TransactionOutput(
                                 Address.decode(address.address),
                                 Value(address.lovelace, multi_asset),
-                                datum=datum,
                             )
                         )
 
@@ -574,38 +566,107 @@ async def claimTx(
                 else:
                     raise ValueError(f"Wrong redeemer")
 
+                # Section to handle and calculate the script
                 # Get script utxo to spend where tokens are located
-                # TODO: check that the utxo also contains the token to be claimed
-                utxo_from_contract = None
+                utxo_from_contract = []
+                tn_bytes = bytes(tokenName, encoding="utf-8")
+                amount = quantity_request
+                utxos_found = False
+
+                # Find the utxo to spend
                 for utxo in chain_context.utxos(testnet_address):
-                    if utxo.output.amount.coin >= 1_000_000:
-                        utxo_from_contract = utxo
+
+                    def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
+                        return (
+                            pi == script_hash and an.payload == tn_bytes and a >= amount
+                        )
+
+                    if utxo.output.amount.multi_asset.count(f):
+                        utxo_from_contract.append(utxo)
+                        utxos_found = True
                         break
-                assert utxo_from_contract is not None, "UTxO not found to spend!"
+
+                if utxo_from_contract == []:
+                    q = 0
+                    for utxo in chain_context.utxos(testnet_address):
+
+                        def f1(pi: ScriptHash, an: AssetName, a: int) -> bool:
+                            return pi == script_hash and an.payload == tn_bytes
+
+                        if utxo.output.amount.multi_asset.count(f1):
+                            utxo_from_contract.append(utxo)
+                            union_multiasset = utxo.output.amount.multi_asset.data
+                            for asset in union_multiasset.values():
+                                q += int(list(asset.data.values())[0])
+                            if q >= amount:
+                                utxos_found = True
+                                break
+
+                    # if utxo.output.amount.coin >= 1_000_000:
+                    #     utxo_from_contract = utxo
+                    #     break
+                assert utxos_found, "UTxO not found to spend!"
                 logging.info(
-                    f"Found utxo to spend: {utxo_from_contract.input.transaction_id} and index: {utxo_from_contract.input.index}"
+                    f"Found utxos to spend: {[(utxo.input.transaction_id.to_cbor_hex(), str(utxo.input.index)) for utxo in utxo_from_contract]}"
                 )
 
-                # Calculate the change of tokens back to the contract
-                balance = utxo_from_contract.output.amount.multi_asset.data.get(
-                    ScriptHash(bytes.fromhex(parent_mint_policyID)), {b"": 0}
-                ).get(AssetName(bytes(tokenName, encoding="utf-8")), {b"": 0})
+                # Find the balance and add the output to send tokens back to the contract
+                balance = 0
+                for x in utxo_from_contract:
+                    # builder.add_input(x)
+
+                    # Calculate the change of tokens back to the contract
+                    balance += x.output.amount.multi_asset.data.get(
+                        script_hash, {b"": 0}
+                    ).get(AssetName(tn_bytes), {b"": 0})
+
+                    beneficiary = x.output.datum.cbor.hex()
+                    datum = Helpers().build_DatumProjectParams(pkh=beneficiary)
+                    cbor = bytes.fromhex(cbor_hex)
+                    plutus_script = PlutusV2Script(cbor)
+
+                    # builder.add_script_input(
+                    #     utxo_from_contract,
+                    #     plutus_script,
+                    #     redeemer=Redeemer(redeemer),
+                    # )
+                    builder.add_script_input(
+                        x, plutus_script, redeemer=Redeemer(redeemer)
+                    )
+
                 new_token_balance = balance - quantity_request
                 if new_token_balance < 0:
                     raise ValueError(f"Not enough tokens found in script address")
-
-                cbor = bytes.fromhex(cbor_hex)
-                plutus_script = PlutusV2Script(cbor)
-
-                builder.add_script_input(
-                    utxo_from_contract,
-                    plutus_script,
-                    redeemer=Redeemer(redeemer),
+                multi_asset_to_contract = Helpers().build_multiAsset(
+                    policy_id=parent_mint_policyID,
+                    tq_dict={tokenName: new_token_balance},
                 )
+                multi_asset_value_to_contract = Value(0, multi_asset_to_contract)
+
+                # Calculate the minimum amount of lovelace that need to be transfered in the utxo
+                min_val = min_lovelace(
+                    chain_context,
+                    output=TransactionOutput(
+                        Address.decode(testnet_address),
+                        multi_asset_value_to_contract,
+                        datum=datum,
+                    ),
+                )
+                builder.add_output(
+                    TransactionOutput(
+                        Address.decode(testnet_address),
+                        Value(min_val, multi_asset_to_contract),
+                        datum=datum,
+                    )
+                )
+                # End of the contract implementation
 
                 oracle_utxo = Helpers().build_reference_input_oracle(chain_context)
 
                 assert oracle_utxo is not None, "Oracle UTxO not found!"
+                logging.info(
+                    f"Found oracle utxo: {oracle_utxo.input.transaction_id} and index: {oracle_utxo.input.index}"
+                )
                 builder.reference_inputs.add(oracle_utxo)
 
                 pkh = bytes(user_address.payment_part)
