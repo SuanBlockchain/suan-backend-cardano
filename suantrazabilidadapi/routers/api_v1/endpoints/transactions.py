@@ -570,7 +570,7 @@ async def claimTx(
                 # Get script utxo to spend where tokens are located
                 utxo_from_contract = []
                 tn_bytes = bytes(tokenName, encoding="utf-8")
-                amount = quantity_request
+                # amount = quantity_request
                 utxos_found = False
 
                 # Find the utxo to spend
@@ -578,7 +578,9 @@ async def claimTx(
 
                     def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
                         return (
-                            pi == script_hash and an.payload == tn_bytes and a >= amount
+                            pi == script_hash
+                            and an.payload == tn_bytes
+                            and a >= quantity_request
                         )
 
                     if utxo.output.amount.multi_asset.count(f):
@@ -598,7 +600,7 @@ async def claimTx(
                             union_multiasset = utxo.output.amount.multi_asset.data
                             for asset in union_multiasset.values():
                                 q += int(list(asset.data.values())[0])
-                            if q >= amount:
+                            if q >= quantity_request:
                                 utxos_found = True
                                 break
 
@@ -620,7 +622,7 @@ async def claimTx(
                         script_hash, {b"": 0}
                     ).get(AssetName(tn_bytes), {b"": 0})
 
-                    beneficiary = x.output.datum.cbor.hex()
+                    beneficiary = x.output.datum.cbor.hex()[10:-2]
                     datum = Helpers().build_DatumProjectParams(pkh=beneficiary)
                     cbor = bytes.fromhex(cbor_hex)
                     plutus_script = PlutusV2Script(cbor)
@@ -831,7 +833,9 @@ async def createOrder(
                 tx_cbor = build_body.to_cbor_hex()
 
                 # Processing the tx body
-                format_body = Plataforma().formatTxBody(build_body)
+                format_body = Plataforma().formatTxBody(
+                    build_body
+                )  # TODO: sacar de acá el index del utxo
 
                 transaction_id_list = []
                 for utxo in build_body.inputs:

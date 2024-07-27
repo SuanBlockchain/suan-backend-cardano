@@ -1,4 +1,3 @@
-from asyncio import constants
 import binascii
 import json
 import logging
@@ -6,6 +5,7 @@ import os
 import pathlib
 from dataclasses import dataclass
 from typing import Literal, Optional, Union, Any, Dict
+from types import SimpleNamespace as Namespace
 
 import boto3
 import requests
@@ -228,6 +228,13 @@ class Plataforma(Constants):
 
             collateral_return = self._nullDict(collateral_return)
 
+        if txBody.reference_inputs:
+            # Format if reference inputs exits
+            referenceInputs = {
+                index: f"{reference_input.transaction_id.payload.hex()}#{reference_input.index}"
+                for index, reference_input in enumerate(txBody.reference_inputs)
+            }
+
         script_data_hash = ""
         if txBody.script_data_hash:
             script_data_hash = txBody.script_data_hash.payload.hex()
@@ -247,7 +254,7 @@ class Plataforma(Constants):
             "outputs": utxoOutputs,
             "mint": mint_assets,
             "network_id": txBody.network_id,
-            "reference_inputs": txBody.reference_inputs,
+            "reference_inputs": referenceInputs,
             "required_signers": signersOutput,
             "script_data_hash": script_data_hash,
             "total_collateral": txBody.total_collateral,
@@ -359,36 +366,79 @@ class CardanoApi(Constants):
     def __post_init__(self):
         pass
 
+    def _namespace_to_dict(self, obj):
+        if isinstance(obj, list):
+            return [self._namespace_to_dict(item) for item in obj]
+        elif isinstance(obj, Namespace):
+            return {
+                key: self._namespace_to_dict(value) for key, value in vars(obj).items()
+            }
+        else:
+            return obj
+
     def getAddressInfo(self, address: Union[str, list[str]]) -> list[dict]:
-        address_response = self.KOIOS_API.get_address_info(address)
-        asset_response = self.KOIOS_API.get_address_assets(address)
+        # address_response = self.KOIOS_API.get_address_info(address)
+        # asset_response = self.KOIOS_API.get_address_assets(address)
+
+        # address_response1 = self.BLOCKFROST_API.address_total(address)
+        # address_response2 = self.BLOCKFROST_API.address_transactions(address)
+        address_response = self.BLOCKFROST_API.address(address, return_type="json")
+        # address_response = self.BLOCKFROST_API.address_utxos(
+        #     address, return_type="json"
+        # )
+        # address_response4 = self.BLOCKFROST_API.address_utxos_asset(address)
+        print(address_response)
+
+        final_response = {
+            "address": address_response["address"],
+            "stake_address": address_response["stake_address"],
+            "script_address": address_response["script"],
+        }
 
         # # Group data2 by "address" key
-        for item in address_response:
-            assets = []
-            for asset in asset_response:
-                if asset["address"] == item["address"]:
-                    assets.append(
-                        dict(
-                            map(
-                                lambda item: (
-                                    (
-                                        item[0],
-                                        bytes.fromhex(item[1]).decode("utf-8"),
-                                    )
-                                    if item[0] == "asset_name"
-                                    else item
-                                ),
-                                filter(
-                                    lambda item: item[0] != "address", asset.items()
-                                ),
-                            )
-                        )
-                    )
+        assets = []
+        for amount in address_response["amount"]:
+            unit = amount["unit"]
+            if amount["unit"] == "lovelace":
+                final_response["balance"] = amount["quantity"]
+            else:  # unit != "lovelace":
+                policy_id = unit[:56]
+                name_bytes = unit[56:]
+                assets.append(
+                    {
+                        "policy_id": policy_id,
+                        "asset_name": bytes.fromhex(name_bytes).decode("utf-8"),
+                        "quantity": amount["quantity"],
+                    }
+                )
 
-            item["assets"] = assets
+        final_response["assets"] = assets
 
-        return address_response
+        # assets = []
+        # for item in amount:
+
+        #     if asset["address"] == item["address"]:
+        #         assets.append(
+        #             dict(
+        #                 map(
+        #                     lambda item: (
+        #                         (
+        #                             item[0],
+        #                             bytes.fromhex(item[1]).decode("utf-8"),
+        #                         )
+        #                         if item[0] == "asset_name"
+        #                         else item
+        #                     ),
+        #                     filter(
+        #                         lambda item: item[0] != "address", asset.items()
+        #                     ),
+        #                 )
+        #             )
+        #         )
+
+        # item["assets"] = assets
+
+        return final_response
 
     def getUtxoInfo(
         self, utxo: Union[str, list[str]], extended: bool = False
@@ -419,58 +469,44 @@ class CardanoApi(Constants):
         else:
             data = sorted_account_txs[skip : skip + limit]
 
-        # tx_hashes = [tx["tx_hash"] for tx in data]
-
-        from types import SimpleNamespace as Namespace
-
-        def namespace_to_dict(obj):
-            if isinstance(obj, list):
-                return [namespace_to_dict(item) for item in obj]
-            elif isinstance(obj, Namespace):
-                return {
-                    key: namespace_to_dict(value) for key, value in vars(obj).items()
-                }
-            else:
-                return obj
-
-        # for tx_hash in tx_hashes:
         final_response = []
         for value in data:
             trx = self.BLOCKFROST_API.transaction_utxos(value["tx_hash"]).to_dict()
             if trx:
-                # final_response_dict["hash"] = trx["hash"]
+                trx_details = self.BLOCKFROST_API.transaction(
+                    value["tx_hash"]
+                ).to_dict()
+                metadata = self.BLOCKFROST_API.transaction_metadata(value["tx_hash"])
+                metadata_tx_list = []
+                for metadata_object in metadata:
+                    metadata_tx = metadata_object.to_dict()
+                    metadata_tx_list.append(metadata_tx)
+                fees = trx_details["fees"]
+                size = trx_details["size"]
+                metadata = metadata_tx_list
+
                 inputs_dict = {}
                 outputs_dict = {}
 
                 for i, inputs in enumerate(trx["inputs"]):
                     obj_dict = {
-                        key: namespace_to_dict(value)
+                        key: self._namespace_to_dict(value)
                         for key, value in inputs.to_dict().items()
                     }
                     inputs_dict[i] = obj_dict
 
-                # items_dict[i] = inputs.to_dict()
-                # final_response_dict["inputs"] = items_dict
                 for i, outputs in enumerate(trx["outputs"]):
                     obj_dict = {
-                        key: namespace_to_dict(value)
+                        key: self._namespace_to_dict(value)
                         for key, value in outputs.to_dict().items()
                     }
                     outputs_dict[i] = obj_dict
-                # final_response_dict["outputs"] = items_dict
             value["inputs"] = inputs_dict
             value["outputs"] = outputs_dict
-            # final_response = {
-            #     tx_hash: {"inputs": inputs_dict, "outputs": outputs_dict},
-            # }
-            # tx_hash["inputs"] = inputs_dict
-            # tx_hash["outputs"] = outputs_dict
+            value["size"] = size
+            value["fees"] = fees
+            value["metadata"] = metadata
             final_response.append(value)
-        # transactions = self.KOIOS_API.get_tx_info(tx_hashes)
-
-        # final_response = sorted(
-        #     transactions, key=lambda x: x["tx_timestamp"], reverse=True
-        # )
 
         return final_response, total_count, page_size, current_page
 

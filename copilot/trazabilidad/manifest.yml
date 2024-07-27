@@ -28,9 +28,9 @@ cpu: 1024
 memory: 2048
 
 # Connect your App Runner service to your environment's VPC.
-# network:
-#   vpc:
-#     placement: private
+network:
+  vpc:
+    placement: private
 
 
 # Enable tracing for the service.
@@ -42,6 +42,7 @@ memory: 2048
 variables:                    # Pass environment variables as key value pairs.
   CARDANO_NET: preview
   ENV: prod
+  OGMIOS_URL: http://ogmios.test.api.local:1337
 
 # tags:                         # Pass tags as key value pairs.
 #   project: project-name
@@ -54,6 +55,8 @@ environments:
   prod:
     variables:
       ENV: prod       # Log level for the "test" environment.
+      OGMIOS_URL: http://ogmios.test.api.local:1337
   test:
     variables:
       ENV: dev
+      OGMIOS_URL: http://ogmios.test.api.local:1337

@@ -161,7 +161,7 @@ async def createContract(
 ) -> dict:
     """From parameters build a smart contract"""
     try:
-        # TODO: Verify that the wallet is admin
+        # TODO: Verify that the wallet is admin. For now, the wallet_id is only used as beneficiary
 
         scriptCategory = "PlutusV2"
 
@@ -196,10 +196,10 @@ async def createContract(
         elif script_type == "mintProjectToken":
             chain_context = CardanoNetwork().get_chain_context()
             for utxo in chain_context.utxos(payment_address):
-                # TODO: check if transaction can be built with utxo with other token
                 if (
-                    not utxo.output.amount.multi_asset
-                    and utxo.output.amount.coin > 3000000
+                    # not utxo.output.amount.multi_asset
+                    utxo.output.amount.coin
+                    > 3000000
                 ):
                     utxo_to_spend = utxo
                     break
