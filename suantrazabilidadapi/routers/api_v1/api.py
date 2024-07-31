@@ -2,7 +2,7 @@ from fastapi import APIRouter, Security
 
 from suantrazabilidadapi.utils.security import get_api_key
 
-from .endpoints import contracts, projects, transactions, wallet, helpers
+from .endpoints import contracts, projects, transactions, wallet, helpers, ogmios
 
 api_router = APIRouter()
 
@@ -29,6 +29,12 @@ api_router.include_router(
     prefix="/contracts",
     tags=["Contracts"],
     dependencies=[Security(get_api_key)],
+)
+api_router.include_router(
+    ogmios.router,
+    prefix="/ogmios",
+    tags=["Ogmios"],
+    # dependencies=[Security(get_api_key)],
 )
 api_router.include_router(
     helpers.router,

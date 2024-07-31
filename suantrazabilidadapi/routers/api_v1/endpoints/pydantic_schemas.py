@@ -5,8 +5,6 @@ from typing import Any, Dict, List, Optional, Union
 from opshin.prelude import *
 from pydantic import BaseModel, constr, validator
 
-from .examples import *
-
 ############################
 # Wallet section definition
 ############################

@@ -151,12 +151,15 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
 
-                transaction_id_list = []
+                utxo_list_info = []
                 for utxo in build_body.inputs:
-                    transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
-                    transaction_id_list.append(transaction_id)
-
-                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
+                    utxo_details = CardanoApi().getUtxoInfo(utxo.to_cbor_hex()[6:70])
+                    for utxo_output in utxo_details["outputs"]:
+                        if utxo_output["output_index"] == utxo.index:
+                            utxo_output["utxo_hash"] = (
+                                f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
+                            )
+                            utxo_list_info.append(utxo_output)
 
                 final_response = {
                     "success": True,
@@ -406,12 +409,15 @@ async def mintTokens(
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
 
-                transaction_id_list = []
+                utxo_list_info = []
                 for utxo in build_body.inputs:
-                    transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
-                    transaction_id_list.append(transaction_id)
-
-                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
+                    utxo_details = CardanoApi().getUtxoInfo(utxo.to_cbor_hex()[6:70])
+                    for utxo_output in utxo_details["outputs"]:
+                        if utxo_output["output_index"] == utxo.index:
+                            utxo_output["utxo_hash"] = (
+                                f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
+                            )
+                            utxo_list_info.append(utxo_output)
 
                 final_response = {
                     "success": True,
@@ -684,12 +690,20 @@ async def claimTx(
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
 
-                transaction_id_list = []
+                utxo_list_info = []
                 for utxo in build_body.inputs:
-                    transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
-                    transaction_id_list.append(transaction_id)
+                    utxo_details = CardanoApi().getUtxoInfo(utxo.to_cbor_hex()[6:70])
+                    for utxo_output in utxo_details["outputs"]:
+                        if utxo_output["output_index"] == utxo.index:
+                            utxo_output["utxo_hash"] = (
+                                f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
+                            )
+                            utxo_list_info.append(utxo_output)
+                    # utxo_list_info.append(utxo_details)
+                    # transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
+                    # transaction_id_list.append(transaction_id)
 
-                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
+                # utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
 
                 final_response = {
                     "success": True,
@@ -837,12 +851,15 @@ async def createOrder(
                     build_body
                 )  # TODO: sacar de acá el index del utxo
 
-                transaction_id_list = []
+                utxo_list_info = []
                 for utxo in build_body.inputs:
-                    transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
-                    transaction_id_list.append(transaction_id)
-
-                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
+                    utxo_details = CardanoApi().getUtxoInfo(utxo.to_cbor_hex()[6:70])
+                    for utxo_output in utxo_details["outputs"]:
+                        if utxo_output["output_index"] == utxo.index:
+                            utxo_output["utxo_hash"] = (
+                                f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
+                            )
+                            utxo_list_info.append(utxo_output)
 
                 final_response = {
                     "success": True,
@@ -1017,12 +1034,15 @@ async def unlockOrder(
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
 
-                transaction_id_list = []
+                utxo_list_info = []
                 for utxo in build_body.inputs:
-                    transaction_id = f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
-                    transaction_id_list.append(transaction_id)
-
-                utxo_list_info = CardanoApi().getUtxoInfo(transaction_id_list, True)
+                    utxo_details = CardanoApi().getUtxoInfo(utxo.to_cbor_hex()[6:70])
+                    for utxo_output in utxo_details["outputs"]:
+                        if utxo_output["output_index"] == utxo.index:
+                            utxo_output["utxo_hash"] = (
+                                f"{utxo.to_cbor_hex()[6:70]}#{utxo.index}"
+                            )
+                            utxo_list_info.append(utxo_output)
 
                 final_response = {
                     "success": True,

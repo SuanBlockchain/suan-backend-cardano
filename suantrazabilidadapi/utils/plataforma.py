@@ -228,6 +228,7 @@ class Plataforma(Constants):
 
             collateral_return = self._nullDict(collateral_return)
 
+        referenceInputs = {}
         if txBody.reference_inputs:
             # Format if reference inputs exits
             referenceInputs = {
@@ -414,104 +415,73 @@ class CardanoApi(Constants):
 
         final_response["assets"] = assets
 
-        # assets = []
-        # for item in amount:
+        return final_response
 
-        #     if asset["address"] == item["address"]:
-        #         assets.append(
-        #             dict(
-        #                 map(
-        #                     lambda item: (
-        #                         (
-        #                             item[0],
-        #                             bytes.fromhex(item[1]).decode("utf-8"),
-        #                         )
-        #                         if item[0] == "asset_name"
-        #                         else item
-        #                     ),
-        #                     filter(
-        #                         lambda item: item[0] != "address", asset.items()
-        #                     ),
-        #                 )
-        #             )
-        #         )
+    def getUtxoInfo(self, txhash: str) -> list[dict]:
+        utxo_info = self.BLOCKFROST_API.transaction_utxos(txhash, return_type="json")
+        # utxo_info = self.KOIOS_API.get_utxo_info(utxo, extended)
+        return utxo_info
 
-        # item["assets"] = assets
+    def getAddressTxs(
+        self,
+        address: str,
+        from_block: str,
+        to_block: str,
+        page_number: int,
+        limit: int,
+    ) -> list[dict]:
+        transactions = self.BLOCKFROST_API.address_transactions(
+            address=address,
+            from_block=from_block,
+            to_block=to_block,
+            return_type="json",
+            count=limit,
+            page=page_number,
+            order="desc",
+        )
+        final_response = []
+        for transaction in transactions:
+            tx_hash = transaction["tx_hash"]
+            trx = self.BLOCKFROST_API.transaction_utxos(tx_hash, return_type="json")
+            if trx:
+                trx_details = self.BLOCKFROST_API.transaction(
+                    tx_hash, return_type="json"
+                )
+                metadata = self.BLOCKFROST_API.transaction_metadata(
+                    tx_hash, return_type="json"
+                )
+                fees = trx_details["fees"]
+                size = trx_details["size"]
+                trx["fees"] = fees
+                trx["size"] = size
+                trx["metadata"] = metadata
+                trx["block_height"] = transaction["block_height"]
+                trx["block_time"] = transaction["block_time"]
+
+            final_response.append(trx)
 
         return final_response
 
-    def getUtxoInfo(
-        self, utxo: Union[str, list[str]], extended: bool = False
-    ) -> list[dict]:
-        utxo_info = self.KOIOS_API.get_utxo_info(utxo, extended)
-        return utxo_info
+    def getAddressUtxos(self, address: str, page_number: int, limit: int) -> list[dict]:
+        """Get a list of all UTxOs currently present in the provided address \n
 
-    def getAccountTxs(
-        self, account: str, after_block_height: int, skip: int, limit: int, all: bool
-    ) -> tuple[list[Any], int, int, float | Literal[1]]:
+        Args:
+            address (str): Bech32 address
+            page_number (int, optional): The page number for listing the results. Defaults to 1.
+            limit (int, optional): The number of results displayed on one page. Defaults to 10.
 
-        account_txs = self.KOIOS_API.get_account_txs(account, after_block_height)
-
-        sorted_account_txs = sorted(
-            account_txs, key=lambda x: x["block_height"], reverse=True
+        Returns:
+            list[dict]: list of utxos
+        """
+        return self.BLOCKFROST_API.address_utxos(
+            address, return_type="json", count=limit, page=page_number
         )
 
-        total_count = len(sorted_account_txs)
-        page_size = limit
-
-        current_page = (skip / page_size) + 1
-        total_pages = int(total_count / page_size) + 1
-
-        if all:
-            data = sorted_account_txs
-            current_page = 1
-            page_size = total_count
-        else:
-            data = sorted_account_txs[skip : skip + limit]
-
-        final_response = []
-        for value in data:
-            trx = self.BLOCKFROST_API.transaction_utxos(value["tx_hash"]).to_dict()
-            if trx:
-                trx_details = self.BLOCKFROST_API.transaction(
-                    value["tx_hash"]
-                ).to_dict()
-                metadata = self.BLOCKFROST_API.transaction_metadata(value["tx_hash"])
-                metadata_tx_list = []
-                for metadata_object in metadata:
-                    metadata_tx = metadata_object.to_dict()
-                    metadata_tx_list.append(metadata_tx)
-                fees = trx_details["fees"]
-                size = trx_details["size"]
-                metadata = metadata_tx_list
-
-                inputs_dict = {}
-                outputs_dict = {}
-
-                for i, inputs in enumerate(trx["inputs"]):
-                    obj_dict = {
-                        key: self._namespace_to_dict(value)
-                        for key, value in inputs.to_dict().items()
-                    }
-                    inputs_dict[i] = obj_dict
-
-                for i, outputs in enumerate(trx["outputs"]):
-                    obj_dict = {
-                        key: self._namespace_to_dict(value)
-                        for key, value in outputs.to_dict().items()
-                    }
-                    outputs_dict[i] = obj_dict
-            value["inputs"] = inputs_dict
-            value["outputs"] = outputs_dict
-            value["size"] = size
-            value["fees"] = fees
-            value["metadata"] = metadata
-            final_response.append(value)
-
-        return final_response, total_count, page_size, current_page
-
-    def getAccountUtxos(self, account: str, skip: int, limit: int) -> list[dict]:
-        return self.KOIOS_API.get_account_utxos(account, True, skip, limit)
+    def getAddressDetails(
+        self,
+        address: str,
+    ) -> dict:
+        return self.BLOCKFROST_API.address_extended(address, return_type="json")
 
     def txStatus(self, txId: Union[str, list[str]]) -> list:
         status_response = self.KOIOS_API.get_tx_status(txId)

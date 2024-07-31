@@ -40,6 +40,13 @@ class Constants:
     BASE_URL = ApiUrls.preview.value
     BLOCK_FROST_PROJECT_ID = plataformaSecrets["block_frost_project_id"]
     BLOCKFROST_API = BlockFrostApi(project_id=BLOCK_FROST_PROJECT_ID, base_url=BASE_URL)
+    COPILOT_SERVICE_DISCOVERY_ENDPOINT = os.getenv("COPILOT_SERVICE_DISCOVERY_ENDPOINT")
+    OGMIOS_SERVICE_NAME = "ogmiosbackend"
+    if not COPILOT_SERVICE_DISCOVERY_ENDPOINT:
+        OGMIOS_URL = f"localhost"
+    else:
+        OGMIOS_URL = f"{OGMIOS_SERVICE_NAME}.{COPILOT_SERVICE_DISCOVERY_ENDPOINT}"
+    OGMIOS_PORT = 1337
 
 
 def is_valid_hex_string(s: str) -> bool:

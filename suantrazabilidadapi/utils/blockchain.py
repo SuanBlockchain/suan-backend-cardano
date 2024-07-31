@@ -1,9 +1,11 @@
 import logging
 import os
 from dataclasses import dataclass
+from dotenv import load_dotenv
 
 from blockfrost import ApiUrls
 from pycardano import *
+from ogmios import OgmiosChainContext as OgChainContext
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.utils.generic import Constants
@@ -121,7 +123,8 @@ class CardanoNetwork(Constants):
             self.NETWORK = Network.TESTNET
 
     def get_chain_context(self) -> ChainContext:
-        chain_backend = os.getenv("CHAIN_BACKEND", "blockfrost")
+        # chain_backend = os.getenv("CHAIN_BACKEND", "blockfrost")
+        chain_backend = cardano["chain_backend"]
         if chain_backend == "blockfrost":
             if self.NETWORK_NAME == "preview":
                 self.BASE_URL = ApiUrls.preview.value
@@ -130,8 +133,11 @@ class CardanoNetwork(Constants):
                 self.BLOCK_FROST_PROJECT_ID, base_url=self.BASE_URL
             )
 
-        # elif chain_backend == "ogmios":
-        #     return OgmiosChainContext(ws_url=ogmios_url, network=network)
+        elif chain_backend == "ogmios":
+            return OgChainContext(
+                host=Constants.OGMIOS_URL, port=Constants.OGMIOS_PORT, secure=False
+            )
+            # return OgmiosChainContext(ws_url=ogmios_url, network=network)
         # elif chain_backend == "kupo":
         #     return OgmiosChainContext(ws_url=ogmios_url, network=network, kupo_url=kupo_url)
         else:

@@ -5,7 +5,6 @@ from fastapi import APIRouter, HTTPException
 from pycardano import *
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.blockchain import Keys
 from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Plataforma
 
@@ -62,8 +61,6 @@ async def getWallets():
     summary="Get the wallet with specific id or address as registered in Plataforma",
     response_description="Wallet details",
 )
-
-# async def getWallet(query_param: pydantic_schemas.walletQueryParam, ):
 async def getWallet(command_name: pydantic_schemas.walletCommandName, query_param: str):
     """Get the wallet with specific id as registered in Plataforma"""
     try:
@@ -294,67 +291,100 @@ async def queryAddress(address: Union[str, list[str]]):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# @router.get(
+#     "/account-tx/",
+#     status_code=200,
+#     summary="Get a list of all Txs for a given stake address (account)",
+#     response_description="Get a list of all Txs for a given stake address (account)",
+# )
+# async def accountTx(
+#     stake: str,
+#     after_block_height: int = 0,
+#     skip: int = 0,
+#     limit: int = 10,
+#     all: bool = False,
+# ):
+#     """Get a list of all Txs for a given stake address (account) \n"""
+#     try:
+#         data, total_count, page_size, current_page = CardanoApi().getAccountTxs(
+#             stake, after_block_height, skip, limit, all
+#         )
+
+#         result = {
+#             "data": data,
+#             "total_count": total_count,
+#             "current_page": current_page,
+#             "page_size": page_size,
+#         }
+#         return result
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get(
-    "/account-tx/",
+    "/address-tx/",
     status_code=200,
-    summary="Get a list of all Txs for a given stake address (account)",
-    response_description="Get a list of all Txs for a given stake address (account)",
+    summary="Get a list of all transactions made using this address",
+    response_description="List of transactions for given address",
 )
-async def accountTx(
-    stake: str,
-    after_block_height: int = 0,
-    skip: int = 0,
+async def addressTxs(
+    address: str,
+    from_block: str = None,
+    to_block: str = None,
+    page_number: int = 1,
     limit: int = 10,
-    all: bool = False,
-):
-    """Get a list of all Txs for a given stake address (account) \n"""
+) -> list[dict]:
+
     try:
-        data, total_count, page_size, current_page = CardanoApi().getAccountTxs(
-            stake, after_block_height, skip, limit, all
+        return CardanoApi().getAddressTxs(
+            address, from_block, to_block, page_number, limit
         )
 
-        result = {
-            "data": data,
-            "total_count": total_count,
-            "current_page": current_page,
-            "page_size": page_size,
-        }
-        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get(
-    "/account-utxo/",
+    "/address-utxo/",
     status_code=200,
-    summary="Get a list of all UTxOs for given stake addresses (account)s",
-    response_description="Get a list of all UTxOs for given stake addresses (account)s",
+    summary="Get a list of all UTxOs currently present in the provided address",
+    response_description="List of UtxOs for given address",
 )
-async def accountUtxos(stake: str, skip: int = 0, limit: int = 10, all: bool = False):
-    """Get a list of all UTxOs for given stake addresses (account)s \n"""
+async def addressUtxos(
+    address: str, page_number: int = 1, limit: int = 10
+) -> list[dict]:
+    """Get a list of all UTxOs currently present in the provided address \n
+
+    Args:
+        address (str): Bech32 address
+        page_number (int, optional): The page number for listing the results. Defaults to 1.
+        limit (int, optional): The number of results displayed on one page. Defaults to 10.
+        all (bool, optional): Will collect all pages into one return. Defaults to False.
+
+    Raises:
+        HTTPException: Reflects endpoint down
+
+    Returns:
+        _type_: list of utxos
+    """
     try:
-        if all:
-            skip = 0
-            limit = 0
-        accountUtxos = CardanoApi().getAccountUtxos(stake, skip, limit)
+        addressUtxos = CardanoApi().getAddressUtxos(address, page_number, limit)
+        return addressUtxos
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-        data = accountUtxos
 
-        total_count = len(accountUtxos)
-        page_size = limit
+@router.get(
+    "/address-details/",
+    status_code=200,
+    summary="",
+    response_description="",
+)
+async def addressDetails(address: str) -> dict:
 
-        if limit == 0:
-            current_page = 1
-        else:
-            current_page = (skip / page_size) + 1
-
-        result = {
-            "data": data,
-            "total_count": total_count,
-            "current_page": current_page,
-            "page_size": page_size,
-        }
-        return result
+    try:
+        addressDetails = CardanoApi().getAddressDetails(address)
+        return addressDetails
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
