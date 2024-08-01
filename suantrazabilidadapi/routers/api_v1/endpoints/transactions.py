@@ -38,6 +38,7 @@ from pycardano import (
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
+from suantrazabilidadapi.utils.generic import Constants
 
 router = APIRouter()
 
@@ -460,7 +461,9 @@ async def mintTokens(
     # response_model=List[str],
 )
 async def claimTx(
-    claim_redeemer: pydantic_schemas.ClaimRedeem, claim: pydantic_schemas.Claim
+    claim_redeemer: pydantic_schemas.ClaimRedeem,
+    claim: pydantic_schemas.Claim,
+    oracle_token_name: str = Constants.ORACLE_TOKEN_NAME,
 ) -> dict:
     try:
         ########################
@@ -669,7 +672,9 @@ async def claimTx(
                 )
                 # End of the contract implementation
 
-                oracle_utxo = Helpers().build_reference_input_oracle(chain_context)
+                oracle_utxo = Helpers().build_reference_input_oracle(
+                    chain_context, oracle_token_name
+                )
 
                 assert oracle_utxo is not None, "Oracle UTxO not found!"
                 logging.info(
@@ -899,7 +904,9 @@ async def createOrder(
     # response_model=List[str],
 )
 async def unlockOrder(
-    order: pydantic_schemas.UnlockOrder, order_side: pydantic_schemas.ClaimRedeem
+    order: pydantic_schemas.UnlockOrder,
+    order_side: pydantic_schemas.ClaimRedeem,
+    oracle_token_name: str = Constants.ORACLE_TOKEN_NAME,
 ) -> dict:
     try:
         ########################
@@ -974,7 +981,9 @@ async def unlockOrder(
                 else:
                     raise ValueError("No utxo found in body message")
 
-                oracle_utxo = Helpers().build_reference_input_oracle(chain_context)
+                oracle_utxo = Helpers().build_reference_input_oracle(
+                    chain_context, oracle_token_name
+                )
 
                 assert oracle_utxo is not None, "Oracle UTxO not found!"
                 builder.reference_inputs.add(oracle_utxo)

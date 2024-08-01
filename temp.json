@@ -1,181 +1,348 @@
 {
-    "success": true,
-    "msg": "Tx Mint Tokens",
-    "build_tx": {
-        "auxiliary_data_hash": "d968582849c4ea7ef4c7f6c2e71a4db11cc811c004051aa9fae24ed8fe11eb72",
-        "certificates": "",
-        "collateral": {
-            "0": "1c27619db82523c0ad913cf0de57a42c81879a3f7d0f46497e127f529e79a414#1"
-        },
-        "collateral_return": {
-            "address": "addr_test1qpt45lcpyukajk5m5f5ka83afz2luwd3ydg0075g5vqm8t2htflszfedm9dfhgnfd60r6jy4lcumzg6s7lag3gcpkwks0nnfl0",
-            "amount": {
-                "coin": 29272572121,
-                "multi_asset": {
-                    "2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f": {
-                        "SandboxSuanAccess1": 1
-                    }
-                }
-            },
-            "lovelace": 29272572121,
-            "script": "",
-            "datum": "",
-            "datum_hash": ""
-        },
-        "fee": 402019,
-        "tx_id": "b2561cdd12dec4db7de5e5267203e141870393c81df15096edbecda99cc6e9b9",
-        "inputs": {
-            "0": "1c27619db82523c0ad913cf0de57a42c81879a3f7d0f46497e127f529e79a414#1"
-        },
-        "outputs": {
-            "0": {
-                "address": "addr_test1vqx420pm9cx326rh0q8yx6u4h72ae56l9ekzk05m8w9qe3cz5swj5",
-                "amount": {
-                    "coin": 1086120,
-                    "multi_asset": {
-                        "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                            "ProyectoYToken": 195355
-                        }
-                    }
-                },
-                "lovelace": 1086120,
-                "script": ""
-            },
-            "1": {
-                "address": "addr_test1qpt45lcpyukajk5m5f5ka83afz2luwd3ydg0075g5vqm8t2htflszfedm9dfhgnfd60r6jy4lcumzg6s7lag3gcpkwks0nnfl0",
-                "amount": {
-                    "coin": 1206800,
-                    "multi_asset": {
-                        "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                            "ProyectoYToken": 400000
-                        }
-                    }
-                },
-                "lovelace": 1206800,
-                "script": ""
-            },
-            "2": {
-                "address": "addr_test1wq57ft5hsx4qaaxudj7p00edj9x30xn6cvh0pfnalqclnfqyr4yyn",
-                "amount": {
-                    "coin": 1254210,
-                    "multi_asset": {
-                        "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                            "ProyectoYToken": 35875
-                        }
-                    }
-                },
-                "lovelace": 1254210,
-                "script": ""
-            },
-            "3": {
-                "address": "addr_test1vqs34z4ljy3c6u3s97m64zqz7f0ks6vtre2dcpl5um8wz2qgaxq8z",
-                "amount": {
-                    "coin": 1086120,
-                    "multi_asset": {
-                        "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                            "ProyectoYToken": 897124
-                        }
-                    }
-                },
-                "lovelace": 1086120,
-                "script": ""
-            },
-            "4": {
-                "address": "addr_test1wq57ft5hsx4qaaxudj7p00edj9x30xn6cvh0pfnalqclnfqyr4yyn",
-                "amount": {
-                    "coin": 1254210,
-                    "multi_asset": {
-                        "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                            "ProyectoYToken": 35875
-                        }
-                    }
-                },
-                "lovelace": 1254210,
-                "script": ""
-            },
-            "5": {
-                "address": "addr_test1wq57ft5hsx4qaaxudj7p00edj9x30xn6cvh0pfnalqclnfqyr4yyn",
-                "amount": {
-                    "coin": 1254210,
-                    "multi_asset": {
-                        "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                            "ProyectoYToken": 35875
-                        }
-                    }
-                },
-                "lovelace": 1254210,
-                "script": ""
-            },
-            "6": {
-                "address": "addr_test1wq57ft5hsx4qaaxudj7p00edj9x30xn6cvh0pfnalqclnfqyr4yyn",
-                "amount": {
-                    "coin": 1254210,
-                    "multi_asset": {
-                        "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                            "ProyectoYToken": 35875
-                        }
-                    }
-                },
-                "lovelace": 1254210,
-                "script": ""
-            },
-            "7": {
-                "address": "addr_test1qpt45lcpyukajk5m5f5ka83afz2luwd3ydg0075g5vqm8t2htflszfedm9dfhgnfd60r6jy4lcumzg6s7lag3gcpkwks0nnfl0",
-                "amount": {
-                    "coin": 29267381837,
-                    "multi_asset": {
-                        "2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f": {
-                            "SandboxSuanAccess1": 1
-                        },
-                        "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                            "ProyectoYToken": 100000
-                        }
-                    }
-                },
-                "lovelace": 29267381837,
-                "script": ""
-            }
-        },
-        "mint": {
-            "49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5c": {
-                "ProyectoYToken": 1735979
-            }
-        },
-        "network_id": "",
-        "reference_inputs": {},
-        "required_signers": [
-            "575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad"
-        ],
-        "script_data_hash": "d3c0256a8a19ca5bba2fe4748eb7d15fd9ea90746e2a45287189f638f7993d54",
-        "total_collateral": 3607615,
-        "ttl": 55767362,
-        "update": "",
-        "validity_start": 55756362,
-        "withdraws": ""
-    },
-    "cbor": "ac00818258201c27619db82523c0ad913cf0de57a42c81879a3f7d0f46497e127f529e79a41401018882581d600d553c3b2e0d156877780e436b95bf95dcd35f2e6c2b3e9b3b8a0cc7821a001092a8a1581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e1a0002fb1b82583900575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad821a00126a10a1581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e1a00061a80a300581d7029e4ae9781aa0ef4dc6cbc17bf2d914d179a7ac32ef0a67df831f9a401821a00132342a1581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e198c23028201d8185822d8799f581c575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3adff82581d60211a8abf91238d72302fb7aa8802f25f68698b1e54dc07f4e6cee128821a001092a8a1581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e1a000db064a300581d7029e4ae9781aa0ef4dc6cbc17bf2d914d179a7ac32ef0a67df831f9a401821a00132342a1581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e198c23028201d8185822d8799f581c575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3adffa300581d7029e4ae9781aa0ef4dc6cbc17bf2d914d179a7ac32ef0a67df831f9a401821a00132342a1581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e198c23028201d8185822d8799f581c575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3adffa300581d7029e4ae9781aa0ef4dc6cbc17bf2d914d179a7ac32ef0a67df831f9a401821a00132342a1581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e198c23028201d8185822d8799f581c575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3adff82583900575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad821b00000006d078ce4da2581c2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453fa15253616e64626f785375616e4163636573733101581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e1a000186a0021a00062263031a0352f142075820d968582849c4ea7ef4c7f6c2e71a4db11cc811c004051aa9fae24ed8fe11eb72081a0352c64a09a1581c49120fb9f53900653b04e40149a989f1d99f97954fd0ae3d2d2bfe5ca14e50726f796563746f59546f6b656e1a001a7d2b0b5820d3c0256a8a19ca5bba2fe4748eb7d15fd9ea90746e2a45287189f638f7993d540d818258201c27619db82523c0ad913cf0de57a42c81879a3f7d0f46497e127f529e79a414010e81581c575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad1082583900575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad821b00000006d0c800d9a1581c2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453fa15253616e64626f785375616e4163636573733101111a00370c3f",
-    "redeemer_cbor": "840100d87980821a00051ed31a063224fd",
-    "metadata_cbor": "a11902d1aa704e6f6d6272652064656c20746f6b656e6e50726f796563746f59546f6b656e781a4964656e746966696361646f722064656c2070726f796563746f782439383836393135392d316262382d346663632d386530362d656131653766663139613663734e6f6d6272652064656c2070726f796563746f6a50726f796563746f2059644172656167373230303030306943617465676f72696165524544442b72466563686120646520637265616369c3b36e7818323032342d30372d31375431363a35393a30322e3834365a6c446573637269706369c3b36e897838456c2050726f796563746f205920657320756e6120616d626963696f736120696e6963696174697661206f7269656e746164612061206c6178407265666f72657374616369c3b36e2079206c612072657374617572616369c3b36e206465207375656c6f7320656e206c6f7320646570617274616d656e746f7378346465204d6574612079204172617563612e20457374652070726f796563746f20666f726d612070617274652064656c204250494e7839323032323030303130303030352c207072696f72697a61646f2079206170726f6261646f20706f7220656c204d696e6973746572696f20646578404369656e6369612c205465636e6f6c6f67c3ad61206520496e6e6f76616369c3b36e20612074726176c3a9732064656c2053697374656d612047656e6572616c783a646520526567616cc3ad61732028534752292e205375206f626a657469766f206573206d697469676172206c6f732065666563746f732064656c783a63616d62696f20636c696dc3a17469636f206d656469616e7465206c61207574696c697a616369c3b36e206465207465636e6f6c6f67c3ad61737835656d657267656e74657320792062696f7465636e6f6c6f67c3ad61206176616e7a6164612070617261207265686162696c697461727765636f73697374656d61732064656772616461646f732e6566696c657381a2637372637835697066733a2f2f516d515a69596547636a3955546451684a56526d4b7a5a68654863354741374464374b3961394773425353634868696d656469615479706569696d6167652f706e6765696d6167657835697066733a2f2f516d515a69596547636a3955546451684a56526d4b7a5a68654863354741374464374b3961394773425353634868696d656469615479706569696d6167652f706e67",
-    "utxos_info": [
-        {
-            "address": "addr_test1qpt45lcpyukajk5m5f5ka83afz2luwd3ydg0075g5vqm8t2htflszfedm9dfhgnfd60r6jy4lcumzg6s7lag3gcpkwks0nnfl0",
-            "amount": [
+    "data": {
+        "listWallets": {
+            "items": [
                 {
-                    "unit": "lovelace",
-                    "quantity": "29276179736"
+                    "id": "272e505e1dce19a89f6dc328957aed372d8c167aefc156a4a7af74bc",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-26T20:13:23.890Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qqnju5z7rh8pn2yldhpj39t6a5mjmrqk0thuz44y57hhf0p89eg9u8wwrx5f7mwr9z2h4mfh9kxpv7h0c9t2ffa0wj7qmlxssq",
+                    "name": "usuarioterrasachaa",
+                    "status": "active",
+                    "userID": "84180488-20c1-700d-2c6c-0ba2b56d790e"
                 },
                 {
-                    "unit": "2fa3f8b68cd8f4bb95ebc0e24ee5ee7629081e094cab8319caf0453f53616e64626f785375616e41636365737331",
-                    "quantity": "1"
+                    "id": "1420b027119a7f99b359b41dfb5ee71c62540c98992c71d28154b3af",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-26T14:58:16.849Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qq2zpvp8zxd8lxdntx6pm767uuwxy4qvnzvjcuwjs92t8tc5yzczwyv607vmxkd5rha4aecuvf2qexye93ca9q25kwhs578h34",
+                    "name": "my wallet",
+                    "status": "active",
+                    "userID": "e4b864d8-b091-7064-7a88-19cecb4b60a5"
+                },
+                {
+                    "id": "0657fb095599f63af73ba78d8b3224745955c8df499a6ad2078053fc",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T14:41:00.898Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qqr907cf2kvlvwhh8wncmzejy369j4wgmaye56kjq7q98lqx2lasj4ve7ca0wwa83k9nyfr5t92u3h6fnf4dypuq207q936et9",
+                    "name": "ignaciodiaz@@!!",
+                    "status": "active",
+                    "userID": "24d89488-e0f1-70f2-538e-e49ca7a90fdf"
+                },
+                {
+                    "id": "8d07bfb891fdeaf59c6f5db184e7900a6737820a053207694dba73fe",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-25T20:50:53.439Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qzxs00acj8774avudawmrp88jq9xwduzpgznypmffka88l5dq7lm3y0aat6ecm6akxzw0yq2vumcyzs9xgrkjnd6w0lq9v6938",
+                    "name": "MY WALLET AMBIENTAL",
+                    "status": "active",
+                    "userID": "146854c8-2051-7051-dcc4-9d92613559a6"
+                },
+                {
+                    "id": "fcf633def7d711cc2bdd2001dd762680dcb8c0e3d5d75e47b504f03b",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T14:16:42.245Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qr70vv777lt3rnptm5sqrhtky6qdewxqu02awhj8k5z0qwlu7ceaaa7hz8xzhhfqq8whvf5qmjuvpc746a0y0dgy7qas53segc",
+                    "name": "usuario_inversionista_9",
+                    "status": "active",
+                    "userID": "84488468-a081-703c-419e-c64e9e019e51"
+                },
+                {
+                    "id": "ebff4656a541fb3dbe6c921f9778b45bb63fb967c132d55ffbc9f641",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T15:40:26.716Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qr4l73jk54qlk0d7djfpl9mck3dmv0aevlqn942ll0ylvs0tlar9df2plv7mumyjr7th3dzmkclmje7pxt24l77f7eqs9ukdpd",
+                    "name": "usuario_inversionista_10_wallet",
+                    "status": "active",
+                    "userID": "d488e4c8-5091-707a-4af0-0a5ef609bb17"
+                },
+                {
+                    "id": "ee5099187900e9f6bb730be73a4e6bcddb72742413d3db2f5994aa17",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-26T08:31:06.152Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qrh9pxgc0yqwna4mwv97wwjwd0xakun5ysfa8ke0tx2259lw2zv3s7gqa8mtkuctuuayu67dmde8gfqn60dj7kv54gtsttt9gj",
+                    "name": "usuarioterrasacha",
+                    "status": "active",
+                    "userID": "0438a428-80b1-70b2-ab1a-f3101ce6fc2f"
+                },
+                {
+                    "id": "fa06cc09a57d6fbc43ebe67166df731607781327926268df2ec72d0b",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T13:38:31.467Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qraqdnqf547kl0zra0n8zeklwvtqw7qny7fxy6xl9mrj6zl6qmxqnftad77y86lxw9nd7uckqaupxfujvf5d7tk8959suzcaya",
+                    "name": "ignacio!!!!@@@@",
+                    "status": "active",
+                    "userID": "34081408-00c1-7085-2b8d-69a249518185"
+                },
+                {
+                    "id": "1c1910a1fee0281f5169dee8d82b1bb2b988185567c783bad9b2f26d",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T13:03:25.822Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qqwpjy9plmszs863d80w3kptrwetnzqc24nu0qa6mxe0ymguryg2rlhq9q04z6w7arvzkxajhxyps4t8c7pm4kdj7fksv76ex5",
+                    "name": "usuario_inversionista_5_wallet",
+                    "status": "active",
+                    "userID": "c4f89458-f051-70e3-1bae-ce14b9ef58d8"
+                },
+                {
+                    "id": "4a893b2439d355a968fa615e0533231f97a0810d895c76771c5803ae",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T15:29:34.663Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qp9gjwey88f4t2tglfs4upfnyv0e0gyppky4canhr3vq8tj23yajgwwn2k5k37nptcznxgclj7sgzrvft3m8w8zcqwhq8kp2f5",
+                    "name": "Angie123",
+                    "status": "active",
+                    "userID": "5448f418-e041-70e2-5312-418d52c3224f"
+                },
+                {
+                    "id": "5166aeeb71a79675e7a48a579455b8c5e257a6b0545c7f7de5667362",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-19T15:31:46.762Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qpgkdthtwxneva085j9909z4hrz7y4axkp29clmau4n8xcj3v6hwkud8je670fy22729twx9uft6dvz5t3lhmetxwd3q65gs6s",
+                    "name": "ignacio_diaz_wallet",
+                    "status": "active",
+                    "userID": "a438c478-0051-7072-b323-a36c39d29afc"
+                },
+                {
+                    "id": "9bd1e83d8751910873d81acbca7bd1cd752c7997e508d881834ec91c",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T00:19:53.076Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qzdar6pasagezzrnmqdvhjnm68xh2trejljs3kypsd8vj8ym685rmp63jyy88kq6e098h5wdw5k8n9l9prvgrq6weywq04uhcm",
+                    "name": "SebastianValidador",
+                    "status": "active",
+                    "userID": "14488438-c0d1-70b1-4144-8cb919a830cd"
+                },
+                {
+                    "id": "f8ced515ff005c833a1bf15134abc20461f15628d2a8b3d3216578c3",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-30T12:09:50.072Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qruva4g4luq9eqe6r0c4zd9tcgzxru2k9rf23v7ny9jh3slcem23tlcqtjpn5xl32y62hssyv8c4v2xj4zeaxgt90rpssm7a4q",
+                    "name": "ignacio!!@@",
+                    "status": "active",
+                    "userID": "3498b428-60a1-7096-de06-858f15bb1e37"
+                },
+                {
+                    "id": "90b11081a0457a4a5605ac7d7323a0c6ea3ac3f1ced302bd03a1b112",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T13:11:25.819Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qzgtzyyp5pzh5jjkqkk86uer5rrw5wkr788dxq4aqwsmzy5skyggrgz90f99vpdv04ej8gxxagav8uww6vpt6qapkyfq9y2m7g",
+                    "name": "ignacio!!!@@@_wallet",
+                    "status": "active",
+                    "userID": "c43874d8-5051-705d-7500-4d1ab5804fde"
+                },
+                {
+                    "id": "dca7cf3716d0d37413d044feea7807bddb039ee8137eb12760bac310",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T20:26:44.168Z",
+                    "claimed_token": false,
+                    "address": "addr_test1qrw20nehzmgdxaqn6pz0a6ncq77akqu7aqfhavf8vzavxyxu5l8nw9ks6d6p85zylm48spaamvpea6qn06cjwc96cvgqcrnawp",
+                    "name": "tatiana123",
+                    "status": "active",
+                    "userID": "b42884e8-4061-7067-bbe7-40214688b55b"
+                },
+                {
+                    "id": "ce053ea2c3091cd90975e967e3f8576f76b4a5a4a0c56c1c8df11834",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T02:19:54.988Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qr8q204zcvy3ekgfwh5k0clc2ahhdd995jsv2mqu3hc3sdxwq5l29scfrnvsja0fvl3ls4m0w662tf9qc4kper03rq6qrczmgn",
+                    "name": "propietario20",
+                    "status": "active",
+                    "userID": "c4383428-b071-7096-8f6b-8baad1ace083"
+                },
+                {
+                    "id": "7cacd92c147b59bef61caf1c3db708828ba2539121a59562f4cf5a11",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T13:37:04.958Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qp72ekfvz3a4n0hkrjh3c0dhpzpghgjnjys6t9tz7n845ytu4nvjc9rmtxl0v890rs7mwzyz3w398yfp5k2k9ax0tggsvfdlrw",
+                    "name": "usuario_inversionista_8_wallet",
+                    "status": "active",
+                    "userID": "24e88408-c071-70f4-5d08-2ef339894150"
+                },
+                {
+                    "id": "5b81f35455bc3a65fbed1235f344fec1fcea120d8760589ba67ff995",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T16:42:53.851Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qpdcru652k7r5e0ma5frtu6ylmqle6sjpkrkqkym5elln92ms8e4g4du8fjlhmgjxhe5flkpln4pyrv8vpvfhfnllx2sj8j557",
+                    "name": "ignacio_diaz_nanni_wallet",
+                    "status": "active",
+                    "userID": "54683448-3081-70f5-7736-52bb38f56832"
+                },
+                {
+                    "id": "a3f3f409beb888272dd83d8716e0bf9a05429cf4481cf95c0513ee6d",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-17T13:33:00.947Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qz3l8aqfh6ugsfedmq7cw9hqh7dq2s5u73ype72uq5f7umdr706qn04c3qnjmkpasutwp0u6q4pfeazgrnu4cpgnaeks4nds6p",
+                    "name": "usuario_dev_test_2_wallet",
+                    "status": "active",
+                    "userID": "d4a81458-2001-70b0-1c04-89f53766c29c"
+                },
+                {
+                    "id": "0842cc359ef5aa7df607ff4f3719cb88093d2a0c4f9bddc7a677aec9",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-17T04:22:12.616Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qqyy9np4nm665l0kqll57dceewyqj0f2p38ehhw85em6ajgggtxrt8h44f7lvpllfum3njugpy7j5rz0n0wu0fnh4mysc4s5zs",
+                    "name": "rances_inversionista",
+                    "status": "active",
+                    "userID": "14d81498-d0e1-7072-263b-5013f9af3b5e"
+                },
+                {
+                    "id": "798d3944cff7f27543afb3792cb775b380143ad972370d349f9c7139",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-17T02:58:50.067Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qpuc6w2yelmlya2r47ehjt9hwkecq9p6m9erwrf5n7w8zwte35u5fnlh7f658tan0yktwadnsq2r4ktjxuxnf8uuwyus4zqfnd",
+                    "name": "usuario_dev_test_1",
+                    "status": "active",
+                    "userID": "84883498-c0e1-70f6-56ef-2ceb1d73be20"
+                },
+                {
+                    "id": "8d4c37fe09c3ea4dcfb8223897e76e9541a24a80fed35fa36be43c39",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T12:28:32.731Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qzx5cdl7p8p75nw0hq3r39l8d625rgj2srldxhard0jrcwvdfsmluzwrafxulwpz8zt7wm54gx3y4q876d06x6ly8sus2waq2y",
+                    "name": "usuario_presentacion_wallet",
+                    "status": "active",
+                    "userID": "e4b844e8-20b1-7055-c016-cda888614b83"
+                },
+                {
+                    "id": "9b17bce838fa3173cc60da60ee48568bb76ce75a9abb7bfba35ed29a",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T14:10:41.442Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qzd3008g8rarzu7vvrdxpmjg269mwm88t2dtk7lm5d0d9x5mz77wsw86x9euccx6vrhys45tkakwwk56hdalhg6762dqc74sw9",
+                    "name": "ignacio@@@@!!!!",
+                    "status": "active",
+                    "userID": "e4d80448-2091-70bb-8603-465d27c7f3cd"
+                },
+                {
+                    "id": "94368c4458fe6b35d0f481d2f0c753b6002f8caa8f3ebbd359d44176",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T01:50:42.333Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qz2rdrzytrlxkdws7jqa9ux82wmqqtuv428naw7nt82yza55x6xygk87dv6apayp6tcvw5akqqhce25086aaxkw5g9mqysauvv",
+                    "name": "SmithValidador",
+                    "status": "active",
+                    "userID": "64987498-0011-7029-c182-f9aba5150429"
+                },
+                {
+                    "id": "7211b0781215b54351023f0177e4c8f13395322ff1305c3f8a8de716",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T14:22:28.815Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qpeprvrczg2m2s63qglszalyercn89fj9lcnqhpl32x7w9njzxc8sys4k4p4zq3lq9m7fj83xw2nytl3xpwrlz5duutqcey7v5",
+                    "name": "ignaciodiaz!!@@",
+                    "status": "active",
+                    "userID": "d4883428-c001-700c-29bf-87df3fbee778"
+                },
+                {
+                    "id": "04c0cd98fad262b7b6fc4bca0e3836f0955cceef41d4afe50cbc8fe1",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-17T14:47:55.135Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qqzvpnvcltfx9dakl39u5r3cxmcf2hxwaaqaftl9pj7glcgycrxe37kjv2mmdlzteg8rsdhsj4wvam6p6jh72r9u3lsseu9e96",
+                    "name": "SmithInversionista",
+                    "status": "active",
+                    "userID": "a448c408-50f1-70ce-dc0b-82d3b70f41c7"
+                },
+                {
+                    "id": "69639476f6479bf08ae857ac94d5e1fbb21150f8e3f3cbd902e559d7",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-19T16:33:28.799Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qp5k89rk7erehuy2apt6e9x4u8amyy2slr3l8j7eqtj4n4mfvw28daj8n0cg46zh4j2dtc0mkgg4p78r709ajqh9t8ts4fzz04",
+                    "name": "ignacio_wallet",
+                    "status": "active",
+                    "userID": "64689448-5071-701a-ad05-99dfb25bcb02"
+                },
+                {
+                    "id": "e6c4b6dc9a1dddcc6f32056e738db30e761ad18ba50b6986aa3f5be3",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T14:06:15.887Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qrnvfdkungwamnr0xgzkuuudkv88vxk33wjsk6vx4gl4hclxcjmdexsamhxx7vs9deecmvcwwcddrza9pd5cd23lt03se5exla",
+                    "name": "ignacio@@@!!!",
+                    "status": "active",
+                    "userID": "f4e814e8-2081-704c-c003-dc9d2474e379"
+                },
+                {
+                    "id": "575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad",
+                    "isAdmin": true,
+                    "createdAt": "2024-07-15T20:34:13.119Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qpt45lcpyukajk5m5f5ka83afz2luwd3ydg0075g5vqm8t2htflszfedm9dfhgnfd60r6jy4lcumzg6s7lag3gcpkwks0nnfl0",
+                    "name": "Administrador",
+                    "status": "active",
+                    "userID": "44582458-d031-70c2-9583-a85c26d8ec7e"
+                },
+                {
+                    "id": "3092a36d2585dc2bde2179223e429c7e538687d2b11e87c1bf47f6c7",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-31T13:53:30.293Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qqcf9gmdykzac277y9ujy0jzn3l98p5862c3ap7pharld3esj23k6fv9ms4augteygly98r72wrg0543r6rur0687mrs65f2qy",
+                    "name": "ignacio!!!!@@@@@",
+                    "status": "active",
+                    "userID": "2428f4f8-4021-704b-d45f-e955d3635b46"
+                },
+                {
+                    "id": "8025bdc9d37c8120cc2e1419e9515ad2141052ed4df45fb10189fe52",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-17T04:37:01.944Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qzqzt0wf6d7gzgxv9c2pn623ttfpgyzja4xlgha3qxylu55qyk7un5musysvcts5r854zkkjzsg99m2d730mzqvflefqqfzx9c",
+                    "name": "rances_inversionistas",
+                    "status": "active",
+                    "userID": "d4c86498-b0c1-7017-3db2-530eb1bfbb24"
+                },
+                {
+                    "id": "dac852fa8df91a66af3a3c10f89e50f510ad0e7d1d9eab4813330232",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T13:15:01.447Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qrdvs5h63hu35e408g7pp7y72r63ptgw05wea26gzvesyvk6epf04r0erfn27w3uzrufu584zzksulgan645syenqgeqzhjj7g",
+                    "name": "usuario_inversionista_7_wallet",
+                    "status": "active",
+                    "userID": "a4889468-60d1-70e3-4055-2f9e2965fa22"
+                },
+                {
+                    "id": "a3770def8e25f414fdcaf9fa9d6de4044f056d1b81c7a4c1fe5fda79",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-18T16:24:59.652Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qz3hwr003cjlg98aetul48tduszy7ptdrwqu0fxple0a57drwux7lr397s20mjhel2wkmeqyfuzk6xupc7jvrljlmfus30pfht",
+                    "name": "NeiderInversionista",
+                    "status": "active",
+                    "userID": "c4189458-b0d1-70d4-aa5d-e666980c884d"
+                },
+                {
+                    "id": "90ddb3d3da5c50e1f5eeef18272ada272f90c1a7c74470190bc8c97a",
+                    "isAdmin": false,
+                    "createdAt": "2024-07-26T14:47:52.967Z",
+                    "claimed_token": true,
+                    "address": "addr_test1qzgdmv7nmfw9pc04amh3sfe2mgnjlyxp5lr5guqep0yvj75smkea8kju2rsltmh0rqnj4k3897gvrf78g3cpjz7ge9aqphw8d3",
+                    "name": "ignacio!!11",
+                    "status": "active",
+                    "userID": "e4d81418-80a1-706b-c36c-988702b2693d"
                 }
-            ],
-            "output_index": 1,
-            "data_hash": null,
-            "inline_datum": null,
-            "collateral": false,
-            "reference_script_hash": null,
-            "utxo_hash": "1c27619db82523c0ad913cf0de57a42c81879a3f7d0f46497e127f529e79a414#1"
+            ]
         }
-    ],
-    "tx_size": 1376
+    }
 }

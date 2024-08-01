@@ -4,7 +4,7 @@ import logging
 import os
 import pathlib
 from dataclasses import dataclass
-from typing import Literal, Optional, Union, Any, Dict
+from typing import Optional, Union, Any, Dict
 from types import SimpleNamespace as Namespace
 
 import boto3
@@ -623,14 +623,16 @@ class Helpers:
         return auxiliary_data, metadata_f
 
     def build_reference_input_oracle(
-        self, chain_context: ChainContext
+        self,
+        chain_context: ChainContext,
+        oracle_token_name: str = Constants.ORACLE_TOKEN_NAME,
     ) -> Union[UTxO, None]:
 
         oracle_walletInfo = Keys().load_or_create_key_pair(Constants.ORACLE_WALLET_NAME)
         oracle_address = oracle_walletInfo[3]
         oracle_asset = self.build_multiAsset(
             policy_id=self.build_oraclePolicyId(Constants.ORACLE_WALLET_NAME),
-            tq_dict={Constants.ORACLE_TOKEN_NAME: 1},
+            tq_dict={oracle_token_name: 1},
         )
         oracle_utxo = self.find_utxos_with_tokens(
             chain_context, oracle_address, multi_asset=oracle_asset

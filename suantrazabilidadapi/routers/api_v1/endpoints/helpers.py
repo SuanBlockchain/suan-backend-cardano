@@ -37,19 +37,19 @@ from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
 router = APIRouter()
 
 
-@router.post(
-    "/tx-status/",
-    status_code=201,
-    summary="Get the number of block confirmations for a given transaction hash list",
-    response_description="Array of transaction confirmation counts",
-    # response_model=List[str],
-)
-async def txStatus(tx_hashes: Union[str, list[str]]) -> list:
-    try:
-        return CardanoApi().txStatus(tx_hashes)
+# @router.post(
+#     "/tx-status/",
+#     status_code=201,
+#     summary="Get the number of block confirmations for a given transaction hash list",
+#     response_description="Array of transaction confirmation counts",
+#     # response_model=List[str],
+# )
+# async def txStatus(tx_hashes: Union[str, list[str]]) -> list:
+#     try:
+#         return CardanoApi().txStatus(tx_hashes)
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get(
@@ -271,6 +271,7 @@ async def oracleDatum(
     action: pydantic_schemas.OracleAction,
     oracle_data: pydantic_schemas.Oracle,
     oracle_wallet_name: Optional[str] = "SuanOracle",
+    # token_name: Optional[str] = "SuanOracle",
 ) -> dict:
     try:
         oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
@@ -303,6 +304,7 @@ async def oracleDatum(
         native_scripts = [policy]
 
         tokenName = b"SuanOracle"
+        # tokenName = bytes(token_name, encoding="utf-8")
         ########################
         """Define NFT"""
         ########################
