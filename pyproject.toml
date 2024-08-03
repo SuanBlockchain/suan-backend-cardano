@@ -59,7 +59,10 @@ repo_dir = "/home/cardanodatos/suan/suan-trazabilidad"
 no_git_verify = false
 tag_format = "v{version}"
 # ... other configs
-version_variables = ["version.py:__version__"]
+version_variables = ["suantrazabilidad/__init__.py:__version__"]
+upload_to_pypi = true
+pypi_token = "${PYPI_TOKEN}"
+vcs_token = "${GH_TOKEN}"
 
 [tool.semantic_release.branches.main]
 match = "(main|master)"

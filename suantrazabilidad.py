@@ -10,6 +10,7 @@ from suantrazabilidadapi.core.config import settings
 from suantrazabilidadapi.routers.api_v1.api import api_router
 from suantrazabilidadapi.utils.security import generate_api_key
 from suantrazabilidadapi.utils.generic import Constants
+from suantrazabilidadapi import __version__
 
 # from suantrazabilidadapi.utils.backend_tasks import app as app_rocketry
 
@@ -25,6 +26,7 @@ suantrazabilidad = FastAPI(
     description=description,
     contact=contact,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    version=__version__,
     debug=True,
 )
 
