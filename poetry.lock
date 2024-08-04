@@ -617,26 +617,6 @@ files = [
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
-name = "click-option-group"
-version = "0.5.6"
-description = "Option groups missing in Click"
-category = "dev"
-optional = false
-python-versions = ">=3.6,<4"
-files = [
-    {file = "click-option-group-0.5.6.tar.gz", hash = "sha256:97d06703873518cc5038509443742b25069a3c7562d1ea72ff08bfadde1ce777"},
-    {file = "click_option_group-0.5.6-py3-none-any.whl", hash = "sha256:38a26d963ee3ad93332ddf782f9259c5bdfe405e73408d943ef5e7d0c3767ec7"},
-]
-
-[package.dependencies]
-Click = ">=7.0,<9"
-
-[package.extras]
-docs = ["Pallets-Sphinx-Themes", "m2r2", "sphinx"]
-tests = ["pytest"]
-tests-cov = ["coverage", "coveralls", "pytest", "pytest-cov"]
-
-[[package]]
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
@@ -843,18 +823,6 @@ dev = ["coverage (==7.2.7)", "pytest (==7.4.2)", "pytest-cov (==4.1.0)", "pytest
 docs = ["myst-parser (==0.18.0)", "sphinx (==5.1.1)"]
 ssh = ["paramiko (>=2.4.3)"]
 websockets = ["websocket-client (>=1.3.0)"]
-
-[[package]]
-name = "dotty-dict"
-version = "1.3.1"
-description = "Dictionary wrapper for quick access to deeply nested keys."
-category = "dev"
-optional = false
-python-versions = ">=3.5,<4.0"
-files = [
-    {file = "dotty_dict-1.3.1-py3-none-any.whl", hash = "sha256:5022d234d9922f13aa711b4950372a06a6d64cb6d6db9ba43d0ba133ebfce31f"},
-    {file = "dotty_dict-1.3.1.tar.gz", hash = "sha256:4b016e03b8ae265539757a53eba24b9bfda506fb94fbce0bee843c6f05541a15"},
-]
 
 [[package]]
 name = "dparse"
@@ -1396,22 +1364,6 @@ files = [
     {file = "idna-3.7-py3-none-any.whl", hash = "sha256:82fee1fc78add43492d3a1898bfa6d8a904cc97d8427f683ed8e798d07761aa0"},
     {file = "idna-3.7.tar.gz", hash = "sha256:028ff3aadf0609c1fd278d8ea3089299412a7a8b9bd005dd08b9f8285bcb5cfc"},
 ]
-
-[[package]]
-name = "importlib-resources"
-version = "6.4.0"
-description = "Read resources from Python packages"
-category = "dev"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "importlib_resources-6.4.0-py3-none-any.whl", hash = "sha256:50d10f043df931902d4194ea07ec57960f66a80449ff867bfe782b4c486ba78c"},
-    {file = "importlib_resources-6.4.0.tar.gz", hash = "sha256:cdb2b453b8046ca4e3798eb1d84f3cce1446a0e8e7b5ef4efb600f19fc398145"},
-]
-
-[package.extras]
-docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (<7.2.5)", "sphinx (>=3.5)", "sphinx-lint"]
-testing = ["jaraco.test (>=5.4)", "pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-mypy", "pytest-ruff (>=0.2.1)", "zipp (>=3.17)"]
 
 [[package]]
 name = "iniconfig"
@@ -2732,26 +2684,6 @@ files = [
 cli = ["click (>=5.0)"]
 
 [[package]]
-name = "python-gitlab"
-version = "4.8.0"
-description = "A python wrapper for the GitLab API"
-category = "dev"
-optional = false
-python-versions = ">=3.8.0"
-files = [
-    {file = "python_gitlab-4.8.0-py3-none-any.whl", hash = "sha256:89d7e24ff8fcb2b6845f1379350d0e0cdfbdae42b824bc4fa194c5a7a9a774bc"},
-    {file = "python_gitlab-4.8.0.tar.gz", hash = "sha256:c2c4d7b1cd503d905afe5dfc0f3f6619934361f76ae855c6cec9a666864d37cf"},
-]
-
-[package.dependencies]
-requests = ">=2.32.0"
-requests-toolbelt = ">=1.0.0"
-
-[package.extras]
-autocompletion = ["argcomplete (>=1.10.0,<3)"]
-yaml = ["PyYaml (>=6.0.1)"]
-
-[[package]]
 name = "python-multipart"
 version = "0.0.9"
 description = "A streaming multipart parser for Python"
@@ -2780,39 +2712,6 @@ files = [
 
 [package.extras]
 typing-extensions = ["typing-extensions (>=3.6)"]
-
-[[package]]
-name = "python-semantic-release"
-version = "9.8.6"
-description = "Automatic Semantic Versioning for Python projects"
-category = "dev"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "python_semantic_release-9.8.6-py3-none-any.whl", hash = "sha256:018729c09edbb1d4ad8b08af81bc2a42d002d54e37f87ed4b706fa283636ce3f"},
-    {file = "python_semantic_release-9.8.6.tar.gz", hash = "sha256:6e2e4626112bdbf43e86aac4535557e8c0a9274a4ea5352f14623cbabbfe498a"},
-]
-
-[package.dependencies]
-click = ">=8.0,<9.0"
-click-option-group = ">=0.5,<1.0"
-dotty-dict = ">=1.3,<2.0"
-gitpython = ">=3.0,<4.0"
-importlib-resources = ">=6.0,<7.0"
-jinja2 = ">=3.1,<4.0"
-pydantic = ">=2.0,<3.0"
-python-gitlab = ">=4.0,<5.0"
-requests = ">=2.25,<3.0"
-rich = ">=13.0,<14.0"
-shellingham = ">=1.5,<2.0"
-tomlkit = ">=0.11,<1.0"
-
-[package.extras]
-build = ["build (>=1.2,<2.0)"]
-dev = ["pre-commit (>=3.5,<4.0)", "ruff (==0.5.0)", "tox (>=4.11,<5.0)"]
-docs = ["Sphinx (>=6.0,<7.0)", "furo (>=2024.1,<2025.0)", "sphinx-autobuild (==2024.2.4)", "sphinxcontrib-apidoc (==0.5.0)"]
-mypy = ["mypy (==1.10.1)", "types-requests (>=2.32.0,<2.33.0)"]
-test = ["coverage[toml] (>=7.0,<8.0)", "pytest (>=7.0,<8.0)", "pytest-clarity (>=1.0,<2.0)", "pytest-cov (>=5.0,<6.0)", "pytest-env (>=1.0,<2.0)", "pytest-lazy-fixture (>=0.6.3,<0.7.0)", "pytest-mock (>=3.0,<4.0)", "pytest-pretty (>=1.2,<2.0)", "pytest-xdist (>=3.0,<4.0)", "requests-mock (>=1.10,<2.0)", "responses (>=0.25.0,<0.26.0)", "types-pytest-lazy-fixture (>=0.6.3,<0.7.0)"]
 
 [[package]]
 name = "pytz"
@@ -2971,21 +2870,6 @@ urllib3 = ">=1.21.1,<3"
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
-
-[[package]]
-name = "requests-toolbelt"
-version = "1.0.0"
-description = "A utility belt for advanced users of python-requests"
-category = "dev"
-optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-files = [
-    {file = "requests-toolbelt-1.0.0.tar.gz", hash = "sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6"},
-    {file = "requests_toolbelt-1.0.0-py2.py3-none-any.whl", hash = "sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06"},
-]
-
-[package.dependencies]
-requests = ">=2.0.1,<3.0.0"
 
 [[package]]
 name = "rich"
@@ -3556,18 +3440,6 @@ files = [
 ]
 
 [[package]]
-name = "tomlkit"
-version = "0.13.0"
-description = "Style preserving TOML library"
-category = "dev"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "tomlkit-0.13.0-py3-none-any.whl", hash = "sha256:7075d3042d03b80f603482d69bf0c8f345c2b30e41699fd8883227f89972b264"},
-    {file = "tomlkit-0.13.0.tar.gz", hash = "sha256:08ad192699734149f5b97b45f1f18dad7eb1b6d16bc72ad0c2335772650d7b72"},
-]
-
-[[package]]
 name = "toolz"
 version = "0.12.1"
 description = "List processing tools and functional utilities"
@@ -3994,4 +3866,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "a7164999e79427ef291963c755a771e6b9ba39fa0bb3c3de886c6b6abbae10db"
+content-hash = "62979b17909f124715f66989de6026713e610a3d2400e9b3f83ef32fa3c9794c"

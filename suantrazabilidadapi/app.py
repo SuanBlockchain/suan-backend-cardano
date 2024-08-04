@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from .core.config import settings
 from .routers.api_v1.api import api_router
 from .utils.security import generate_api_key
-from .utils.generic import Constants
+from . import __version__
 
 # from .utils.backend_tasks import app as app_rocketry
 
@@ -14,7 +14,7 @@ load_dotenv()
 
 description = "Este API facilita la integración de datos con proyectos forestales para mejorar su trazabilidad - Suan"
 title = "Suan Trazabilidad API"
-version = "0.0.1"
+version = __version__
 contact = {"name": "Suan"}
 
 suantrazabilidad = FastAPI(
@@ -22,6 +22,7 @@ suantrazabilidad = FastAPI(
     description=description,
     contact=contact,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    version=version,
     debug=True,
 )
 

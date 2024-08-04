@@ -18,7 +18,7 @@ load_dotenv()
 
 description = "Este API es el backend de la wallet de Plataforma - Suan"
 title = "Suan Trazabilidad API"
-version = "0.0.1"
+version = __version__
 contact = {"name": "Suan"}
 
 suantrazabilidad = FastAPI(
