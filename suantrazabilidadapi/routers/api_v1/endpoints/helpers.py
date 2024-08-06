@@ -215,12 +215,14 @@ async def minLovelace(addressDestin: pydantic_schemas.AddressDestin) -> int:
                     policy_id=policy_id, tq_dict=tokens
                 )
         # Create Value type
-        amount = Value(addressDestin.lovelace, multiAsset)
+        if multiAsset:
+            amount = Value(addressDestin.lovelace, multiAsset)
+        else:
+            amount = Value(addressDestin.lovelace)
 
+        datum = None
         if addressDestin.datum:
             datum = Datum(addressDestin.datum)
-        else:
-            datum = None
         # if not datum_hash:
         #     datum_hash = None
         # if not datum:

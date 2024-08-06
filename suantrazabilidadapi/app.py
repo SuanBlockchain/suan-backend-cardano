@@ -1,12 +1,17 @@
 from dotenv import load_dotenv
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+import uuid
+import os
+from datetime import datetime, timedelta
+
 
 from .core.config import settings
 from .routers.api_v1.api import api_router
 from .utils.security import generate_api_key
 from . import __version__
+from .utils.blockchain import CardanoNetwork
 
 # from .utils.backend_tasks import app as app_rocketry
 
@@ -39,6 +44,33 @@ suantrazabilidad.add_middleware(
 from fastapi.middleware.gzip import GZipMiddleware
 
 suantrazabilidad.add_middleware(GZipMiddleware, minimum_size=1000)
+
+sessions = {}
+
+
+# Middleware to handle sessions
+@suantrazabilidad.middleware("http")
+async def session_middleware(request: Request, call_next):
+    session_id = request.cookies.get("session_id")
+    if not session_id or session_id not in sessions:
+        session_id = str(uuid.uuid4())
+        sessions[session_id] = {"started": True}
+
+        CardanoNetwork().check_ogmios_service_health()
+        print(os.getenv("CHAIN_BACKEND"))
+
+    request.state.session_id = session_id
+    expire_time = datetime.now() + timedelta(days=1)
+    response = await call_next(request)
+
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        httponly=True,
+        # expires=expire_time,
+        secure=True,
+    )
+    return response
 
 
 ##################################################################

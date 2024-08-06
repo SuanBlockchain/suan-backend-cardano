@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 import websockets
 import ogmios.model.ogmios_model as om
 import ogmios.model.model_map as mm
 import json
 import requests
+import os
 
 from suantrazabilidadapi.utils.generic import Constants
 
@@ -50,22 +51,41 @@ async def ogmiosTipWs():
     return json.loads(response)
 
 
-if not Constants.COPILOT_SERVICE_DISCOVERY_ENDPOINT:
+# if not Constants.COPILOT_SERVICE_DISCOVERY_ENDPOINT:
 
-    @router.get(path="/ogmios-health")
-    async def ogmiosRequests():
-        """Get ogmios health statistics. This endpoint only works in localhost"""
+#     @router.get(path="/ogmios-health")
+#     async def ogmiosRequests():
+#         """Get ogmios health statistics. This endpoint only works in localhost"""
 
-        try:
-            url = f"http://{Constants.OGMIOS_URL}:{Constants.OGMIOS_PORT}/health"
+#         url = f"http://{Constants.OGMIOS_URL}:{Constants.OGMIOS_PORT}/health"
 
-            # response = requests.post(url, data=pld.json())
-            response = requests.get(url)
+# try:
+#     response = requests.get(url)
+#     response.raise_for_status()
+# except requests.exceptions.RequestException as e:
+#     raise HTTPException(status_code=503, detail=f"Failed to connect to the service: {e}")
 
-            # Parse the JSON response
-            data = response.json()
+# try:
+#     health_data = response.json()
+# except json.JSONDecodeError as e:
+#     raise HTTPException(status_code=500, detail=f"Failed to parse JSON response: {e}")
 
-            return data
-        except Exception as e:
-            msg = f"Error with the endpoint"
-            raise HTTPException(status_code=500, detail=msg)
+# try:
+#     url = f"http://{Constants.OGMIOS_URL}:{Constants.OGMIOS_PORT}/health"
+
+#     # response = requests.post(url, data=pld.json())
+#     response = requests.get(url)
+#     response.raise_for_status()
+
+#     # Parse the JSON response
+#     data = response.json()
+
+#     return data
+# # JSONResponse(status_code=500, content={"Failed to connect to the service": str(e)})
+
+# except requests.exceptions.RequestException as e:
+#     msg = f"Failed to connect to the service: {e}"
+#     raise HTTPException(status_code=500, detail=msg)
+# except Exception as e:
+#     msg = f"Error with the endpoint"
+#     raise HTTPException(status_code=500, detail=msg)

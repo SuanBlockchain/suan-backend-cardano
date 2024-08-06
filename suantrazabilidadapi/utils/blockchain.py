@@ -1,10 +1,23 @@
 import logging
 import os
-from dataclasses import dataclass
-from dotenv import load_dotenv
+from dataclasses import dataclass, field
+import requests
+import json
 
 from blockfrost import ApiUrls
-from pycardano import *
+
+# from pycardano import *
+from pycardano import (
+    Address,
+    ExtendedSigningKey,
+    HDWallet,
+    Network,
+    PaymentVerificationKey,
+    PaymentKeyPair,
+    ChainContext,
+    BlockFrostChainContext,
+    PlutusV2Script,
+)
 from ogmios import OgmiosChainContext as OgChainContext
 
 from suantrazabilidadapi.core.config import config
@@ -115,6 +128,9 @@ class Keys(Constants):
 
 @dataclass()
 class CardanoNetwork(Constants):
+    network_synchronization: float = field(default=0.0)
+    connection_status: str = field(default=None)
+
     def __post_init__(self):
         self.NETWORK_NAME: str = os.getenv("cardano_net", "preview")
         if self.NETWORK_NAME == "mainnet":
@@ -122,9 +138,62 @@ class CardanoNetwork(Constants):
         else:
             self.NETWORK = Network.TESTNET
 
+        self.OGMIOS_URL = (
+            f"http://{Constants.OGMIOS_URL}:{Constants.OGMIOS_PORT}/health"
+        )
+
+    def check_ogmios_service_health(self):
+        try:
+            url = self.OGMIOS_URL
+            response = requests.get(url, timeout=5)
+            response.raise_for_status()
+            ogmios_health_data = response.json()
+            self.connection_status = ogmios_health_data.get("connectionStatus")
+            self.network_synchronization = ogmios_health_data.get(
+                "networkSynchronization"
+            )
+
+            if (
+                self.connection_status == "connected"
+                and self.network_synchronization == 1
+            ):
+                logging.info("Ogmios service is healthy. Using Ogmios")
+                os.environ["CHAIN_BACKEND"] = "ogmios"
+
+            else:
+                logging.info(
+                    f"Ogmios service is NOT healthy. Connection: {self.connection_status}, Network_sync: {self.network_synchronization}. Using Blockfrost"
+                )
+                os.environ["CHAIN_BACKEND"] = "blockfrost"
+
+        except (requests.exceptions.RequestException, json.JSONDecodeError):
+            url = "https://httpbin.org/status/200"
+            response = requests.get(url, timeout=5)
+            os.environ["CHAIN_BACKEND"] = "blockfrost"
+
     def get_chain_context(self) -> ChainContext:
-        # chain_backend = os.getenv("CHAIN_BACKEND", "blockfrost")
+        """Obtain the chain context from: Ogmios or blockfrost.
+        First, it looks if ogmios is choosen in env variable and then it checks the health status
+        if the health status is not ok, it switches to blockfrost. Blockfrost is also choosen
+        directly without further validation if it was set in env variable as the main provider.
+
+        Raises:
+            ValueError: Raise error if not env variable is set (Ogmios | Blockfrost)
+
+        Returns:
+            ChainContext: ChainContext
+        """
+
         chain_backend = cardano["chain_backend"]
+        chain_backend = os.getenv("CHAIN_BACKEND")
+        print(chain_backend)
+
+        # Validates which backend service is prefered to use first by looking
+        if chain_backend == "ogmios":
+            return OgChainContext(
+                host=Constants.OGMIOS_URL, port=Constants.OGMIOS_PORT, secure=False
+            )
+
         if chain_backend == "blockfrost":
             if self.NETWORK_NAME == "preview":
                 self.BASE_URL = ApiUrls.preview.value
@@ -132,14 +201,6 @@ class CardanoNetwork(Constants):
             return BlockFrostChainContext(
                 self.BLOCK_FROST_PROJECT_ID, base_url=self.BASE_URL
             )
-
-        elif chain_backend == "ogmios":
-            return OgChainContext(
-                host=Constants.OGMIOS_URL, port=Constants.OGMIOS_PORT, secure=False
-            )
-            # return OgmiosChainContext(ws_url=ogmios_url, network=network)
-        # elif chain_backend == "kupo":
-        #     return OgmiosChainContext(ws_url=ogmios_url, network=network, kupo_url=kupo_url)
         else:
             raise ValueError(f"Chain backend not found: {chain_backend}")
 
