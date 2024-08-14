@@ -186,7 +186,7 @@ class CardanoNetwork(Constants):
 
         chain_backend = cardano["chain_backend"]
         chain_backend = os.getenv("CHAIN_BACKEND")
-        print(chain_backend)
+        logging.info(f"Chain backend used: {chain_backend}")
 
         # Validates which backend service is prefered to use first by looking
         if chain_backend == "ogmios":

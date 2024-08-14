@@ -1,33 +1,42 @@
-{
-    "startTime": "2024-07-26T04:03:41.309269716Z",
-    "lastKnownTip": {
-        "slot": 55814394,
-        "id": "bdd4baa2c81d0500a695f836332193ea06c2ce364e585057142220fc0782144c",
-        "height": 2344008
-    },
-    "lastTipUpdate": "2024-07-31T23:59:54.474391843Z",
-    "networkSynchronization": 1,
-    "currentEra": "babbage",
-    "metrics": {
-        "activeConnections": 0,
-        "runtimeStats": {
-            "cpuTime": 7376215083756,
-            "currentHeapSize": 12028,
-            "gcCpuTime": 6617308520424,
-            "maxHeapSize": 12094
+[
+    {
+        "asset_name": "50726f796563746f58546f6b656e",
+        "asset_name_ascii": "ProyectoXToken",
+        "fingerprint": "asset1jptr6fahl5ck5fgn6uy6pnrd8wd5kdvxhcf3ph",
+        "minting_tx_hash": "4341d12ca91bb3c9a332c0a8de4cf23cabcfc77b4ba15a510749ff089686e0b5",
+        "total_supply": "809438",
+        "mint_cnt": 1,
+        "burn_cnt": 0,
+        "creation_time": 1722297600,
+        "minting_tx_metadata": {
+            "721": {
+                "Area": "7200000",
+                "files": [
+                    {
+                        "src": "ipfs://QmQZiYeGcj9UTdQhJVRmKzZheHc5GA7Dd7K9a9GsBSScHh",
+                        "mediaType": "image/png"
+                    }
+                ],
+                "image": "ipfs://QmQZiYeGcj9UTdQhJVRmKzZheHc5GA7Dd7K9a9GsBSScHh",
+                "Categoria": "REDD+",
+                "mediaType": "image/png",
+                "Descripción": [
+                    "El Proyecto X es una ambiciosa iniciativa orientada a la",
+                    "reforestación y la restauración de suelos en los departamentos",
+                    "de Meta y Arauca. Este proyecto forma parte del BPIN",
+                    "2022000100005, priorizado y aprobado por el Ministerio de",
+                    "Ciencia, Tecnología e Innovación a través del Sistema General",
+                    "de Regalías (SGR). Su objetivo es mitigar los efectos del",
+                    "cambio climático mediante la utilización de tecnologías",
+                    "emergentes y biotecnología avanzada para rehabilitar",
+                    "ecosistemas degradados."
+                ],
+                "Nombre del token": "ProyectoXToken",
+                "Fecha de creación": "2024-07-17T16:50:14.810Z",
+                "Nombre del proyecto": "Proyecto X",
+                "Identificador del proyecto": "74718f7b-4f83-4ddc-9aac-36c09104d36e"
+            }
         },
-        "sessionDurations": {
-            "max": 0,
-            "mean": 2748.273858921161,
-            "min": 0
-        },
-        "totalConnections": 241,
-        "totalMessages": 479,
-        "totalUnrouted": 5
-    },
-    "connectionStatus": "connected",
-    "currentEpoch": 645,
-    "slotInEpoch": 86394,
-    "version": "nightly (f7aad562)",
-    "network": "preview"
-}
+        "token_registry_metadata": null
+    }
+]

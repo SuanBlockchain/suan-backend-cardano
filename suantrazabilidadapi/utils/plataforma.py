@@ -483,15 +483,16 @@ class CardanoApi(Constants):
     ) -> dict:
         return self.BLOCKFROST_API.address_extended(address, return_type="json")
 
-    def txStatus(self, txId: Union[str, list[str]]) -> list:
-        status_response = self.KOIOS_API.get_tx_status(txId)
-
-        return status_response
-
     def assetInfo(self, policy_id: str) -> list:
-        asset_info = self.KOIOS_API.get_policy_asset_info(policy_id)
+        asset_list = self.BLOCKFROST_API.assets_policy(policy_id, return_type="json")
 
-        return asset_info
+        asset_details_list = []
+        for asset in asset_list:
+            asset_name = asset.get("asset", "")
+            asset_details = self.BLOCKFROST_API.asset(asset_name, return_type="json")
+            asset_details_list.append(asset_details)
+
+        return asset_details_list
 
 
 @dataclass()

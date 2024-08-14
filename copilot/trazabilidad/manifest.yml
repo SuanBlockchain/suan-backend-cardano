@@ -14,13 +14,13 @@ image:
   # Port exposed through your container to route traffic to it.
   port: 80
 
-# http:
-#   healthcheck:
-#     path: /
-#     healthy_threshold: 3
-#     unhealthy_threshold: 5
-#     interval: 10s
-#     timeout: 5s
+http:
+  healthcheck:
+    path: /
+    healthy_threshold: 3
+    unhealthy_threshold: 5
+    interval: 10s
+    timeout: 5s
 
 # Number of CPU units for the task.
 cpu: 1024
@@ -43,6 +43,15 @@ variables:                    # Pass environment variables as key value pairs.
   CARDANO_NET: preview
   ENV: prod
   OGMIOS_URL: http://ogmios.test.api.local:1337
+  COPILOT_QUEUE_URI: !GetAtt EventsQueue.Arn
+
+
+addons:
+  - path: addons/rabbitmq.yml
+  - path: addons/reddis.yml
+    redis:
+      VpcId: vpc-09a24d67ca6e165cf
+      PrivateSubnets: subnet-0aef1333f7b247d81,subnet-0f2acefcdf398c3c7
 
 # tags:                         # Pass tags as key value pairs.
 #   project: project-name
@@ -51,12 +60,22 @@ variables:                    # Pass environment variables as key value pairs.
 #   GITHUB_TOKEN: GITHUB_TOKEN  # The key is the name of the environment variable, the value is the name of an SSM parameter.
 
 # You can override any of the values defined above by environment.
-environments:
-  prod:
-    variables:
-      ENV: prod       # Log level for the "test" environment.
-      OGMIOS_URL: http://ogmios.test.api.local:1337
-  test:
-    variables:
-      ENV: dev
-      OGMIOS_URL: http://ogmios.test.api.local:1337
+# environments:
+#   prod:
+#     variables:
+#       ENV: prod       # Log level for the "test" environment.
+#       OGMIOS_URL: http://ogmios.test.api.local:1337
+#       COPILOT_QUEUE_URI: !GetAtt EventsQueue.Arn
+#       REDIS_ENDPOINT: !ImportValue RedisEndpoint
+#       RABBITMQ_ENDPOINT: !ImportValue RabbitmqEndpoint
+#       RABBITMQ_USER: !ImportValue RabbitmqUser
+#       RABBITMQ_PASS: !ImportValue RabbitmqPass
+#   test:
+#     variables:
+#       ENV: dev
+#       OGMIOS_URL: http://ogmios.test.api.local:1337
+#       COPILOT_QUEUE_URI: !GetAtt EventsQueue.Arn
+#       REDIS_ENDPOINT: !ImportValue RedisEndpoint
+#       RABBITMQ_ENDPOINT: !ImportValue RabbitmqEndpoint
+#       RABBITMQ_USER: !ImportValue RabbitmqUser
+#       RABBITMQ_PASS: !ImportValue RabbitmqPass

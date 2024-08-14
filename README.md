@@ -104,3 +104,31 @@ alembic upgrade head
 alembic downgrade -1 # downgrade to previous version
 alembic downgrade head # drop tables
 ```
+
+### Celery
+
+1. Install celery with broker and backend dependencies (sqs or redis or rabbitmq) and then start both services
+
+
+### Describing AppRunner services
+
+```shell
+aws apprunner list-services
+
+aws apprunner describe-service --service-arn <service-arn>
+
+
+<!-- 2. Install watchdog to autoupload celery in development whenever there's a change in one of the project files
+
+```shell
+poetry add celery[sqs]
+#or
+poetry add celery[redis]
+watchmedo auto-restart --directory=./ --pattern=*.py --recursive -- celery -A suantrazabilidad.celery worker --loglevel info
+
+```
+
+Wathcdemo is only meant to be run in dev mode. 
+
+
+Run  -->

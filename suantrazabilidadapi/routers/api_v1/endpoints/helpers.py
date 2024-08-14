@@ -24,32 +24,13 @@ from pycardano import (
     min_lovelace,
 )
 
-# from sqlalchemy.orm import Session
-
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
 from suantrazabilidadapi.utils.generic import Constants
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
 
-# from suantrazabilidadapi.db.dblib import get_db
-# from suantrazabilidadapi.db.models import dbmodels
 
 router = APIRouter()
-
-
-# @router.post(
-#     "/tx-status/",
-#     status_code=201,
-#     summary="Get the number of block confirmations for a given transaction hash list",
-#     response_description="Array of transaction confirmation counts",
-#     # response_model=List[str],
-# )
-# async def txStatus(tx_hashes: Union[str, list[str]]) -> list:
-#     try:
-#         return CardanoApi().txStatus(tx_hashes)
-
-#     except ValueError as e:
-#         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get(

@@ -2,8 +2,13 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-from typing import Optional
 import uuid
+
+from fastapi.middleware.gzip import GZipMiddleware
+from datetime import datetime, timedelta, timezone
+from contextlib import asynccontextmanager
+
+from rpds import Queue
 
 # import asyncio
 # import uvicorn
@@ -14,6 +19,8 @@ from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.security import generate_api_key
 from suantrazabilidadapi import __version__
 
+# from suantrazabilidadapi.celery_worker import celery
+
 # from suantrazabilidadapi.utils.backend_tasks import app as app_rocketry
 
 load_dotenv()
@@ -23,6 +30,43 @@ title = "Suan Trazabilidad API"
 version = __version__
 contact = {"name": "Suan"}
 
+
+import asyncio
+import signal
+
+
+@asynccontextmanager
+async def lifespan(suantrazabilidad: FastAPI):
+
+    # Define the watchmedo command
+    watchmedo_command = [
+        "watchmedo",
+        "auto-restart",
+        "--directory=./",
+        "--pattern=*.py",
+        "--recursive",
+        "--",
+        "celery",
+        "-A",
+        "suantrazabilidad.celery",
+        "worker",
+        "--loglevel",
+        "info",
+    ]
+
+    # Start the watchmedo command as a subprocess
+    process = await asyncio.create_subprocess_exec(*watchmedo_command)
+    print("watchmedo started")
+
+    try:
+        yield
+    finally:
+        # Terminate the subprocess when the application shuts down
+        process.send_signal(signal.SIGTERM)
+        await process.wait()
+        print("watchmedo terminated")
+
+
 suantrazabilidad = FastAPI(
     title=title,
     description=description,
@@ -30,6 +74,7 @@ suantrazabilidad = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     version=__version__,
     debug=True,
+    lifespan=lifespan,
 )
 
 root_router = APIRouter()
@@ -53,12 +98,50 @@ suantrazabilidad.add_middleware(
 # )
 
 # Simple in-memory session store
+# TODO: handle cache memory with redis
 sessions = {}
 
-from fastapi.middleware.gzip import GZipMiddleware
-from datetime import datetime, timedelta
 
 suantrazabilidad.add_middleware(GZipMiddleware, minimum_size=1000)
+
+from celery import Celery
+
+celery = Celery(
+    "suantrazabilidad",
+    broker="redis://localhost:6379/0",
+    backend="redis://localhost:6379/0",
+)
+
+celery.conf.update(
+    broker_transport_options={
+        "region": "us-east-2",
+        "queue_name_prefix": "celery-",
+        "visibility_timeout": 3600,
+        "polling_interval": 1,
+        # "sts_role_arn": "arn:aws:iam::036134507423:user/suan-luis.restrepo",
+        # "predefined_queues": {
+        #     "celery": {
+        #         "url": "https://sqs.us-east-2.amazonaws.com/036134507423/TempTesting"
+        #     }
+        # },
+    },
+)
+
+import time
+
+
+@celery.task(name="suantrazabilidad.send_push_notification")
+def send_push_notification(device_token: str):
+    time.sleep(10)  # simulates slow network call to firebase/sns
+    with open("notification.log", mode="a") as notification_log:
+        response = f"Successfully sent push notification to: {device_token}\n"
+        notification_log.write(response)
+
+
+@suantrazabilidad.get("/push/{device_token}")
+async def notify(device_token: str):
+    send_push_notification.delay(device_token)
+    return {"message": "Notification sent"}
 
 
 # Middleware to handle sessions
@@ -70,32 +153,31 @@ async def session_middleware(request: Request, call_next):
         sessions[session_id] = {"started": True}
 
         CardanoNetwork().check_ogmios_service_health()
-        print(os.getenv("CHAIN_BACKEND"))
 
     request.state.session_id = session_id
-    expire_time = datetime.now() + timedelta(days=1)
+    expire_time = datetime.now(timezone.utc) + timedelta(minutes=10)
     response = await call_next(request)
 
     response.set_cookie(
         key="session_id",
         value=session_id,
         httponly=True,
-        # expires=expire_time,
+        expires=expire_time,
         secure=True,
     )
     return response
 
 
-def get_session(request: Request) -> Optional[dict]:
-    session_id = request.cookies.get("session_id")
-    return sessions.get(session_id)
+# def get_session(request: Request) -> Optional[dict]:
+#     session_id = request.cookies.get("session_id")
+#     return sessions.get(session_id)
 
 
-def on_session_start(session_id: str):
-    # Event triggered when a new session starts
-    print(f"New session started with ID: {session_id}")
-    # Additional logic for when a session starts can go here
-    CardanoNetwork().check_ogmios_service_health()
+# def on_session_start(session_id: str):
+#     # Event triggered when a new session starts
+#     print(f"New session started with ID: {session_id}")
+#     # Additional logic for when a session starts can go here
+#     CardanoNetwork().check_ogmios_service_health()
 
 
 # class Server(uvicorn.Server):
