@@ -19,6 +19,9 @@ FROM python:3.11
 
 WORKDIR /code
 
+# Install supervisord
+RUN apt-get update && apt-get install -y supervisor
+
 # Copy the exported requirements
 COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 
@@ -32,4 +35,10 @@ COPY ./suantrazabilidadapi /code/suantrazabilidadapi
 # WORKDIR /code/suantrazabilidadapi
 
 # Run the Celery worker
-CMD ["celery", "-A", "suantrazabilidadapi.app.celery", "worker", "--loglevel=info"]
+# CMD ["celery", "-A", "suantrazabilidadapi.app.celery_app", "worker", "--loglevel=debug"]
+
+# Copy supervisord config
+COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Run supervisord to manage Celery worker and Celery Beat
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

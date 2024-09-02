@@ -130,5 +130,18 @@ watchmedo auto-restart --directory=./ --pattern=*.py --recursive -- celery -A su
 
 Wathcdemo is only meant to be run in dev mode. 
 
+### Describing containers in ECS
 
-Run  -->
+```shell
+aws ecs describe-tasks --cluster <name_of_the_cluster> --tasks <task_id>
+
+aws ecs describe-tasks --cluster api-test-Cluster-jGAd1ckpBU8v --tasks ee0d8a03f97c4267b193ecbd2ccaad60
+
+aws ecs execute-command \
+    --cluster <your-cluster-name> \
+    --task <task-id> \
+    --container <container-name> \
+    --interactive \
+    --command "/bin/sh"
+
+```

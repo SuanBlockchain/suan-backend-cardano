@@ -185,7 +185,7 @@ class CardanoNetwork(Constants):
         """
 
         chain_backend = cardano["chain_backend"]
-        chain_backend = os.getenv("CHAIN_BACKEND")
+        chain_backend = os.getenv("CHAIN_BACKEND") or "blockfrost"
         logging.info(f"Chain backend used: {chain_backend}")
 
         # Validates which backend service is prefered to use first by looking

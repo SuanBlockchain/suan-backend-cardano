@@ -43,15 +43,16 @@ variables:                    # Pass environment variables as key value pairs.
   CARDANO_NET: preview
   ENV: prod
   OGMIOS_URL: http://ogmios.test.api.local:1337
+  REDIS_URL: redis://redisbackend.test.api.local:6379
   COPILOT_QUEUE_URI: !GetAtt EventsQueue.Arn
 
 
-addons:
-  - path: addons/rabbitmq.yml
-  - path: addons/reddis.yml
-    redis:
-      VpcId: vpc-09a24d67ca6e165cf
-      PrivateSubnets: subnet-0aef1333f7b247d81,subnet-0f2acefcdf398c3c7
+# addons:
+#   - path: addons/rabbitmq.yml
+#   - path: addons/reddis.yml
+#     redis:
+#       VpcId: vpc-09a24d67ca6e165cf
+#       PrivateSubnets: subnet-0aef1333f7b247d81,subnet-0f2acefcdf398c3c7
 
 # tags:                         # Pass tags as key value pairs.
 #   project: project-name

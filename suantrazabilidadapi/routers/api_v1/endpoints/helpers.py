@@ -1,18 +1,15 @@
+import binascii
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 from cbor2 import loads
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pycardano import (
     Address,
-    AlonzoMetadata,
     AssetName,
-    AuxiliaryData,
     Datum,
-    ExtendedSigningKey,
     HDWallet,
     InvalidHereAfter,
-    Metadata,
     MultiAsset,
     PaymentVerificationKey,
     ScriptAll,
@@ -23,11 +20,14 @@ from pycardano import (
     Value,
     min_lovelace,
 )
+import redis
+from redis.commands.search.query import Query
+import uuid
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
 from suantrazabilidadapi.utils.generic import Constants
-from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
+from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma
 
 
 router = APIRouter()
@@ -40,13 +40,19 @@ router = APIRouter()
     response_description="Confirmation of token sent to provided address",
     # response_model=List[str],
 )
-async def sendAccessToken(wallet_id: str, destinAddress: str):
+async def sendAccessToken(
+    wallet_id: str,
+    destinAddress: str,
+    marketplace_id: str,
+    save_flag: bool = False,
+):
     try:
-        ########################
-        """1. Obtain the MasterKey to pay and mint"""
-        ########################
+        # TODO: change the redis connectio to a more generic form
 
-        # db_wallet = db.query(dbmodels.TokenAccess).filter(dbmodels.TokenAccess.requester == destinAddress).first()
+        # Set generic variables
+        scriptName = "NativeAccessToken"
+        scriptCategory = "PlutusV2"
+        script_type = "native"
 
         r = Plataforma().getWallet("id", wallet_id)
         if r["data"].get("data", None) is not None:
@@ -56,101 +62,99 @@ async def sendAccessToken(wallet_id: str, destinAddress: str):
                     f"Wallet with id: {wallet_id} does not exist in DynamoDB"
                 )
             else:
+                ########################
+                """1. Obtain the payment sk and vk from the walletInfo"""
+                ########################
                 seed = walletInfo["seed"]
                 hdwallet = HDWallet.from_seed(seed)
                 child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
 
-                payment_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
-
                 payment_vk = PaymentVerificationKey.from_primitive(
                     child_hdwallet.public_key
                 )
-
-                master_address = Address.from_primitive(walletInfo["address"])
-                ########################
-                """3. Create the script and policy"""
-                ########################
-                # A policy that requires a signature from the policy key we generated above
-                pub_key_policy = ScriptPubkey(payment_vk.hash())  # type: ignore
-                # A time policy that disallows token minting after 10000 seconds from last block
-                # must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
-                # Combine two policies using ScriptAll policy
+                pub_key_policy = ScriptPubkey(payment_vk.hash())
                 policy = ScriptAll([pub_key_policy])
                 # Calculate policy ID, which is the hash of the policy
                 policy_id = policy.hash()
-                print(f"Policy ID: {policy_id}")
-                with open(Constants().PROJECT_ROOT / "policy.id", "a+") as f:
-                    f.truncate(0)
-                    f.write(str(policy_id))
-                # Create the final native script that will be attached to the transaction
-                native_scripts = [policy]
+                policy_id_str = binascii.hexlify(policy_id.payload).decode("utf-8")
+
                 ########################
-                """Define NFT"""
+                """2. Create the request in redis cache to be processed by the scheduler"""
                 ########################
-                tokenName = b"SandboxSuanAccess1"
-                my_nft_alternative = MultiAsset.from_primitive(
-                    {
-                        policy_id.payload: {
-                            tokenName: 1,
-                        }
-                    }
-                )
-                ########################
-                """Create metadata"""
-                ########################
-                metadata = {
-                    721: {
-                        policy_id.payload.hex(): {
-                            tokenName: {
-                                "description": "NFT con acceso a marketplace en Sandbox",
-                                "name": "Token NFT SandBox",
-                            },
-                        }
-                    }
+                import os
+
+                redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+                rdb = redis.Redis.from_url(redis_url, decode_responses=True)
+                # rdb = redis.Redis(decode_responses=True)
+                token_string = "SandboxSuanAccess1"
+
+                record = {
+                    "status": "pending",
+                    "destinAddress": destinAddress,
+                    "wallet_id": wallet_id,
+                    "token_string": token_string,
                 }
-                # Place metadata in AuxiliaryData, the format acceptable by a transaction.
-                auxiliary_data = AuxiliaryData(
-                    AlonzoMetadata(metadata=Metadata(metadata))
-                )
-                """Build transaction"""
-                chain_context = CardanoNetwork().get_chain_context()
-                # Create a transaction builder
-                builder = TransactionBuilder(chain_context)
-                # Add our own address as the input address
-                builder.add_input_address(master_address)
-                # Since an InvalidHereAfter rule is included in the policy, we must specify time to live (ttl) for this transaction
-                # builder.ttl = must_before_slot.after
-                # Set nft we want to mint
-                builder.mint = my_nft_alternative
-                # Set native script
-                builder.native_scripts = native_scripts
-                # Set transaction metadata
-                builder.auxiliary_data = auxiliary_data
-                # Calculate the minimum amount of lovelace that need to hold the NFT we are going to mint
-                min_val = min_lovelace(
-                    chain_context,
-                    output=TransactionOutput(
-                        destinAddress, Value(0, my_nft_alternative)
-                    ),
-                )
-                # Send the NFT to our own address + 500 ADA
-                builder.add_output(
-                    TransactionOutput(destinAddress, Value(min_val, my_nft_alternative))
-                )
-                builder.add_output(TransactionOutput(destinAddress, Value(50000000)))
-                # Create final signed transaction
-                signed_tx = builder.build_and_sign(
-                    [payment_skey], change_address=master_address
-                )
-                # Submit signed transaction to the network
-                tx_id = signed_tx.transaction_body.hash().hex()
-                chain_context.submit_tx(signed_tx)
-                ####################################################
-                final_response = {
-                    "success": True,
-                    "msg": "Tx submitted to the blockchain",
-                    "tx_id": tx_id,
-                }
+                index_name = "idx:AccessToken"
+                key = str(uuid.uuid4())
+                rdb.json().set("AccessToken:" + key, "$", record)
+                query = Query("@status:pending")
+                result = rdb.ft(index_name).search(query)
+
+                logging.info(result)
+
+                ########################
+                """3. Save the script if save_flag is true"""
+                ########################
+                if save_flag:
+                    variables = {
+                        "id": policy_id_str,
+                        "name": scriptName,
+                        "MainnetAddr": "na",
+                        "testnetAddr": "na",
+                        "cbor": "na",
+                        "pbk": wallet_id,
+                        "script_category": scriptCategory,
+                        "script_type": script_type,
+                        "Active": True,
+                        "token_name": token_string,
+                        "marketplaceID": marketplace_id,
+                    }
+                    responseScript = Plataforma().createContract(variables)
+                    if responseScript["success"] == True:
+                        if (
+                            responseScript["data"]["data"] is not None
+                            and responseScript["data"].get("errors", None) is None
+                        ):
+                            final_response = {
+                                "success": True,
+                                "msg": "Token scheduled to be sent soon",
+                                "policy_id": policy_id_str,
+                                "tokenName": token_string,
+                            }
+                        else:
+                            final_response = {
+                                "success": False,
+                                "msg": "Token scheduled to be sent soon but problems creating the script in dynamoDB",
+                                "data": responseScript["data"]["errors"],
+                                "policy_id": policy_id_str,
+                                "tokenName": token_string,
+                            }
+                    else:
+                        final_response = {
+                            "success": False,
+                            "msg": "Token scheduled to be sent soon but problems creating the script in dynamoDB",
+                            "data": responseScript["error"],
+                            "policy_id": policy_id_str,
+                            "tokenName": token_string,
+                        }
+                else:
+                    final_response = {
+                        "success": True,
+                        "msg": "Token scheduled to be sent soon but script not saved in dynamoDB",
+                        "policy_id": policy_id_str,
+                        "tokenName": token_string,
+                    }
+
         else:
             if r["success"] == True:
                 final_response = {
@@ -362,3 +366,17 @@ async def oracleDatum(
         return final_response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# from suantrazabilidad import celery_app
+
+
+# @router.get("/status/{task_id}")
+# async def task_status(task_id: str):
+#     task = celery_app.AsyncResult(task_id)
+#     if task.state == "SUCCESS":
+#         return {"status": "done", "result": task.result}
+#     elif task.state == "PENDING":
+#         return {"status": "pending"}
+#     else:
+#         return {"status": "failed"}

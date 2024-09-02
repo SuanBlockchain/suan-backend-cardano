@@ -310,7 +310,7 @@ async def createContract(
                         else:
                             final_response = {
                                 "success": False,
-                                "msg": f"Problems creating the cript with id: {policy_id} in dynamoDB",
+                                "msg": f"Problems creating the script with id: {policy_id} in dynamoDB",
                             }
                     else:
                         final_response = {

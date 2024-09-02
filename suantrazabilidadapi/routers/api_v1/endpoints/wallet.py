@@ -277,48 +277,18 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post(
+@router.get(
     "/query-address/",
     status_code=201,
     summary="Given an address or a list of address obtain the details",
     response_description="Get address info - balance, associated stake address (if any) and UTxO set for given addresses",
 )
-async def queryAddress(address: Union[str, list[str]]):
+async def queryAddress(address: str):
     """Get address info - balance, associated stake address (if any) and UTxO set for given addresses \n"""
     try:
         return CardanoApi().getAddressInfo(address)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-# @router.get(
-#     "/account-tx/",
-#     status_code=200,
-#     summary="Get a list of all Txs for a given stake address (account)",
-#     response_description="Get a list of all Txs for a given stake address (account)",
-# )
-# async def accountTx(
-#     stake: str,
-#     after_block_height: int = 0,
-#     skip: int = 0,
-#     limit: int = 10,
-#     all: bool = False,
-# ):
-#     """Get a list of all Txs for a given stake address (account) \n"""
-#     try:
-#         data, total_count, page_size, current_page = CardanoApi().getAccountTxs(
-#             stake, after_block_height, skip, limit, all
-#         )
-
-#         result = {
-#             "data": data,
-#             "total_count": total_count,
-#             "current_page": current_page,
-#             "page_size": page_size,
-#         }
-#         return result
-#     except ValueError as e:
-#         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get(

@@ -6,6 +6,7 @@ import pathlib
 from dataclasses import dataclass
 from typing import Optional, Union, Any, Dict
 from types import SimpleNamespace as Namespace
+from blockfrost.utils import ApiError
 
 import boto3
 import requests
@@ -377,43 +378,43 @@ class CardanoApi(Constants):
         else:
             return obj
 
-    def getAddressInfo(self, address: Union[str, list[str]]) -> list[dict]:
-        # address_response = self.KOIOS_API.get_address_info(address)
-        # asset_response = self.KOIOS_API.get_address_assets(address)
+    def getAddressInfo(self, address: str) -> list[dict]:
+        try:
+            address_response = self.BLOCKFROST_API.address(address, return_type="json")
 
-        # address_response1 = self.BLOCKFROST_API.address_total(address)
-        # address_response2 = self.BLOCKFROST_API.address_transactions(address)
-        address_response = self.BLOCKFROST_API.address(address, return_type="json")
-        # address_response = self.BLOCKFROST_API.address_utxos(
-        #     address, return_type="json"
-        # )
-        # address_response4 = self.BLOCKFROST_API.address_utxos_asset(address)
-        print(address_response)
+            final_response = {
+                "address": address_response["address"],
+                "stake_address": address_response["stake_address"],
+                "script_address": address_response["script"],
+            }
 
-        final_response = {
-            "address": address_response["address"],
-            "stake_address": address_response["stake_address"],
-            "script_address": address_response["script"],
-        }
+            # # Group data2 by "address" key
+            assets = []
+            for amount in address_response["amount"]:
+                unit = amount["unit"]
+                if amount["unit"] == "lovelace":
+                    final_response["balance"] = amount["quantity"]
+                else:  # unit != "lovelace":
+                    policy_id = unit[:56]
+                    name_bytes = unit[56:]
+                    assets.append(
+                        {
+                            "policy_id": policy_id,
+                            "asset_name": bytes.fromhex(name_bytes).decode("utf-8"),
+                            "quantity": amount["quantity"],
+                        }
+                    )
 
-        # # Group data2 by "address" key
-        assets = []
-        for amount in address_response["amount"]:
-            unit = amount["unit"]
-            if amount["unit"] == "lovelace":
-                final_response["balance"] = amount["quantity"]
-            else:  # unit != "lovelace":
-                policy_id = unit[:56]
-                name_bytes = unit[56:]
-                assets.append(
-                    {
-                        "policy_id": policy_id,
-                        "asset_name": bytes.fromhex(name_bytes).decode("utf-8"),
-                        "quantity": amount["quantity"],
-                    }
-                )
+            final_response["assets"] = assets
 
-        final_response["assets"] = assets
+        except ApiError as e:
+
+            if e.status_code == 404:
+                return {"error": "The address has never been used."}
+            else:
+                return {
+                    "error": f"Unexpected error: {e.status_code} - {e.error}: {e.message}"
+                }
 
         return final_response
 
@@ -481,7 +482,17 @@ class CardanoApi(Constants):
         self,
         address: str,
     ) -> dict:
-        return self.BLOCKFROST_API.address_extended(address, return_type="json")
+
+        try:
+            return self.BLOCKFROST_API.address_extended(address, return_type="json")
+        except ApiError as e:
+
+            if e.status_code == 404:
+                return {"error": "The address has never been used."}
+            else:
+                return {
+                    "error": f"Unexpected error: {e.status_code} - {e.error}: {e.message}"
+                }
 
     def assetInfo(self, policy_id: str) -> list:
         asset_list = self.BLOCKFROST_API.assets_policy(policy_id, return_type="json")

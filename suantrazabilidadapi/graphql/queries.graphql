@@ -68,6 +68,7 @@ query listWallets {
       userID
       address
       claimed_token
+      isAdmin
     }
   }
 }
@@ -137,8 +138,8 @@ mutation WalletTokenUpdate ($id: ID!) {
   }
 }
 
-mutation ScriptMutation ($id: ID!, $Active: Boolean!, $MainnetAddr: String!, $cbor: String!, $name: String!, $pbk: [String], $script_category: String!, $script_type: String!, $testnetAddr: String!, $token_name: String, $productID: ID, $scriptParentID: ID ) {
-  createScript(input: {id: $id, Active: $Active, MainnetAddr: $MainnetAddr, cbor: $cbor, name: $name, pbk: $pbk, script_category: $script_category, script_type: $script_type, testnetAddr: $testnetAddr, token_name: $token_name, productID: $productID, scriptParentID: $scriptParentID}) {
+mutation ScriptMutation ($id: ID!, $Active: Boolean!, $MainnetAddr: String!, $cbor: String!, $name: String!, $pbk: [String], $script_category: String!, $script_type: String!, $testnetAddr: String!, $token_name: String, $productID: ID, $scriptParentID: ID, $marketplaceID: ID ) {
+  createScript(input: {id: $id, Active: $Active, MainnetAddr: $MainnetAddr, cbor: $cbor, name: $name, pbk: $pbk, script_category: $script_category, script_type: $script_type, testnetAddr: $testnetAddr, token_name: $token_name, productID: $productID, scriptParentID: $scriptParentID, marketplaceID: $marketplaceID}) {
     id
   }
 }

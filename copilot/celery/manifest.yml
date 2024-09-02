@@ -40,10 +40,7 @@ exec: true # Enable running commands in your container.
 #  LOG_LEVEL: info
 variables:
   COPILOT_QUEUE_URI: !GetAtt EventsQueue.Arn
-  RABBIT_MQ_ENDPOINT: '{{resolve:ssm:/trazabilidad/rabbitmq-endpoint}}'
-  # RABBITMQ_USER: '{{resolve:ssm:/trazabilidad/rabbitmq-user}}'
-  # RABBITMQ_PASSWORD: '{{resolve:ssm-secure:/trazabilidad/rabbitmq-password}}'
-  REDIS_ENDPOINT: '{{resolve:ssm:/trazabilidad/redis-endpoint}}'
+  REDIS_URL: redis://redisbackend.test.api.local:6379
 
 #secrets:                      # Pass secrets from AWS Systems Manager (SSM) Parameter Store.
 #  GITHUB_TOKEN: GITHUB_TOKEN  # The key is the name of the environment variable, the value is the name of the SSM parameter.
