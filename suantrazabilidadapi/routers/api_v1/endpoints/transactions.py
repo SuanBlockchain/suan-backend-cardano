@@ -1,4 +1,3 @@
-from itertools import chain
 import logging
 from copy import deepcopy
 from typing import Dict, List, Optional

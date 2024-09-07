@@ -1,19 +1,16 @@
-from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.gzip import GZipMiddleware
-import uuid
-from datetime import datetime, timedelta, timezone
+from starlette.middleware.base import BaseHTTPMiddleware
 import os
 from celery import Celery
 
 
-from .core.config import settings, config
+from .core.config import settings
 from .routers.api_v1.api import api_router
 from .utils.security import generate_api_key
 from . import __version__
-from .utils.blockchain import CardanoNetwork
 from .celery.main import lifespan
 from .celery.tasks import send_push_notification
 
@@ -103,18 +100,22 @@ suantrazabilidad.add_middleware(
 
 suantrazabilidad.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# security = config(section="security")
 
-# TODO: use SSM store parameters to store the username and password in rabbitmq.yml
-# local_rabbit_mq_username = security["local_rabbit_mq_username"]
-# local_rabbit_mq_password = security["local_rabbit_mq_password"]
+# class SuppressLogsMiddleware(BaseHTTPMiddleware):
+#     async def dispatch(self, request: Request, call_next):
+#         if request.url.path == "/":
+#             # Replace the logger with a no-op logger to suppress logs
+#             import logging
 
-# rabbitmq_endpoint = os.getenv("RABBIT_MQ_ENDPOINT")
-# rabbitmq_user = os.getenv("RABBIT_MQ_USERNAME")
-# rabbitmq_password = os.getenv("RABBIT_MQ_PASSWORD")
+#             logging.getLogger("uvicorn.access").disabled = True
+#         response = await call_next(request)
+#         if request.url.path == "/":
+#             # Re-enable the logger after the request is processed
+#             logging.getLogger("uvicorn.access").disabled = False
+#         return response
 
-# broker_url = f"amqps://{local_rabbit_mq_username}:{local_rabbit_mq_password}@{rabbitmq_endpoint}:5671"
-# backend_url = f"redis://{redis_endpoint}:6379/0"
+
+# suantrazabilidad.add_middleware(SuppressLogsMiddleware)
 
 
 sessions = {}

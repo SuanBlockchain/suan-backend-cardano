@@ -420,7 +420,6 @@ class CardanoApi(Constants):
 
     def getUtxoInfo(self, txhash: str) -> list[dict]:
         utxo_info = self.BLOCKFROST_API.transaction_utxos(txhash, return_type="json")
-        # utxo_info = self.KOIOS_API.get_utxo_info(utxo, extended)
         return utxo_info
 
     def getAddressTxs(

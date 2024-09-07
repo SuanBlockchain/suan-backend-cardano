@@ -22,6 +22,7 @@ from pycardano import (
     TransactionOutput,
     Value,
 )
+from pycardano.exception import TransactionFailedException
 
 import redis
 from redis.commands.search.query import Query
@@ -51,7 +52,7 @@ def send_push_notification(device_token: str):
     return response
 
 
-@shared_task(name="schedule_task")
+# @shared_task(name="access-token-task")
 def schedule_task():
     # TODO: Make sure that the same address cannot claim twice. There must be a way to derive from the stake key when it already has the token, but also when requesting more than one in the same transaction
 
@@ -175,7 +176,6 @@ def schedule_task():
                         # Update the document with success Status in Redis using the correct id (UUID)
                         task_data["status"] = "success"
                         rdb.json().set(task["id"], "$", task_data)
-                        # rdb.expire(task["id"], ttl_seconds)  # Set the TTL for the key
 
                         destinAddress_list.append(destinAddress)
                         tasks_impacted.append(task["id"])
@@ -212,6 +212,8 @@ def schedule_task():
                     signed_tx = builder.build_and_sign(
                         [payment_skey], change_address=master_address
                     )
+                    print(signed_tx.to_cbor())
+                    print(signed_tx.to_cbor_hex())
                     tx_id = signed_tx.transaction_body.hash().hex()
                     logger.info(f"Transaction ID: {tx_id}")
 
@@ -219,6 +221,8 @@ def schedule_task():
                         "tx_id": tx_id,
                         "destinAddresses": destinAddress_list,
                     }
+
+                    chain_context.submit_tx(signed_tx)
 
         logging.info("All pending tasks processed and grouped by wallet_id.")
 
@@ -230,7 +234,8 @@ def schedule_task():
     except TypeError as e:
         # Log and update impacted tasks on TypeError
         return handle_exception(tasks_impacted, e, "Possible non NoneType error")
-
+    except TransactionFailedException as e:
+        return handle_exception(tasks_impacted, e, "Invalid transaction")
     except Exception as e:
         # Log and update impacted tasks on any other exception
         return handle_exception(tasks_impacted, e, "General exception raised")

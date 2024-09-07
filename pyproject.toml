@@ -11,28 +11,18 @@ python = ">=3.11,<3.12"
 python-decouple = "^3.8"
 requests = "^2.30.0"
 uvicorn = "^0.22.0"
-pandas = "<2.0.0"
 openpyxl = "^3.1.2"
-numpy = "^1.24.3"
 pyqldb = "^3.2.3"
-passlib = "^1.7.4"
-koios-api = "^1.1.0.0"
 python-dotenv = "^1.0.0"
 boto3 = "^1.34.58"
-uplc = "^0.6.7"
 pyaiken = "^0.5.5"
-streamlit = "^1.35.0"
-alembic = "^1.13.2"
-psycopg2 = "^2.9.9"
-rocketry = "^2.5.1"
 fastapi = "^0.111.1"
 pydantic = "^2.8.2"
 pydantic-settings = "^2.3.4"
 ogmios = "^1.1.1"
-websockets = "^12.0"
-opshin = "^0.22.0"
 celery = {extras = ["redis", "sqs"], version = "^5.4.0"}
 flower = "^2.0.1"
+opshin = "^0.23.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -43,6 +33,8 @@ flake8 = "^7.0.0"
 bandit = "^1.7.8"
 safety = "^3.2.0"
 watchdog = "^4.0.1"
+
+
 
 [build-system]
 requires = ["poetry-core"]
