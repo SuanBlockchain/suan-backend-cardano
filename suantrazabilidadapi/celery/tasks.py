@@ -52,7 +52,7 @@ def send_push_notification(device_token: str):
     return response
 
 
-# @shared_task(name="access-token-task")
+@shared_task(name="access-token-task")
 def schedule_task():
     # TODO: Make sure that the same address cannot claim twice. There must be a way to derive from the stake key when it already has the token, but also when requesting more than one in the same transaction
 
@@ -76,8 +76,8 @@ def schedule_task():
                 # Parse the task data from JSON
                 task_data_json = json.loads(task_data)
 
-                # Check if 'processed_wallets' is 0
-                if task_data_json.get("result", {}).get("processed_wallets", -1) == 0:
+                # Check if 'processed_addresses' is 0
+                if task_data_json.get("result", {}).get("processed_addresses", -1) == 0:
                     # Update the TTL (e.g., 10 minutes)
                     rdb.expire(task_key, ttl_seconds)
 
@@ -148,7 +148,7 @@ def schedule_task():
                     builder.native_scripts = native_scripts
 
                     destinAddress_list = []
-                    for i, task in enumerate(tasks):
+                    for task in tasks:
                         task_data = task["data"]
                         destinAddress = task_data.get("destinAddress")
                         token_string = task_data.get("token_string")
@@ -182,7 +182,11 @@ def schedule_task():
 
                     # Set nft we want to mint and more important the quantity as per number of output addresses
                     builder.mint = MultiAsset.from_primitive(
-                        {policy_id.payload: {bytes(token_string, encoding="utf-8"): i}}
+                        {
+                            policy_id.payload: {
+                                bytes(token_string, encoding="utf-8"): len(tasks)
+                            }
+                        }
                     )
 
                     ########################
@@ -212,8 +216,6 @@ def schedule_task():
                     signed_tx = builder.build_and_sign(
                         [payment_skey], change_address=master_address
                     )
-                    print(signed_tx.to_cbor())
-                    print(signed_tx.to_cbor_hex())
                     tx_id = signed_tx.transaction_body.hash().hex()
                     logger.info(f"Transaction ID: {tx_id}")
 
@@ -227,7 +229,7 @@ def schedule_task():
         logging.info("All pending tasks processed and grouped by wallet_id.")
 
         return {
-            "processed_wallets": len(grouped_by_wallet),
+            "processed_addresses": len(tasks),
             "transactions": wallet_ids,
         }
 
