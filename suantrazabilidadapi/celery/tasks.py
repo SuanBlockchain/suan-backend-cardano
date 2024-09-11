@@ -54,7 +54,8 @@ def send_push_notification(device_token: str):
 
 @shared_task(name="access-token-task")
 def schedule_task():
-    # TODO: Make sure that the same address cannot claim twice. There must be a way to derive from the stake key when it already has the token, but also when requesting more than one in the same transaction
+    # TODO: Make sure that the same address cannot claim twice by checking from the wallet table in dynamoDB or There must be a way to derive from the stake key when it already has the token, but also when requesting more than one in the same transaction
+    # TODO:
 
     index_name = "idx:AccessToken"
     token_string = "SandboxSuanAccess1"
@@ -229,7 +230,7 @@ def schedule_task():
         logging.info("All pending tasks processed and grouped by wallet_id.")
 
         return {
-            "processed_addresses": len(tasks),
+            "processed_addresses": len(wallet_ids),
             "transactions": wallet_ids,
         }
 
