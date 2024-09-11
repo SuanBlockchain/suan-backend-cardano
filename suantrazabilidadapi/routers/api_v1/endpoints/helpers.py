@@ -120,6 +120,7 @@ async def sendAccessToken(
                         "marketplaceID": marketplace_id,
                     }
                     responseScript = Plataforma().createContract(variables)
+                    # TODO: if script exists don't try to write it in dynamoDB
                     if responseScript["success"] == True:
                         if (
                             responseScript["data"]["data"] is not None

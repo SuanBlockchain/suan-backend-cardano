@@ -145,3 +145,10 @@ aws ecs execute-command \
     --command "/bin/sh"
 
 ```
+
+### Starting celery
+
+```shell
+celery -A suantrazabilidad.celery_app worker --loglevel debug
+celery -A suantrazabilidad.celery_app beat --loglevel debug
+```

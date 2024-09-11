@@ -68,8 +68,9 @@ celery_app.conf.update(
 
 celery_app.conf.beat_schedule = {
     "run-me-every-thirty-seconds": {
-        "task": "schedule_task",
+        "task": "access-token-task",
         "schedule": 120,
+        "options": {"queue": "celery"},
     }
 }
 

@@ -7,6 +7,7 @@ import uuid
 from fastapi.middleware.gzip import GZipMiddleware
 from datetime import datetime, timedelta, timezone
 from celery import Celery
+import logging
 
 from suantrazabilidadapi.celery.main import lifespan
 from suantrazabilidadapi.core.config import settings

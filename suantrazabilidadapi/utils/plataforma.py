@@ -582,6 +582,9 @@ class Helpers:
         index: int,
     ) -> tuple[bool, UTxO]:
         utxo_existence = False
+        utxo_is = None
+        utxos = context.utxos(address)
+        logging.info(f"utxos: {utxos}")
         for utxo_in_context in context.utxos(address):
             if (
                 utxo_in_context.input.transaction_id.payload.hex() == transaction_id

@@ -8,12 +8,15 @@ from redis import asyncio as aioredis
 import logging
 import os
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 async def redis_config(index_name: str):
 
     # redis_url = "redis://localhost:6379/0"
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    logging.info(f"Connecting to redis using: {redis_url}")
+    logger.info(f"Connecting to redis using: {redis_url}")
 
     rdb = aioredis.from_url(redis_url, decode_responses=True)
     schema = (
@@ -28,7 +31,7 @@ async def redis_config(index_name: str):
         # Check if the index already exists by trying to list its info
         index_name_redis = await rdb.ft(index_name).info()
         if index_name_redis == index_name:
-            logging.info(f"Index {index_name} already exists.")
+            logger.info(f"Index {index_name} already exists.")
 
     except ResponseError as e:
         if "Unknown index name" in e.args[0]:
@@ -38,7 +41,7 @@ async def redis_config(index_name: str):
                     prefix=["AccessToken:"], index_type=IndexType.JSON
                 ),
             )
-            logging.info(f"Index {index_name} created successfully.")
+            logger.info(f"Index {index_name} created successfully.")
 
     # Close the connection if needed
     await rdb.close()
