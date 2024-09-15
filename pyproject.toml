@@ -1,10 +1,9 @@
 [tool.poetry]
-name = "suan-trazabilidad"
+name = "suan_backend_cardano"
 version = "0.1.0"
 description = ""
 authors = ["Moxie <moxie@suan.global>"]
 readme = "README.md"
-packages = [{include = "suan_trazabilidad"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"

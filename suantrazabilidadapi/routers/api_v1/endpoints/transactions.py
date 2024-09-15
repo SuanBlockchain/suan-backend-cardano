@@ -612,12 +612,9 @@ async def claimTx(
                                 utxos_found = True
                                 break
 
-                    # if utxo.output.amount.coin >= 1_000_000:
-                    #     utxo_from_contract = utxo
-                    #     break
                 assert utxos_found, "UTxO not found to spend!"
                 logging.info(
-                    f"Found utxos to spend: {[(utxo.input.transaction_id.to_cbor_hex(), str(utxo.input.index)) for utxo in utxo_from_contract]}"
+                    f"Found utxos to spend: {[(utxo.input.transaction_id, str(utxo.input.index)) for utxo in utxo_from_contract]}"
                 )
 
                 # Find the balance and add the output to send tokens back to the contract
@@ -635,11 +632,6 @@ async def claimTx(
                     cbor = bytes.fromhex(cbor_hex)
                     plutus_script = PlutusV2Script(cbor)
 
-                    # builder.add_script_input(
-                    #     utxo_from_contract,
-                    #     plutus_script,
-                    #     redeemer=Redeemer(redeemer),
-                    # )
                     builder.add_script_input(
                         x, plutus_script, redeemer=Redeemer(redeemer)
                     )
@@ -689,7 +681,7 @@ async def claimTx(
                 build_body = builder.build(change_address=user_address)
                 tx_cbor = build_body.to_cbor_hex()
                 tmp_builder = deepcopy(builder)
-                redeemers = tmp_builder.redeemers
+                redeemers = tmp_builder.redeemers()
 
                 # Processing the tx body
                 format_body = Plataforma().formatTxBody(build_body)
@@ -714,9 +706,10 @@ async def claimTx(
                     "msg": f"Tx Build",
                     "build_tx": format_body,
                     "cbor": str(tx_cbor),
-                    "redeemer_cbor": Redeemer.to_cbor_hex(
-                        redeemers[0]
-                    ),  # Redeemers is a list, but assume that only 1 redeemer is passed
+                    # "redeemer_cbor": Redeemer.to_cbor_hex(
+                    #     redeemers[0]
+                    # ),  # Redeemers is a list, but assume that only 1 redeemer is passed
+                    "redeemer_cbor": redeemers.to_cbor_hex(),
                     "metadata_cbor": metadata.to_cbor_hex() if metadata else "",
                     "utxos_info": utxo_list_info,
                     "tx_size": len(build_body.to_cbor()),

@@ -118,15 +118,15 @@ class Plataforma(Constants):
 
         return data
 
-    def getWalletbyToken(self) -> dict:
-        return self._post("getWalletByToken")
+    # def getWalletbyToken(self) -> dict:
+    #     return self._post("getWalletByToken")
 
     def listWallets(self) -> dict:
         return self._post("listWallets")
 
-    def updateWalletWithToken(self, values) -> list[dict]:
-        response = self._post("WalletTokenUpdate", values)
-        return response
+    # def updateWalletWithToken(self, values) -> list[dict]:
+    #     response = self._post("WalletTokenUpdate", values)
+    #     return response
 
     def createWallet(self, values) -> list[dict]:
         response = self._post("WalletMutation", values)

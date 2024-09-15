@@ -27,7 +27,7 @@ from tests.utils.helpers import (
     create_contract,
     find_utxos_with_tokens,
     min_value,
-    monitor_transaction,
+    # monitor_transaction,
     save_transaction,
     setup_user,
 )
@@ -735,8 +735,8 @@ def create_oracle(
     token_feed = pydantic_schemas.TokenFeed(
         tokenName=bytes(token_name, encoding="utf-8"),
         price=price,
-        distribution=distribution,
-        periods=periods,
+        # distribution=distribution,
+        # periods=periods,
     )
     value_dict[bytes.fromhex(token_policy_id)] = token_feed
     datum = pydantic_schemas.DatumOracle(
@@ -835,106 +835,106 @@ if __name__ == "__main__":
         tx_id = test_mint_lock(contracts_info, tokenName, tokenQ)
         logging.info(f"Locked tokens in spend contract tx_id: {tx_id}")
 
-        confirmation = monitor_transaction(tx_id)
+        # confirmation = monitor_transaction(tx_id)
 
-    ############################
-    # Buy token from spend contract
-    ############################
+        ############################
+        # Buy token from spend contract
+        ############################
 
-    tx_signed = test_unlock_buy(contracts_info, tokenName, buyQ, price)
+        tx_signed = test_unlock_buy(contracts_info, tokenName, buyQ, price)
 
-    logging.info(
-        f"transaction signed to buy tokens: {tx_signed.transaction_body.hash().hex()}"
-    )
+        logging.info(
+            f"transaction signed to buy tokens: {tx_signed.transaction_body.hash().hex()}"
+        )
 
-    test_confirm_and_submit(tx_signed)
-    confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+        test_confirm_and_submit(tx_signed)
+        # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
-    ############################
-    # Unlist remaining tokens from spend contract
-    ############################
+        ############################
+        # Unlist remaining tokens from spend contract
+        ############################
 
-    unlockQ = tokenQ - buyQ
-    tx_signed = test_unlock_unlist(contracts_info, tokenName, unlockQ)
+        unlockQ = tokenQ - buyQ
+        tx_signed = test_unlock_unlist(contracts_info, tokenName, unlockQ)
 
-    logging.info(
-        f"transaction signed to unlock tokens: {tx_signed.transaction_body.hash().hex()}"
-    )
+        logging.info(
+            f"transaction signed to unlock tokens: {tx_signed.transaction_body.hash().hex()}"
+        )
 
-    test_confirm_and_submit(tx_signed)
-    confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+        test_confirm_and_submit(tx_signed)
+        # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
-    # Test swap
-    tokenBPolicyId = ""
-    tokenB = ""
-    qTokenA = 1
-    sellPrice = 2_500_000
+        # Test swap
+        tokenBPolicyId = ""
+        tokenB = ""
+        qTokenA = 1
+        sellPrice = 2_500_000
 
-    # ############################
-    # # Create the order
-    # ############################
+        # ############################
+        # # Create the order
+        # ############################
 
-    tx_signed = test_create_order(
-        contracts_info, tokenName, qTokenA, tokenBPolicyId, tokenB, sellPrice
-    )
+        tx_signed = test_create_order(
+            contracts_info, tokenName, qTokenA, tokenBPolicyId, tokenB, sellPrice
+        )
 
-    logging.info(
-        f"transaction signed to create order: {tx_signed.transaction_body.hash().hex()}"
-    )
+        logging.info(
+            f"transaction signed to create order: {tx_signed.transaction_body.hash().hex()}"
+        )
 
-    test_confirm_and_submit(tx_signed)
+        test_confirm_and_submit(tx_signed)
 
-    confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+        # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
-    # ############################
-    # # Buy the order (Inversionista)
-    # ############################
+        # ############################
+        # # Buy the order (Inversionista)
+        # ############################
 
-    tx_signed = test_unlock_order(contracts_info, tokenName, qTokenA, sellPrice)
+        tx_signed = test_unlock_order(contracts_info, tokenName, qTokenA, sellPrice)
 
-    logging.info(
-        f"transaction signed to buy order: {tx_signed.transaction_body.hash().hex()}"
-    )
-    test_confirm_and_submit(tx_signed)
+        logging.info(
+            f"transaction signed to buy order: {tx_signed.transaction_body.hash().hex()}"
+        )
+        test_confirm_and_submit(tx_signed)
 
-    confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+        # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
-    # ############################
-    # # Burn the purchased token (Inversionista)
-    # ############################
-    inversionista = setup_user(contracts_info["context"], walletName="inversionista")
-    tx_signed = test_burn(contracts_info, inversionista, tokenName, qTokenA)
-    logging.info(
-        f"burned project tokens with tx_id: {tx_signed.transaction_body.hash().hex()}"
-    )
+        # ############################
+        # # Burn the purchased token (Inversionista)
+        # ############################
+        inversionista = setup_user(contracts_info["context"], walletName="inversionista")
+        tx_signed = test_burn(contracts_info, inversionista, tokenName, qTokenA)
+        logging.info(
+            f"burned project tokens with tx_id: {tx_signed.transaction_body.hash().hex()}"
+        )
 
-    test_confirm_and_submit(tx_signed)
+        test_confirm_and_submit(tx_signed)
 
-    # ############################
-    # # Create again the order to allow unlock
-    # ############################
-    tx_signed = test_create_order(
-        contracts_info, tokenName, qTokenA, tokenBPolicyId, tokenB, sellPrice
-    )
+        # ############################
+        # # Create again the order to allow unlock
+        # ############################
+        tx_signed = test_create_order(
+            contracts_info, tokenName, qTokenA, tokenBPolicyId, tokenB, sellPrice
+        )
 
-    logging.info(
-        f"transaction signed to create order: {tx_signed.transaction_body.hash().hex()}"
-    )
+        logging.info(
+            f"transaction signed to create order: {tx_signed.transaction_body.hash().hex()}"
+        )
 
-    test_confirm_and_submit(tx_signed)
+        test_confirm_and_submit(tx_signed)
 
-    # ############################
-    # # Unlist order created
-    # ############################
+        # ############################
+        # # Unlist order created
+        # ############################
 
-    tx_signed = test_unlist_order(contracts_info, tokenName, qTokenA)
+        tx_signed = test_unlist_order(contracts_info, tokenName, qTokenA)
 
-    logging.info(
-        f"transaction signed to unlist order: {tx_signed.transaction_body.hash().hex()}"
-    )
-    test_confirm_and_submit(tx_signed)
+        logging.info(
+            f"transaction signed to unlist order: {tx_signed.transaction_body.hash().hex()}"
+        )
+        test_confirm_and_submit(tx_signed)
 
-    confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
+    # confirmation = monitor_transaction(tx_signed.transaction_body.hash().hex())
 
     ############################
     # Burn the unlisted token (Propietario)

@@ -119,7 +119,7 @@ def find_utxos_with_tokens(
     for policy_id, asset in multi_asset.data.items():
         for tn_bytes, amount in asset.data.items():
             for utxo in context.utxos(address.encode()):
-
+                # TODO: correct here to find multiple utxos to fullfill quantity requirement
                 def f(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
                     return (
                         pi == policy_id
@@ -204,21 +204,21 @@ def build_multiAsset(policy_id: str, tokenName: str, quantity: int) -> py.MultiA
     return multi_asset
 
 
-def monitor_transaction(transaction_id: str) -> bool:
-    # Wait to confirm the transaction in the blockchain
-    confirmation = False
-    while not confirmation:  # type: ignore
-        status = CardanoApi().txStatus(transaction_id)[0]["num_confirmations"]
-        if status:
-            if status >= 1:
-                confirmation = True
-            else:
-                print(f"Transaction {transaction_id} not yet confirmed")
-                time.sleep(5)
-        else:
-            print(f"Transaction {transaction_id} not yet confirmed")
-            time.sleep(10)
+# def monitor_transaction(transaction_id: str) -> bool:
+#     # Wait to confirm the transaction in the blockchain
+#     confirmation = False
+#     while not confirmation:  # type: ignore
+#         status = CardanoApi().txStatus(transaction_id)[0]["num_confirmations"]
+#         if status:
+#             if status >= 1:
+#                 confirmation = True
+#             else:
+#                 print(f"Transaction {transaction_id} not yet confirmed")
+#                 time.sleep(5)
+#         else:
+#             print(f"Transaction {transaction_id} not yet confirmed")
+#             time.sleep(10)
 
-    print(f"transaction succesfully submitted with Hash: {transaction_id}")
+#     print(f"transaction succesfully submitted with Hash: {transaction_id}")
 
-    return confirmation
+#     return confirmation

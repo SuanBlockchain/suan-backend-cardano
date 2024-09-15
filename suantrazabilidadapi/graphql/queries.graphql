@@ -51,14 +51,14 @@ query getWalletByAddress ($address: String!) {
   }
 }
 
-query getWalletByToken {
-  listWallets(filter: {claimed_token: {eq: false}}) {
-    items {
-      id
-      address
-    }
-  }
-}
+# query getWalletByToken {
+#   listWallets(filter: {claimed_token: {eq: false}}) {
+#     items {
+#       id
+#       address
+#     }
+#   }
+# }
 
 query listWallets {
   listWallets {
@@ -67,7 +67,6 @@ query listWallets {
       name
       userID
       address
-      claimed_token
       isAdmin
     }
   }
@@ -132,11 +131,11 @@ mutation WalletMutation ($id: ID!, $seed: String!, $userID: ID!, $address: Strin
   }
 }
 
-mutation WalletTokenUpdate ($id: ID!) {
-  updateWallet(input: {claimed_token: true, id: $id}) {
-    id
-  }
-}
+# mutation WalletTokenUpdate ($id: ID!) {
+#   updateWallet(input: {claimed_token: true, id: $id}) {
+#     id
+#   }
+# }
 
 mutation ScriptMutation ($id: ID!, $Active: Boolean!, $MainnetAddr: String!, $cbor: String!, $name: String!, $pbk: [String], $script_category: String!, $script_type: String!, $testnetAddr: String!, $token_name: String, $productID: ID, $scriptParentID: ID, $marketplaceID: ID ) {
   createScript(input: {id: $id, Active: $Active, MainnetAddr: $MainnetAddr, cbor: $cbor, name: $name, pbk: $pbk, script_category: $script_category, script_type: $script_type, testnetAddr: $testnetAddr, token_name: $token_name, productID: $productID, scriptParentID: $scriptParentID, marketplaceID: $marketplaceID}) {
