@@ -178,7 +178,6 @@ datosapi/app/basic_info/department.json
 suantrazabilidadapi/Untitled-1.json
 tests/transaction_test.py
 mint.py
-transactions
 wallets
 # ! suantrazabilidadapi/.priv/contracts/*
 db-mainnet/kupo.sqlite3

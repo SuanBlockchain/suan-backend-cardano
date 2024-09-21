@@ -19,6 +19,9 @@ FROM python:3.11
 
 WORKDIR /code
 
+# Copy the external pycardano folder
+COPY ./pycardano /code/pycardano
+
 # Install supervisord
 RUN apt-get update && apt-get install -y supervisor
 

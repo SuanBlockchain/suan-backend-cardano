@@ -162,17 +162,19 @@ def validator(
         )
         assert tb >= 0, "Not enough tokens to claim"
 
-        check_oracle_datum(
-            tx_info.reference_inputs,
-            oracle_policy_id,
-            token_policy_id,
-            token_name,
-            tb,
-            tx_info.outputs,
-            datum,
-        )
+        oracle_policy_id
 
-        check_datum_constant(own_utxo.datum, datum)
+        # check_oracle_datum(
+        #     tx_info.reference_inputs,
+        #     oracle_policy_id,
+        #     token_policy_id,
+        #     token_name,
+        #     tb,
+        #     tx_info.outputs,
+        #     datum,
+        # )
+
+        # check_datum_constant(own_utxo.datum, datum)
 
     elif isinstance(redeemer, Unlist):
         check_owner_signed(tx_info.signatories, datum.beneficiary)

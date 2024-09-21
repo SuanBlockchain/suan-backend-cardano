@@ -7,7 +7,7 @@ from typing import Final, Optional
 import pycardano as py
 from opshin.builder import PlutusContract, build
 from opshin.prelude import *
-from utils.mock import MockChainContext, MockUser
+from tests.utils.mock import MockChainContext, MockUser
 
 from suantrazabilidadapi.utils.generic import recursion_limit
 from suantrazabilidadapi.utils.plataforma import CardanoApi

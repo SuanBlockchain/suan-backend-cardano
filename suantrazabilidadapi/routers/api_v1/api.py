@@ -4,6 +4,7 @@ from suantrazabilidadapi.utils.security import get_api_key
 
 from .endpoints import contracts, projects, transactions, wallet, helpers, ogmios
 
+
 api_router = APIRouter()
 
 api_router.include_router(
@@ -19,7 +20,7 @@ api_router.include_router(
     dependencies=[Security(get_api_key)],
 )
 api_router.include_router(
-    transactions.router,
+    transactions.intermediate_router,
     prefix="/transactions",
     tags=["Transactions"],
     dependencies=[Security(get_api_key)],

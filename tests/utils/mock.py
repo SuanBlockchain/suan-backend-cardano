@@ -24,11 +24,11 @@ from pycardano import (
     Value,
     VerificationKeyHash,
 )
-from utils.protocol_params import (
+from tests.utils.protocol_params import (
     DEFAULT_GENESIS_PARAMETERS,
     DEFAULT_PROTOCOL_PARAMETERS,
 )
-from utils.tx_tools import (
+from tests.utils.tx_tools import (
     ScriptInvocation,
     evaluate_script,
     generate_script_contexts_resolved,

@@ -1,13 +1,12 @@
+import uuid
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-import uuid
 
 from fastapi.middleware.gzip import GZipMiddleware
-from datetime import datetime, timedelta, timezone
 from celery import Celery
-import logging
 
 from suantrazabilidadapi.celery.main import lifespan
 from suantrazabilidadapi.core.config import settings
@@ -20,9 +19,9 @@ from suantrazabilidadapi.celery.tasks import send_push_notification
 ################################################################
 load_dotenv()
 
-description = "Este API es el backend de la wallet de Plataforma - Suan"
-title = "Suan Trazabilidad API"
-version = __version__
+DESCRIPTION = "Este API es el backend de la wallet de Plataforma - Suan"
+TITLE = "Suan Trazabilidad API"
+VERSION = __version__
 contact = {"name": "Suan"}
 
 
@@ -74,8 +73,8 @@ celery_app.conf.beat_schedule = {
 # FastAPI declaration
 #########################
 suantrazabilidad = FastAPI(
-    title=title,
-    description=description,
+    title=TITLE,
+    description=DESCRIPTION,
     contact=contact,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     version=__version__,

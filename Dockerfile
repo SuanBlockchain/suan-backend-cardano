@@ -1,4 +1,4 @@
-FROM python:3.11 as requirements-stage
+FROM python:3.11 AS requirements-stage
 
 WORKDIR /tmp
 
@@ -11,6 +11,9 @@ RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 FROM python:3.11
 
 WORKDIR /code
+
+# Copy the external pycardano folder
+COPY ./pycardano /code/pycardano
 
 COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 

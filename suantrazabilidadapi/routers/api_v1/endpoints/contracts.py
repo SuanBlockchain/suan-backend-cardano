@@ -34,7 +34,7 @@ async def getPkh(command_name: pydantic_schemas.walletCommandName, wallet: str) 
 
         elif command_name == "id":
             if not is_valid_hex_string(wallet):
-                raise ValueError(f"id provided does not exist in wallet database")
+                raise ValueError("id provided does not exist in wallet database")
 
             r = Plataforma().getWallet(command_name, wallet)
 
@@ -51,7 +51,7 @@ async def getPkh(command_name: pydantic_schemas.walletCommandName, wallet: str) 
         return final_response
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -79,7 +79,7 @@ async def getScripts():
                     "data": script_list,
                 }
         else:
-            if r["success"] == True:
+            if r["success"]:
                 final_response = {
                     "success": False,
                     "msg": "Error fetching data",
@@ -95,7 +95,7 @@ async def getScripts():
         return final_response
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -127,7 +127,7 @@ async def getScript(
                 }
 
         else:
-            if r["success"] == True:
+            if r["success"]:
                 final_response = {
                     "success": False,
                     "msg": "Error fetching data",
@@ -179,7 +179,7 @@ async def createContract(
                 pkh = bytes(payment_address.payment_part)
 
         else:
-            raise ValueError(f"Error fetching data")
+            raise ValueError("Error fetching data")
 
         tn_bytes = bytes(tokenName, encoding="utf-8")
 
@@ -241,6 +241,8 @@ async def createContract(
             # policy = ScriptAll([pub_key_policy])
             # # Calculate policy ID, which is the hash of the policy
             # oracle_policy_id = binascii.hexlify(policy.hash().payload).decode('utf-8')
+            print(bytes.fromhex(oracle_policy_id))
+            print(oracle_policy_id)
             recursion_limit(2000)
             contract = build(
                 script_path,
@@ -264,7 +266,7 @@ async def createContract(
         ##################
 
         r = Plataforma().getScript("id", policy_id)
-        if r["success"] == True:
+        if r["success"]:
             if r["data"]["data"]["getScript"] is None:
                 # It means that the Script does not exist in database, so update database if save_flag is True
                 if save_flag:
@@ -288,11 +290,11 @@ async def createContract(
                     variables["productID"] = project_id if project_id else None
 
                     responseScript = Plataforma().createContract(variables)
-                    if responseScript["success"] == True:
+                    if responseScript["success"] is True:
                         if responseScript["data"]["data"] is not None:
                             final_response = {
                                 "success": True,
-                                "msg": f"Script created",
+                                "msg": "Script created",
                                 "data": {
                                     "id": policy_id,
                                     "utxo_to_spend": (
@@ -315,13 +317,13 @@ async def createContract(
                     else:
                         final_response = {
                             "success": False,
-                            "msg": f"Problems creating the script",
+                            "msg": "Problems creating the script",
                             "data": responseScript["error"],
                         }
                 else:
                     final_response = {
                         "success": True,
-                        "msg": f"Script created but not stored in Database",
+                        "msg": "Script created but not stored in Database",
                         "data": {
                             "id": policy_id,
                             "mainnet_address": mainnet_address.encode(),
@@ -345,7 +347,7 @@ async def createContract(
         return final_response
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(

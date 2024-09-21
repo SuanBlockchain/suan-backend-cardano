@@ -1,9 +1,9 @@
-from fastapi import APIRouter, FastAPI, Request
+import os
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.gzip import GZipMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-import os
+# from starlette.middleware.base import BaseHTTPMiddleware
 from celery import Celery
 
 
@@ -14,9 +14,9 @@ from . import __version__
 from .celery.main import lifespan
 from .celery.tasks import send_push_notification
 
-description = "Este API facilita la integración de datos con proyectos forestales para mejorar su trazabilidad - Suan"
-title = "Suan Trazabilidad API"
-version = __version__
+DESCRIPTION = "Este API es el backend de la wallet de Plataforma - Suan"
+TITLE = "Suan Trazabilidad API"
+VERSION = __version__
 contact = {"name": "Suan"}
 
 
@@ -79,11 +79,11 @@ celery_app.conf.beat_schedule = {
 #########################
 
 suantrazabilidad = FastAPI(
-    title=title,
-    description=description,
+    title=TITLE,
+    description=DESCRIPTION,
     contact=contact,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    version=version,
+    version=VERSION,
     debug=True,
     lifespan=lifespan,
 )

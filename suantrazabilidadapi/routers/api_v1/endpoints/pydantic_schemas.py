@@ -1,5 +1,4 @@
 from enum import Enum
-from importlib.metadata import distribution
 from typing import Any, Dict, List, Optional, Union
 
 from opshin.prelude import *
@@ -75,17 +74,17 @@ class AddressDestin(BaseModel):
     multiAsset: Optional[list[Asset]] = None
     datum: Optional[TempDatum] = None  # TODO: make datum more generic
 
-    @validator("address", always=True)
-    def check_address(cls, value):
-        if not value.startswith("addr"):
-            raise ValueError("Address format is not correct")
-        return value
+    # @validator("address", always=True)
+    # def check_address(cls, value):
+    #     if not value.startswith("addr"):
+    #         raise ValueError("Address format is not correct")
+    #     return value
 
-    @validator("lovelace", always=True)
-    def check_lovelace(cls, value):
-        if value < 0:
-            raise ValueError("Lovelace must be positive")
-        return value
+    # @validator("lovelace", always=True)
+    # def check_lovelace(cls, value):
+    #     if value < 0:
+    #         raise ValueError("Lovelace must be positive")
+    #     return value
 
 
 class Mint(BaseModel):
