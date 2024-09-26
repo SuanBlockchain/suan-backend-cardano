@@ -11,14 +11,12 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
+    """Class representing some settings for FastAPI"""
     API_V1_STR: str = "/api/v1"
-    # BACKEND_CORS_ORIGINS is a JSON-formatted list of origins
-    # e.g: '["http://localhost", "http://localhost:4200", "http://localhost:3000", \
-    # "http://localhost:8080", "http://local.dockertoolbox.tiangolo.com"]'
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
 
     # @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
+    def assemble_cors_origins(self, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, (list, str)):
@@ -29,6 +27,7 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr = "admin@recipeapi.com"  # type: ignore
 
     class Config:
+        """Class to define case_sensitive variable"""
         case_sensitive = True
 
 
@@ -52,7 +51,7 @@ def config(
             db[param[0]] = param[1]
     else:
         raise Exception(
-            "Section {0} not found in the {1} file".format(section, config_path)
+            f"Section {section} not found in the config_path file"
         )
 
     return db

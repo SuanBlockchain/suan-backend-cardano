@@ -82,7 +82,7 @@ async def getProject(
                     }
 
             else:
-                if r["success"] == True:
+                if r["success"]:
                     final_response = {
                         "success": False,
                         "msg": "Error fetching data",
@@ -97,7 +97,7 @@ async def getProject(
 
         return final_response
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        msg = f"Error with the endpoint"
-        raise HTTPException(status_code=500, detail=msg)
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e

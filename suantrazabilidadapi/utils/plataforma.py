@@ -41,6 +41,7 @@ environment = security["env"]
 
 @dataclass()
 class Plataforma(Constants):
+    """Class representing all the methods to interact with Plataforma"""
     def __post_init__(self):
         if environment == "dev":
             self.graphqlEndpoint = os.getenv("endpoint_dev")
@@ -65,7 +66,7 @@ class Plataforma(Constants):
     def _post(
         self, operation_name: str, graphql_variables: Union[dict, None] = None
     ) -> dict:
-        with open(self.GRAPHQL, "r") as file:
+        with open(self.GRAPHQL, "r", encoding="utf-8") as file:
             graphqlQueries = file.read()
         try:
             rawResult = requests.post(
@@ -76,6 +77,7 @@ class Plataforma(Constants):
                     "variables": graphql_variables,
                 },
                 headers=self.HEADERS,
+                timeout = 10
             )
             rawResult.raise_for_status()
             data = json.loads(rawResult.content.decode("utf-8"))
@@ -118,15 +120,8 @@ class Plataforma(Constants):
 
         return data
 
-    # def getWalletbyToken(self) -> dict:
-    #     return self._post("getWalletByToken")
-
     def listWallets(self) -> dict:
         return self._post("listWallets")
-
-    # def updateWalletWithToken(self, values) -> list[dict]:
-    #     response = self._post("WalletTokenUpdate", values)
-    #     return response
 
     def createWallet(self, values) -> list[dict]:
         response = self._post("WalletMutation", values)
@@ -365,6 +360,7 @@ class Plataforma(Constants):
 
 @dataclass()
 class CardanoApi(Constants):
+    """Class with endpoints to interact with the blockchain"""
     def __post_init__(self):
         pass
 
@@ -507,6 +503,7 @@ class CardanoApi(Constants):
 
 @dataclass()
 class Helpers:
+    """Class with generic methods to convert datatypes and parse data"""
     def __post_init__(self):
         pass
 

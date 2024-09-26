@@ -1,8 +1,13 @@
 import binascii
-from typing import Union
 
 from fastapi import APIRouter, HTTPException
-from pycardano import *
+from pycardano import (
+    Address,
+    HDWallet,
+    PaymentVerificationKey,
+    StakeVerificationKey,
+    Network
+)
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string
@@ -36,7 +41,7 @@ async def getWallets():
                     "data": wallet_list,
                 }
         else:
-            if r["success"] == True:
+            if r["success"]:
                 final_response = {
                     "success": False,
                     "msg": "Error fetching data",
@@ -52,7 +57,7 @@ async def getWallets():
         return final_response
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -88,7 +93,7 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
                     }
 
             else:
-                if r["success"] == True:
+                if r["success"]:
                     final_response = {
                         "success": False,
                         "msg": "Error fetching data",
@@ -103,7 +108,7 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
 
         elif command_name == "address":
             # Validate the address
-            Address.decode(query_param)._infer_address_type()
+            Address.decode(query_param)._infer_address_type() # pylint: disable=protected-access
 
             r = Plataforma().getWallet(command_name, query_param)
 
@@ -124,7 +129,7 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
                     }
 
             else:
-                if r["success"] == True:
+                if r["success"]:
                     final_response = {
                         "success": False,
                         "msg": "Error fetching data",
@@ -139,13 +144,13 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
 
         return final_response
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except TypeError as e:
-        msg = f"Input parameter not valid for address type or id type"
-        raise HTTPException(status_code=500, detail=msg)
+        msg = "Input parameter not valid for address type or id type"
+        raise HTTPException(status_code=500, detail=msg) from e
     except Exception as e:
-        msg = f"Error with the endpoint"
-        raise HTTPException(status_code=500, detail=msg)
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 
 @router.get(
@@ -164,7 +169,7 @@ async def generateWords(size: pydantic_schemas.Words):
         return HDWallet.generate_mnemonic(strength=strength)
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post(
@@ -211,14 +216,14 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
 
         wallet_id = binascii.hexlify(pkh.payload).decode("utf-8")
 
-        seed = binascii.hexlify(hdwallet._seed).decode("utf-8")
+        seed = binascii.hexlify(hdwallet._seed).decode("utf-8") # pylint: disable=protected-access
 
         ########################
         """3. Store wallet info"""
         ########################
         # Check if wallet Id already exists in database
         r = Plataforma().getWallet("id", wallet_id)
-        if r["success"] == True:
+        if r["success"]:
             if r["data"]["data"]["getWallet"] is None:
                 # It means that wallet does not exist in database, so update database if save_flag is True
                 if save_flag:
@@ -231,10 +236,10 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
                         "stake_address": str(stake_address),
                     }
                     responseWallet = Plataforma().createWallet(variables)
-                    if responseWallet["success"] == True:
+                    if responseWallet["success"]:
                         final_response = {
                             "success": True,
-                            "msg": f"Wallet created",
+                            "msg": "Wallet created",
                             "data": {
                                 "wallet_id": wallet_id,
                                 "address": str(address),
@@ -244,13 +249,13 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
                     else:
                         final_response = {
                             "success": False,
-                            "msg": f"Problems creating the wallet",
+                            "msg": "Problems creating the wallet",
                             "data": responseWallet["error"],
                         }
                 else:
                     final_response = {
                         "success": True,
-                        "msg": f"Wallet created but not stored in Database",
+                        "msg": "Wallet created but not stored in Database",
                         "data": {
                             "wallet_id": wallet_id,
                             "seed": seed,
@@ -274,7 +279,7 @@ async def createWallet(wallet: pydantic_schemas.Wallet):
 
         return final_response
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -288,7 +293,7 @@ async def queryAddress(address: str):
     try:
         return CardanoApi().getAddressInfo(address)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -311,7 +316,7 @@ async def addressTxs(
         )
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -338,10 +343,10 @@ async def addressUtxos(
         _type_: list of utxos
     """
     try:
-        addressUtxos = CardanoApi().getAddressUtxos(address, page_number, limit)
-        return addressUtxos
+        utxos = CardanoApi().getAddressUtxos(address, page_number, limit)
+        return utxos
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -353,10 +358,10 @@ async def addressUtxos(
 async def addressDetails(address: str) -> dict:
 
     try:
-        addressDetails = CardanoApi().getAddressDetails(address)
-        return addressDetails
+        details = CardanoApi().getAddressDetails(address)
+        return details
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -372,4 +377,4 @@ async def accountUtxos(policy_id: str):
 
         return asset_info
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
