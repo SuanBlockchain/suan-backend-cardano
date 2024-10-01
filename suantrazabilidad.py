@@ -195,7 +195,9 @@ if __name__ == "__main__":
     import uvicorn
 
     env = os.getenv("env")
-    if env == "dev":
+    if env =="internal":
+        logging.warning(f"Running in {env} mode. Do not run like this in production")
+    elif env == "dev":
         logging.warning(f"Running in {env} mode. Do not run like this in production")
     elif env == "prod":
         logging.warning(f"Running in {env} mode. Change the mode to run locally")

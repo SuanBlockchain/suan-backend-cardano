@@ -40,17 +40,21 @@ exec: true # Enable running commands in your container.
 #  LOG_LEVEL: info
 variables:
   COPILOT_QUEUE_URI: !GetAtt EventsQueue.Arn
-  REDIS_URL: redis://redisbackend.test.api.local:6379
 
 #secrets:                      # Pass secrets from AWS Systems Manager (SSM) Parameter Store.
 #  GITHUB_TOKEN: GITHUB_TOKEN  # The key is the name of the environment variable, the value is the name of the SSM parameter.
 
 # You can override any of the values defined above by environment.
-#environments:
-#  test:
-#    count: 2               # Number of tasks to run for the "test" environment.
-#    deployment:            # The deployment strategy for the "test" environment.
-#       rolling: 'recreate' # Stops existing tasks before new ones are started for faster deployments.
+environments:
+ internal:
+  #  count: 2               # Number of tasks to run for the "test" environment.
+  #  deployment:            # The deployment strategy for the "test" environment.
+  #     rolling: 'recreate' # Stops existing tasks before new ones are started for faster deployments.
+
+    variables:
+      # COPILOT_SERVICE_NAME: redisbackend
+      # COPILOT_ENVIRONMENT_NAME: internal
+      REDIS_URL: redis://redisbackend.internal.api.local:6379
 
 # taskrole:
 #   # Inline policy to allow SQS ListQueues action

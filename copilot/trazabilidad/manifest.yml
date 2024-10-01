@@ -41,7 +41,20 @@ network:
 #
 variables:                    # Pass environment variables as key value pairs.
   CARDANO_NET: preview
-  ENV: prod
+  # ENV: prod
   OGMIOS_URL: http://ogmios.test.api.local:1337
   REDIS_URL: redis://redisbackend.test.api.local:6379
   COPILOT_QUEUE_URI: !GetAtt EventsQueue.Arn
+
+
+environments:
+ internal:
+  #  count: 2               # Number of tasks to run for the "test" environment.
+  #  deployment:            # The deployment strategy for the "test" environment.
+  #     rolling: 'recreate' # Stops existing tasks before new ones are started for faster deployments.
+
+    variables:
+      # COPILOT_SERVICE_NAME: redisbackend
+      # COPILOT_ENVIRONMENT_NAME: internal
+      REDIS_URL: redis://redisbackend.internal.api.local:6379
+      OGMIOS_URL: http://ogmios.internal.api.local:1337

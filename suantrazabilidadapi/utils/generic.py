@@ -1,13 +1,13 @@
-import importlib
+import sys
 import json
 import logging
 import os
 import pathlib
 from typing import Final
 
-from pycardano import Network, Transaction
 from dotenv import load_dotenv
 from blockfrost import ApiUrls, BlockFrostApi
+from pycardano import Network, Transaction
 from suantrazabilidadapi.core.config import config
 
 plataformaSecrets = config(section="plataforma")
@@ -15,6 +15,7 @@ load_dotenv()
 
 
 class Constants:
+    """Class to define constants for the project"""
     KEY_DIR: str = ".priv/wallets"
     CONTRACTS_DIR: str = ".priv/contracts"
     PROJECT_ROOT = pathlib.Path("suantrazabilidadapi")
@@ -42,7 +43,7 @@ class Constants:
     COPILOT_SERVICE_DISCOVERY_ENDPOINT = os.getenv("COPILOT_SERVICE_DISCOVERY_ENDPOINT")
     OGMIOS_SERVICE_NAME = "ogmiosbackend"
     if not COPILOT_SERVICE_DISCOVERY_ENDPOINT:
-        OGMIOS_URL = f"localhost"
+        OGMIOS_URL = "localhost"
     else:
         OGMIOS_URL = f"{OGMIOS_SERVICE_NAME}.{COPILOT_SERVICE_DISCOVERY_ENDPOINT}"
     OGMIOS_PORT = 1337
@@ -85,7 +86,6 @@ def save_transaction(trans: Transaction, file: str):
 
 
 def recursion_limit(limit: int = 2000):
-    import sys
 
     # Check if the new limit is greater than the current one
     if limit > sys.getrecursionlimit():

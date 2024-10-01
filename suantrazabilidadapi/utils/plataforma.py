@@ -43,7 +43,10 @@ environment = security["env"]
 class Plataforma(Constants):
     """Class representing all the methods to interact with Plataforma"""
     def __post_init__(self):
-        if environment == "dev":
+        if environment == "internal":
+            self.graphqlEndpoint = os.getenv("endpoint_internal")
+            self.awsAppSyncApiKey = os.getenv("graphql_key_internal")
+        elif environment =="dev":
             self.graphqlEndpoint = os.getenv("endpoint_dev")
             self.awsAppSyncApiKey = os.getenv("graphql_key_dev")
         elif environment == "prod":
@@ -55,13 +58,7 @@ class Plataforma(Constants):
         self.S3_BUCKET_NAME_HIERARCHY = os.getenv("s3_bucket_name_hierarchy")
         self.AWS_ACCESS_KEY_ID = os.getenv("aws_access_key_id")
         self.AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
-        # self.GRAPHQL = "graphql/queries.graphql"
         self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/queries.graphql")
-        # self.BASE_URL = ApiUrls.preview.value
-        # self.BLOCK_FROST_PROJECT_ID = plataformaSecrets["block_frost_project_id"]
-        # self.BLOCKFROST_API = BlockFrostApi(
-        #     project_id=self.BLOCK_FROST_PROJECT_ID, base_url=self.BASE_URL
-        # )
 
     def _post(
         self, operation_name: str, graphql_variables: Union[dict, None] = None
@@ -335,7 +332,7 @@ class Plataforma(Constants):
         s3_client = self._initializeBoto2Client()
         uploaded = []
         error = []
-        for root, dirs, files in os.walk(folder_path):
+        for root, _, files in os.walk(folder_path):
             for file in files:
                 local_file_path = os.path.join(root, file)
                 file_name = os.path.relpath(local_file_path, folder_path).replace(

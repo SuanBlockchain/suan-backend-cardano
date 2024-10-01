@@ -1,9 +1,13 @@
 import binascii
 import logging
 from typing import Optional
+import os
 
 from cbor2 import loads
 from fastapi import APIRouter, HTTPException
+import redis
+from redis.commands.search.query import Query
+import uuid
 from pycardano import (
     Address,
     AssetName,
@@ -20,9 +24,6 @@ from pycardano import (
     Value,
     min_lovelace,
 )
-import redis
-from redis.commands.search.query import Query
-import uuid
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
@@ -81,7 +82,6 @@ async def sendAccessToken(
                 ########################
                 """2. Create the request in redis cache to be processed by the scheduler"""
                 ########################
-                import os
 
                 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
                 rdb = redis.Redis.from_url(redis_url, decode_responses=True)
@@ -121,7 +121,7 @@ async def sendAccessToken(
                     }
                     responseScript = Plataforma().createContract(variables)
                     # TODO: if script exists don't try to write it in dynamoDB
-                    if responseScript["success"] == True:
+                    if responseScript["success"]:
                         if (
                             responseScript["data"]["data"] is not None
                             and responseScript["data"].get("errors", None) is None
@@ -157,7 +157,7 @@ async def sendAccessToken(
                     }
 
         else:
-            if r["success"] == True:
+            if r["success"]:
                 final_response = {
                     "success": False,
                     "msg": "Error fetching data",
@@ -173,11 +173,11 @@ async def sendAccessToken(
         return final_response
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     except Exception as e:
         # Handling other types of exceptions
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post(
@@ -223,7 +223,7 @@ async def minLovelace(addressDestin: pydantic_schemas.AddressDestin) -> int:
 
         return min_val
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -245,7 +245,7 @@ async def getFeeFromCbor(txcbor: str) -> int:
         return fee
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post(
@@ -285,7 +285,7 @@ async def oracleDatum(
         # Calculate policy ID, which is the hash of the policy
         policy_id = policy.hash()
         print(f"Policy ID: {policy_id}")
-        with open(Constants().PROJECT_ROOT / "policy.id", "a+") as f:
+        with open(Constants().PROJECT_ROOT / "policy.id", "a+", encoding="utf-8") as f:
             f.truncate(0)
             f.write(str(policy_id))
         # Create the final native script that will be attached to the transaction
@@ -313,17 +313,17 @@ async def oracleDatum(
             nft_utxo = None
             for utxo in chain_context.utxos(oracle_address):
 
-                def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
+                def f1(pi: ScriptHash, an: AssetName, a: int) -> bool:
                     return pi == policy_id and an.payload == tokenName and a == 1
 
-                if utxo.output.amount.multi_asset.count(f):
+                if utxo.output.amount.multi_asset.count(f1):
                     nft_utxo = utxo
 
                     builder.add_input(nft_utxo)
 
             msg = "Oracle datum updated"
         # Build the inline datum
-        precision = 14
+        # precision = 14
         value_dict = {}
         for data in oracle_data.data:
             # policy_id = data.policy_id
@@ -361,12 +361,13 @@ async def oracleDatum(
             "success": True,
             "msg": msg,
             "tx_id": tx_id,
+            "oracle_address": oracle_address,
             "cardanoScan": f"https://preview.cardanoscan.io/transaction/{tx_id}",
         }
 
         return final_response
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # from suantrazabilidad import celery_app

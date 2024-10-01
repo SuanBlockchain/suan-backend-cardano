@@ -1,11 +1,12 @@
 import logging
 import os
 from dataclasses import dataclass, field
-import requests
 import json
+import requests
 
 from blockfrost import ApiUrls
 
+from ogmios import OgmiosChainContext as OgChainContext
 
 from pycardano import (
     Address,
@@ -18,7 +19,6 @@ from pycardano import (
     BlockFrostChainContext,
     PlutusV2Script,
 )
-from ogmios import OgmiosChainContext as OgChainContext
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.utils.generic import Constants
@@ -28,6 +28,7 @@ cardano = config(section="cardano")
 
 @dataclass()
 class Keys(Constants):
+    """Class to handle cardano keys"""
     def __post_init__(self):
         self.FULL_KEY_DIR = self.PROJECT_ROOT.joinpath(self.KEY_DIR)
 
@@ -55,16 +56,16 @@ class Keys(Constants):
             skey = ExtendedSigningKey.load(str(skey_path))
             vkey = PaymentVerificationKey.from_signing_key(skey)
 
-            with open(mnemonics_path, "r") as file:
+            with open(mnemonics_path, "r", encoding="utf-8") as file:
                 mnemonics = file.readline()
-            with open(address_path, "r") as file:
+            with open(address_path, "r", encoding="utf-8") as file:
                 address = file.readline()
-            with open(pkh_path, "r") as file:
+            with open(pkh_path, "r", encoding="utf-8") as file:
                 pkh = file.readline()
 
         else:
             if kwargs.get("localKeys", None) is not None:
-                logging.info(f"Generate Key pair and store them locally")
+                logging.info("Generate Key pair and store them locally")
                 mnemonic_words = kwargs["localKeys"].get("mnemonic_words", None)
 
                 hdwallet = HDWallet.from_mnemonic(mnemonic_words)
@@ -87,19 +88,19 @@ class Keys(Constants):
                 # Save mnemonics as words were provided
 
                 # mnemonics_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(mnemonics_path, "w") as file:
+                with open(mnemonics_path, "w", encoding="utf-8") as file:
                     file.write(mnemonic_words)
 
                 skey.save(str(skey_path))
                 vkey.save(str(vkey_path))
 
-                with open(address_path, "w") as file:
+                with open(address_path, "w", encoding="utf-8") as file:
                     file.write(str(address))
 
-                with open(pkh_path, "w") as file:
+                with open(pkh_path, "w", encoding="utf-8") as file:
                     file.write(str(pkh))
             else:
-                logging.info(f"Only generate key pair but not stored locally")
+                logging.info("Only generate key pair but not stored locally")
                 mnemonics = "Mnemonics not generated"
                 key_pair = PaymentKeyPair.generate()
 
@@ -128,6 +129,7 @@ class Keys(Constants):
 
 @dataclass()
 class CardanoNetwork(Constants):
+    """Class to define interfaces with Cardano Blockchain"""
     network_synchronization: float = field(default=0.0)
     connection_status: str = field(default=None)
 
@@ -207,6 +209,7 @@ class CardanoNetwork(Constants):
 
 @dataclass()
 class Contracts(Constants):
+    """Class to define contract methods"""
     def __post_init__(self):
         pass
 

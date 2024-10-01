@@ -11,7 +11,9 @@ security = config(section="security")
 load_dotenv()
 environment = security["env"]
 
-if environment == "dev":
+if environment == "internal":
+    env = os.getenv("platform_api_key_internal")
+elif environment == "dev":
     env = os.getenv("platform_api_key_dev")
 elif environment == "prod":
     env = os.getenv("platform_api_key_prod")
