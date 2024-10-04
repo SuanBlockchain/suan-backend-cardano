@@ -143,7 +143,7 @@ class CardanoNetwork(Constants):
     connection_status: str = field(default=None)
 
     def __post_init__(self):
-        self.NETWORK_NAME: str = os.getenv("cardano_net", "preview")
+        # self.NETWORK_NAME: str = os.getenv("cardano_net", "preview")
         if self.NETWORK_NAME == "mainnet":
             self.NETWORK = Network.MAINNET
         else:

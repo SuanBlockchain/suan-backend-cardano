@@ -36,6 +36,7 @@ from suantrazabilidadapi.utils.generic import Constants
 
 plataformaSecrets = config(section="plataforma")
 security = config(section="security")
+optional = config(section="optional")
 environment = security["env"]
 
 
