@@ -23,6 +23,7 @@ from pycardano import (
     TransactionOutput,
     Value,
     min_lovelace,
+    ExtendedSigningKey,
 )
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
@@ -258,10 +259,30 @@ async def getFeeFromCbor(txcbor: str) -> int:
 async def oracleDatum(
     action: pydantic_schemas.OracleAction,
     oracle_data: pydantic_schemas.Oracle,
+    core_wallet_id: str,
     oracle_wallet_name: Optional[str] = "SuanOracle",
-    # token_name: Optional[str] = "SuanOracle",
 ) -> dict:
     try:
+
+        # Check first that the core wallet to pay fees exists
+        r = Plataforma().getWallet("id", core_wallet_id)
+        if r["data"].get("data", None) is not None:
+            coreWalletInfo = r["data"]["data"]["getWallet"]
+
+            if coreWalletInfo is None:
+                raise ValueError(
+                    f"Wallet with id: {core_wallet_id} does not exist in DynamoDB"
+                )
+            # Get core wallet params
+            seed = coreWalletInfo["seed"]
+            hdwallet = HDWallet.from_seed(seed)
+            child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+            core_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+            core_address = Address.from_primitive(coreWalletInfo["address"])
+
+        else:
+            raise ValueError("Error fetching data")
+
         if action == "Create":
             mnemonics_words = HDWallet.generate_mnemonic(strength=Constants.ENCODING_LENGHT_MAPPING.get("24", 256))
             localKeys = {"mnemonics_words": mnemonics_words}
@@ -274,9 +295,13 @@ async def oracleDatum(
         # Create a transaction builder
         builder = TransactionBuilder(chain_context)
 
-        # Add user own address as the input address
+        # Add core address as the input address
+        builder.add_input_address(core_address)
+
+        # Add oracle address as the input address
         oracle_address = Address.from_primitive(oracle_walletInfo[3])
         builder.add_input_address(oracle_address)
+
         must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
         builder.ttl = must_before_slot.after
 
@@ -296,8 +321,8 @@ async def oracleDatum(
         # Create the final native script that will be attached to the transaction
         native_scripts = [policy]
 
-        tokenName = b"SuanOracle"
-        # tokenName = bytes(token_name, encoding="utf-8")
+        # tokenName = b"SuanOracle"
+        tokenName = bytes(oracle_wallet_name, encoding="utf-8")
         ########################
         """Define NFT"""
         ########################
@@ -351,12 +376,12 @@ async def oracleDatum(
         )
 
         signed_tx = builder.build_and_sign(
-            [oracle_walletInfo[1]], change_address=oracle_address
+            [oracle_walletInfo[1], core_skey], change_address=oracle_address
         )
 
         # Submit signed transaction to the network
         tx_id = signed_tx.transaction_body.hash().hex()
-        chain_context.submit_tx(signed_tx)
+        # chain_context.submit_tx(signed_tx)
 
         logging.info(f"transaction id: {tx_id}")
         logging.info(f"https://preview.cardanoscan.io/transaction/{tx_id}")
