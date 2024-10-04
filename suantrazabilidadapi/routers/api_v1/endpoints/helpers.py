@@ -3,11 +3,11 @@ import logging
 from typing import Optional
 import os
 
+import uuid
 from cbor2 import loads
 from fastapi import APIRouter, HTTPException
 import redis
 from redis.commands.search.query import Query
-import uuid
 from pycardano import (
     Address,
     AssetName,
@@ -262,7 +262,12 @@ async def oracleDatum(
     # token_name: Optional[str] = "SuanOracle",
 ) -> dict:
     try:
-        oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
+        if action == "Create":
+            mnemonics_words = HDWallet.generate_mnemonic(strength=Constants.ENCODING_LENGHT_MAPPING.get("24", 256))
+            localKeys = {"mnemonics_words": mnemonics_words}
+        else:
+            localKeys = {}
+        oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name, localKeys=localKeys)
 
         chain_context = CardanoNetwork().get_chain_context()
 
@@ -361,7 +366,7 @@ async def oracleDatum(
             "success": True,
             "msg": msg,
             "tx_id": tx_id,
-            "oracle_address": oracle_address,
+            "oracle_address": oracle_address.encode(),
             "cardanoScan": f"https://preview.cardanoscan.io/transaction/{tx_id}",
         }
 

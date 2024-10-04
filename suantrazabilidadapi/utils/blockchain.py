@@ -29,6 +29,7 @@ cardano = config(section="cardano")
 @dataclass()
 class Keys(Constants):
     """Class to handle cardano keys"""
+
     def __post_init__(self):
         self.FULL_KEY_DIR = self.PROJECT_ROOT.joinpath(self.KEY_DIR)
 
@@ -66,9 +67,9 @@ class Keys(Constants):
         else:
             if kwargs.get("localKeys", None) is not None:
                 logging.info("Generate Key pair and store them locally")
-                mnemonic_words = kwargs["localKeys"].get("mnemonic_words", None)
+                mnemonics_words = kwargs["localKeys"].get("mnemonics_words", None)
 
-                hdwallet = HDWallet.from_mnemonic(mnemonic_words)
+                hdwallet = HDWallet.from_mnemonic(mnemonics_words)
 
                 child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
 
@@ -89,7 +90,7 @@ class Keys(Constants):
 
                 # mnemonics_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(mnemonics_path, "w", encoding="utf-8") as file:
-                    file.write(mnemonic_words)
+                    file.write(mnemonics_words)
 
                 skey.save(str(skey_path))
                 vkey.save(str(vkey_path))
@@ -99,6 +100,13 @@ class Keys(Constants):
 
                 with open(pkh_path, "w", encoding="utf-8") as file:
                     file.write(str(pkh))
+
+                with open(mnemonics_path, "r", encoding="utf-8") as file:
+                    mnemonics = file.readline()
+                with open(address_path, "r", encoding="utf-8") as file:
+                    address = file.readline()
+                with open(pkh_path, "r", encoding="utf-8") as file:
+                    pkh = file.readline()
             else:
                 logging.info("Only generate key pair but not stored locally")
                 mnemonics = "Mnemonics not generated"
@@ -109,6 +117,7 @@ class Keys(Constants):
 
                 pkh = vkey.hash()
                 address = Address(payment_part=pkh, network=Network.TESTNET)
+                address = address.encode()
 
         return mnemonics, skey, vkey, address, pkh
 
@@ -210,6 +219,7 @@ class CardanoNetwork(Constants):
 @dataclass()
 class Contracts(Constants):
     """Class to define contract methods"""
+
     def __post_init__(self):
         pass
 
