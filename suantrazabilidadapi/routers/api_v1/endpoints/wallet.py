@@ -1,17 +1,14 @@
-import binascii
-
 from fastapi import APIRouter, HTTPException
 from pycardano import (
     Address,
     HDWallet,
-    PaymentVerificationKey,
-    StakeVerificationKey,
-    Network
 )
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Plataforma
+from suantrazabilidadapi.utils.response import Response
+from suantrazabilidadapi.utils.exception import PlataformaException, ResponseTypeError, ResponseProcessingError
 
 router = APIRouter()
 
@@ -26,37 +23,11 @@ async def getWallets():
     """Get all the wallets registered in Plataforma"""
     try:
         r = Plataforma().listWallets()
-        if r["data"].get("data", None) is not None:
-            wallet_list = r["data"]["data"]["listWallets"]["items"]
-            if wallet_list == []:
-                final_response = {
-                    "success": True,
-                    "msg": "No wallets present in the table",
-                    "data": r["data"],
-                }
-            else:
-                final_response = {
-                    "success": True,
-                    "msg": "List of wallets",
-                    "data": wallet_list,
-                }
-        else:
-            if r["success"]:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["data"]["errors"],
-                }
-            else:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["error"],
-                }
+        final_response = Response().handle_listWallets_response(r)
 
         return final_response
 
-    except ValueError as e:
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
@@ -69,85 +40,31 @@ async def getWallets():
 async def getWallet(command_name: pydantic_schemas.walletCommandName, query_param: str):
     """Get the wallet with specific id as registered in Plataforma"""
     try:
+        final_response = {}
         if command_name == "id":
             # Validate the id
             if not is_valid_hex_string(query_param):
-                raise TypeError()
+                raise ResponseTypeError("Not valid id format")
 
-            r = Plataforma().getWallet(command_name, query_param)
+            getWallet_response = Plataforma().getWallet(command_name, query_param)
 
-            if r["data"].get("data", None) is not None:
-                walletInfo = r["data"]["data"]["getWallet"]
-
-                if walletInfo is None:
-                    final_response = {
-                        "success": True,
-                        "msg": f"Wallet with id: {query_param} does not exist in DynamoDB",
-                        "data": r["data"],
-                    }
-                else:
-                    final_response = {
-                        "success": True,
-                        "msg": "Wallet info",
-                        "data": walletInfo,
-                    }
-
-            else:
-                if r["success"]:
-                    final_response = {
-                        "success": False,
-                        "msg": "Error fetching data",
-                        "data": r["data"]["errors"],
-                    }
-                else:
-                    final_response = {
-                        "success": False,
-                        "msg": "Error fetching data",
-                        "data": r["error"],
-                    }
+            final_response = Response().handle_getWallet_response(getWallet_response=getWallet_response)
 
         elif command_name == "address":
             # Validate the address
-            Address.decode(query_param)._infer_address_type() # pylint: disable=protected-access
+            Address.decode(query_param)._infer_address_type()  # pylint: disable=protected-access
 
-            r = Plataforma().getWallet(command_name, query_param)
+            listWallet_response = Plataforma().getWallet(command_name, query_param)
 
-            if r["data"].get("data", None) is not None:
-                walletInfo = r["data"]["data"]["listWallets"]
+            final_response = Response().handle_listWallets_response(listWallets_response=listWallet_response)
 
-                if walletInfo["items"] == []:
-                    final_response = {
-                        "success": True,
-                        "msg": f"Wallet with address: {query_param} does not exist in DynamoDB",
-                        "data": r["data"],
-                    }
-                else:
-                    final_response = {
-                        "success": True,
-                        "msg": "Wallet info",
-                        "data": walletInfo,
-                    }
-
-            else:
-                if r["success"]:
-                    final_response = {
-                        "success": False,
-                        "msg": "Error fetching data",
-                        "data": r["data"]["errors"],
-                    }
-                else:
-                    final_response = {
-                        "success": False,
-                        "msg": "Error fetching data",
-                        "data": r["error"],
-                    }
+        else:
+            raise Exception("Error. Please review your id or address provided")
 
         return final_response
-    except ValueError as e:
+
+    except ResponseTypeError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except TypeError as e:
-        msg = "Input parameter not valid for address type or id type"
-        raise HTTPException(status_code=500, detail=msg) from e
     except Exception as e:
         msg = "Error with the endpoint"
         raise HTTPException(status_code=500, detail=msg) from e
@@ -168,8 +85,9 @@ async def generateWords(size: pydantic_schemas.Words):
 
         return HDWallet.generate_mnemonic(strength=strength)
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 
 @router.post(
@@ -179,107 +97,71 @@ async def generateWords(size: pydantic_schemas.Words):
     response_description="Response with wallet id",
     # response_model=List[str],
 )
-async def createWallet(wallet: pydantic_schemas.Wallet):
+async def createWallet(mnemonic_words: str, wallet_type: pydantic_schemas.walletType, userID: str = "", save_flag: bool = True):
     try:
+
         ########################
-        """1. Get wallet info"""
+        """Generate new wallet"""
         ########################
 
-        save_flag = wallet.save_flag
-        userID = wallet.userID
-        mnemonic_words = wallet.words
-        ########################
-        """2. Generate new wallet"""
-        ########################
-        hdwallet = HDWallet.from_mnemonic(mnemonic_words)
-
-        child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-
-        payment_verification_key = PaymentVerificationKey.from_primitive(
-            child_hdwallet.public_key
-        )
-        staking_verification_key = StakeVerificationKey.from_primitive(
-            child_hdwallet.public_key
-        )
-
-        pkh = payment_verification_key.hash()
-        address = Address(
-            payment_part=pkh,
-            staking_part=staking_verification_key.hash(),
-            network=Network.TESTNET,
-        )
-        stake_address = Address(
-            payment_part=None,
-            staking_part=staking_verification_key.hash(),
-            network=Network.TESTNET,
-        )
-
-        wallet_id = binascii.hexlify(pkh.payload).decode("utf-8")
-
-        seed = binascii.hexlify(hdwallet._seed).decode("utf-8") # pylint: disable=protected-access
+        wallet_info = Plataforma().generateWallet(mnemonic_words)
+        wallet_id = wallet_info[0]
+        seed = wallet_info[1]
+        # skey = wallet_info[2]
+        # vkey = wallet_info[3]
+        address = wallet_info[4]
+        stake_address = wallet_info[5]
 
         ########################
         """3. Store wallet info"""
         ########################
         # Check if wallet Id already exists in database
         r = Plataforma().getWallet("id", wallet_id)
-        if r["success"]:
-            if r["data"]["data"]["getWallet"] is None:
-                # It means that wallet does not exist in database, so update database if save_flag is True
-                if save_flag:
-                    # Hash passphrase
-                    variables = {
-                        "id": wallet_id,
-                        "seed": seed,
-                        "userID": userID,
-                        "address": str(address),
-                        "stake_address": str(stake_address),
-                    }
-                    responseWallet = Plataforma().createWallet(variables)
-                    if responseWallet["success"]:
-                        final_response = {
-                            "success": True,
-                            "msg": "Wallet created",
-                            "data": {
-                                "wallet_id": wallet_id,
-                                "address": str(address),
-                                "stake_address": str(stake_address),
-                            },
-                        }
-                    else:
-                        final_response = {
-                            "success": False,
-                            "msg": "Problems creating the wallet",
-                            "data": responseWallet["error"],
-                        }
-                else:
-                    final_response = {
-                        "success": True,
-                        "msg": "Wallet created but not stored in Database",
-                        "data": {
-                            "wallet_id": wallet_id,
-                            "seed": seed,
-                            "address": str(address),
-                            "stake_address": str(stake_address),
-                        },
-                    }
+        wallet_response = Response().handle_getWallet_response(r)
+        if wallet_response["success"]:
+            if wallet_response.get("data", None):
+                raise ResponseProcessingError("Not possible to create wallet, wallet already exists in Dynamo")
+            if save_flag:
 
+                variables = {
+                    "id": wallet_id,
+                    "seed": seed,
+                    "address": str(address),
+                    "stake_address": str(stake_address),
+                }
+                if wallet_type == "user":
+                    variables["userID"] = userID
+                else:
+                    variables["claimed_token"] = False
+                    variables["isAdmin"] = False
+                    variables["isSelected"] = False
+                    variables["name"] = wallet_type
+                    variables["status"] = "active"
+
+                responseWallet = Plataforma().createWallet(variables, wallet_type)
+                final_response = Response().handle_createWallet_response(responseWallet)
+                final_response["wallet_id"] = wallet_id
+                final_response["address"] = str(address)
+                final_response["stake_address"] = str(stake_address)
             else:
                 final_response = {
-                    "success": False,
-                    "msg": f"Wallet with id: {wallet_id} already exists in DynamoDB",
-                    "data": r["data"],
+                    "success": True,
+                    "msg": "Wallet created but not stored in Database",
+                    "data": {
+                        "wallet_id": wallet_id,
+                        "seed": seed,
+                        "address": str(address),
+                        "stake_address": str(stake_address),
+                    },
                 }
-        else:
-            final_response = {
-                "success": False,
-                "msg": "Error fetching data",
-                "data": r["error"],
-            }
 
         return final_response
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    except PlataformaException as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 
 @router.get(
@@ -292,8 +174,10 @@ async def queryAddress(address: str):
     """Get address info - balance, associated stake address (if any) and UTxO set for given addresses \n"""
     try:
         return CardanoApi().getAddressInfo(address)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 
 @router.get(
@@ -315,8 +199,9 @@ async def addressTxs(
             address, from_block, to_block, page_number, limit
         )
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 
 @router.get(
@@ -345,8 +230,10 @@ async def addressUtxos(
     try:
         utxos = CardanoApi().getAddressUtxos(address, page_number, limit)
         return utxos
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 
 @router.get(
@@ -360,8 +247,10 @@ async def addressDetails(address: str) -> dict:
     try:
         details = CardanoApi().getAddressDetails(address)
         return details
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 
 @router.get(
@@ -376,5 +265,7 @@ async def accountUtxos(policy_id: str):
         asset_info = CardanoApi().assetInfo(policy_id)
 
         return asset_info
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e

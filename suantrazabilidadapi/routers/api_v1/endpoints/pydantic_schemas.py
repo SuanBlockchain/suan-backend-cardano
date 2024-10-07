@@ -31,10 +31,15 @@ class WalletStatus(str, Enum):
     inactive = "inactive"
 
 
-class Wallet(BaseModel):
-    save_flag: bool = True
-    userID: str = ""
-    words: str
+# class Wallet(BaseModel):
+#     save_flag: bool = True
+#     userID: str = ""
+#     words: str
+
+class walletType(str, Enum):
+    """"""
+    user: str = "user"
+    oracle = "oracle"
 
 
 class WalletResponse(BaseModel):

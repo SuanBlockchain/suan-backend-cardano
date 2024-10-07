@@ -25,10 +25,16 @@ from pycardano import (
     AuxiliaryData,
     Metadata,
     AlonzoMetadata,
+    HDWallet,
+    PaymentVerificationKey,
+    StakeVerificationKey,
+    Network,
+    ExtendedSigningKey
 )
 
 # from blockfrost import ApiUrls, BlockFrostApi
 
+from pycardano.key import Key
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import Keys
@@ -120,9 +126,43 @@ class Plataforma(Constants):
 
     def listWallets(self) -> dict:
         return self._post("listWallets")
+    
+    def generateWallet(self, mnemonic_words) -> tuple[str, str, ExtendedSigningKey, Key, Address, Address]:
 
-    def createWallet(self, values) -> list[dict]:
-        response = self._post("WalletMutation", values)
+        hdwallet = HDWallet.from_mnemonic(mnemonic_words)
+
+        child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+        skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+
+        payment_verification_key = PaymentVerificationKey.from_primitive(
+            child_hdwallet.public_key
+        )
+        staking_verification_key = StakeVerificationKey.from_primitive(
+            child_hdwallet.public_key
+        )
+        pkh = payment_verification_key.hash()
+        address = Address(
+            payment_part=pkh,
+            staking_part=staking_verification_key.hash(),
+            network=Network.TESTNET,
+        )
+        stake_address = Address(
+            payment_part=None,
+            staking_part=staking_verification_key.hash(),
+            network=Network.TESTNET,
+        )
+
+        wallet_id = binascii.hexlify(pkh.payload).decode("utf-8")
+
+        seed = binascii.hexlify(hdwallet._seed).decode("utf-8") # pylint: disable=protected-access
+
+        return wallet_id, seed, skey, payment_verification_key, address, stake_address
+
+    def createWallet(self, values, mutation_type: str) -> list[dict]:
+
+        operation_name = "WalletMuation" if mutation_type == "user" else "WalletMutationWithouttUserID"
+
+        response = self._post(operation_name, values)
         return response
 
     def createContract(self, values) -> list[dict]:
@@ -590,18 +630,6 @@ class Helpers:
                 break
 
         return utxo_existence, utxo_is
-
-    # def validate_utxos_existente1(
-    #     self, context: ChainContext, address: Union[Address, str], utxo: str
-    # ) -> tuple[bool, UTxO]:
-    #     utxo_existence = False
-    #     for utxo_in_context in context.utxos(address):
-    #         if utxo_in_context.input.transaction_id.payload.hex() == utxo:
-    #             utxo_existence = True
-    #             utxo_is = utxo_in_context
-    #             break
-
-    #     return utxo_existence, utxo_is
 
     def build_oraclePolicyId(
         self, oracle_wallet_name: Optional[str] = "SuanOracle"

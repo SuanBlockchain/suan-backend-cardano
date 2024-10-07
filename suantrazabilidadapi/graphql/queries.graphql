@@ -130,12 +130,11 @@ mutation WalletMutation ($id: ID!, $seed: String!, $userID: ID!, $address: Strin
     id
   }
 }
-
-# mutation WalletTokenUpdate ($id: ID!) {
-#   updateWallet(input: {claimed_token: true, id: $id}) {
-#     id
-#   }
-# }
+mutation WalletMutationWithouttUserID ($id: ID!, $seed: String!, $address: String!, $stake_address: String!, $claimed_token: Boolean, $isAdmin: Boolean, $isSelected: Boolean, $name: String, $status: String) {
+  createWallet(input: {id: $id, seed: $seed, address: $address, stake_address: $stake_address, claimed_token: $claimed_token, isAdmin: $isAdmin, isSelected: $isSelected, name: $name, status: $status}) {
+    id
+  }
+}
 
 mutation ScriptMutation ($id: ID!, $Active: Boolean!, $MainnetAddr: String!, $cbor: String!, $name: String!, $pbk: [String], $script_category: String!, $script_type: String!, $testnetAddr: String!, $token_name: String, $productID: ID, $scriptParentID: ID, $marketplaceID: ID ) {
   createScript(input: {id: $id, Active: $Active, MainnetAddr: $MainnetAddr, cbor: $cbor, name: $name, pbk: $pbk, script_category: $script_category, script_type: $script_type, testnetAddr: $testnetAddr, token_name: $token_name, productID: $productID, scriptParentID: $scriptParentID, marketplaceID: $marketplaceID}) {

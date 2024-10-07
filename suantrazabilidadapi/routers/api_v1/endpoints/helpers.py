@@ -27,9 +27,11 @@ from pycardano import (
 )
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.generic import Constants
 from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma
+from suantrazabilidadapi.utils.response import Response
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException, ResponseFindingUtxo
 
 
 router = APIRouter()
@@ -260,35 +262,46 @@ async def oracleDatum(
     action: pydantic_schemas.OracleAction,
     oracle_data: pydantic_schemas.Oracle,
     core_wallet_id: str,
-    oracle_wallet_name: Optional[str] = "SuanOracle",
+    oracle_wallet_id: Optional[str],
+    oracle_token_name: Optional[str] = "SuanOracle",
 ) -> dict:
     try:
 
         # Check first that the core wallet to pay fees exists
         r = Plataforma().getWallet("id", core_wallet_id)
-        if r["data"].get("data", None) is not None:
-            coreWalletInfo = r["data"]["data"]["getWallet"]
+        final_response = Response().handle_getWallet_response(getWallet_response=r)
 
-            if coreWalletInfo is None:
-                raise ValueError(
-                    f"Wallet with id: {core_wallet_id} does not exist in DynamoDB"
-                )
-            # Get core wallet params
-            seed = coreWalletInfo["seed"]
-            hdwallet = HDWallet.from_seed(seed)
-            child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-            core_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
-            core_address = Address.from_primitive(coreWalletInfo["address"])
+        if not final_response.get("data", None):
+            raise ResponseDynamoDBException(
+                f"Wallet with id: {core_wallet_id} does not exist in DynamoDB"
+            )
 
-        else:
-            raise ValueError("Error fetching data")
+        coreWalletInfo = final_response["data"]
 
-        if action == "Create":
-            mnemonics_words = HDWallet.generate_mnemonic(strength=Constants.ENCODING_LENGHT_MAPPING.get("24", 256))
-            localKeys = {"mnemonics_words": mnemonics_words}
-        else:
-            localKeys = {}
-        oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name, localKeys=localKeys)
+        # Get core wallet params
+        seed = coreWalletInfo["seed"]
+        hdwallet = HDWallet.from_seed(seed)
+        child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+        core_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+        core_address = Address.from_primitive(coreWalletInfo["address"])
+
+        oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
+
+        if not oracleWalletResponse.get("data", None):
+            raise ResponseDynamoDBException(
+                f"Wallet with id: {oracle_wallet_id} does not exist in DynamoDB"
+            )
+        oracleWallet = oracleWalletResponse["data"]
+        oracle_address = oracleWallet["address"]
+        seed = oracleWallet["seed"]
+        hdwallet = HDWallet.from_seed(seed)
+        child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+
+        oracle_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+
+        oracle_vkey = PaymentVerificationKey.from_primitive(
+            child_hdwallet.public_key
+        )
 
         chain_context = CardanoNetwork().get_chain_context()
 
@@ -299,7 +312,7 @@ async def oracleDatum(
         builder.add_input_address(core_address)
 
         # Add oracle address as the input address
-        oracle_address = Address.from_primitive(oracle_walletInfo[3])
+        oracle_address = Address.from_primitive(oracle_address)
         builder.add_input_address(oracle_address)
 
         must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
@@ -309,7 +322,7 @@ async def oracleDatum(
         """3. Create the script and policy"""
         ########################
         # A policy that requires a signature from the policy key we generated above
-        pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
+        pub_key_policy = ScriptPubkey(oracle_vkey.hash())
         # Combine two policies using ScriptAll policy
         policy = ScriptAll([pub_key_policy])
         # Calculate policy ID, which is the hash of the policy
@@ -322,7 +335,7 @@ async def oracleDatum(
         native_scripts = [policy]
 
         # tokenName = b"SuanOracle"
-        tokenName = bytes(oracle_wallet_name, encoding="utf-8")
+        tokenName = bytes(oracle_token_name, encoding="utf-8")
         ########################
         """Define NFT"""
         ########################
@@ -338,20 +351,26 @@ async def oracleDatum(
             builder.mint = my_nft
             # Set native script
             builder.native_scripts = native_scripts
-            msg = f"{tokenName} minted to store oracle data info in datum for Suan"
+            msg = f"{oracle_token_name} minted to store oracle data info in datum for Suan"
         else:
-            nft_utxo = None
+            oracle_utxo = None
             for utxo in chain_context.utxos(oracle_address):
 
                 def f1(pi: ScriptHash, an: AssetName, a: int) -> bool:
                     return pi == policy_id and an.payload == tokenName and a == 1
 
                 if utxo.output.amount.multi_asset.count(f1):
-                    nft_utxo = utxo
+                    oracle_utxo = utxo
 
-                    builder.add_input(nft_utxo)
+                    builder.add_input(oracle_utxo)
 
             msg = "Oracle datum updated"
+
+            # Check if oracle_utxo exists and is found
+            if not oracle_utxo:
+                raise ResponseFindingUtxo(
+                    f"Utxo for oracle token name {oracle_token_name} could not be found in {oracle_address}"
+                )
         # Build the inline datum
         # precision = 14
         value_dict = {}
@@ -364,7 +383,7 @@ async def oracleDatum(
 
         datum = pydantic_schemas.DatumOracle(
             value_dict=value_dict,
-            identifier=bytes.fromhex(oracle_walletInfo[4]),
+            identifier=bytes.fromhex(str(oracle_vkey.hash())),
             validity=oracle_data.validity,
         )
         min_val = min_lovelace(
@@ -376,12 +395,12 @@ async def oracleDatum(
         )
 
         signed_tx = builder.build_and_sign(
-            [oracle_walletInfo[1], core_skey], change_address=oracle_address
+            [oracle_skey, core_skey], change_address=oracle_address
         )
 
         # Submit signed transaction to the network
         tx_id = signed_tx.transaction_body.hash().hex()
-        # chain_context.submit_tx(signed_tx)
+        chain_context.submit_tx(signed_tx)
 
         logging.info(f"transaction id: {tx_id}")
         logging.info(f"https://preview.cardanoscan.io/transaction/{tx_id}")
@@ -391,24 +410,16 @@ async def oracleDatum(
             "success": True,
             "msg": msg,
             "tx_id": tx_id,
+            "oracle_id": oracle_wallet_id,
             "oracle_address": oracle_address.encode(),
             "cardanoScan": f"https://preview.cardanoscan.io/transaction/{tx_id}",
         }
 
         return final_response
+
+    except ResponseFindingUtxo as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ResponseDynamoDBException as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-# from suantrazabilidad import celery_app
-
-
-# @router.get("/status/{task_id}")
-# async def task_status(task_id: str):
-#     task = celery_app.AsyncResult(task_id)
-#     if task.state == "SUCCESS":
-#         return {"status": "done", "result": task.result}
-#     elif task.state == "PENDING":
-#         return {"status": "pending"}
-#     else:
-#         return {"status": "failed"}
