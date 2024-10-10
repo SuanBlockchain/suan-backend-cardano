@@ -4,7 +4,11 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from opshin.builder import PlutusContract, build
 from opshin.prelude import TxId, TxOutRef
-from pycardano import Address
+from pycardano import (
+    Address,
+    HDWallet,
+    PaymentVerificationKey
+)
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
@@ -14,6 +18,8 @@ from suantrazabilidadapi.utils.generic import (
     recursion_limit,
 )
 from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma
+from suantrazabilidadapi.utils.response import Response
+from suantrazabilidadapi.utils.exception import ResponseProcessingError
 
 router = APIRouter()
 
@@ -27,6 +33,7 @@ router = APIRouter()
 async def getPkh(command_name: pydantic_schemas.walletCommandName, wallet: str) -> str:
     """From address or wallet name obtain pkh. If wallet name is provided, it has to exist locally\n"""
 
+    final_response = "Error fetching wallet info"
     try:
         if command_name == "address":
             address = wallet
@@ -45,11 +52,11 @@ async def getPkh(command_name: pydantic_schemas.walletCommandName, wallet: str) 
                 else:
                     address = walletInfo["address"]
                     final_response = Keys().getPkh(address)
-            else:
-                final_response = "Error fetching wallet info"
 
         return final_response
 
+    except ResponseProcessingError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -107,38 +114,9 @@ async def getScripts():
 async def getScript(
     script_type: pydantic_schemas.contractCommandName, query_param: str
 ) -> dict:
+    final_response = {}
     if script_type == "id":
-        r = Plataforma().getScript(script_type, query_param)
-
-        if r["data"].get("data", None) is not None:
-            contractInfo = r["data"]["data"]["getScript"]
-
-            if contractInfo is None:
-                final_response = {
-                    "success": True,
-                    "msg": f"Contract with id: {query_param} does not exist in DynamoDB",
-                    "data": r["data"],
-                }
-            else:
-                final_response = {
-                    "success": True,
-                    "msg": "Contract info",
-                    "data": contractInfo,
-                }
-
-        else:
-            if r["success"]:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["data"]["errors"],
-                }
-            else:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["error"],
-                }
+        final_response = Response().handle_getScript_response(getScript_response=Plataforma().getScript(script_type, query_param))
 
     return final_response
 
@@ -157,7 +135,7 @@ async def createContract(
     save_flag: bool = True,
     parent_policy_id: str = "",
     project_id: Optional[str] = None,
-    oracle_wallet_name: Optional[str] = Constants.ORACLE_WALLET_NAME,
+    oracle_wallet_id: str = "",
 ) -> dict:
     """From parameters build a smart contract"""
     try:
@@ -224,7 +202,22 @@ async def createContract(
             script_path = Constants.PROJECT_ROOT.joinpath(
                 Constants.CONTRACTS_DIR
             ).joinpath(f"{script_type.value}.py")
-            oracle_policy_id = Helpers().build_oraclePolicyId(oracle_wallet_name)
+
+            oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
+
+            if not oracleWalletResponse.get("data", None):
+                raise ResponseProcessingError("Could not found Oracle wallet")
+
+            oracleWallet = oracleWalletResponse["data"]
+
+            seed = oracleWallet["seed"]
+            hdwallet = HDWallet.from_seed(seed)
+            child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+
+            oracle_vkey = PaymentVerificationKey.from_primitive(
+                child_hdwallet.public_key
+            )
+            oracle_policy_id = Helpers().build_oraclePolicyId(oracle_vkey)
             recursion_limit(2000)
             contract = build(script_path, bytes.fromhex(oracle_policy_id))
 
@@ -233,14 +226,23 @@ async def createContract(
                 Constants.CONTRACTS_DIR
             ).joinpath(f"{script_type.value}.py")
 
-            oracle_policy_id = Helpers().build_oraclePolicyId(oracle_wallet_name)
-            # # Recreate oracle policyId
-            # oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
-            # pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
-            # # Combine two policies using ScriptAll policy
-            # policy = ScriptAll([pub_key_policy])
-            # # Calculate policy ID, which is the hash of the policy
-            # oracle_policy_id = binascii.hexlify(policy.hash().payload).decode('utf-8')
+            oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
+
+            if not oracleWalletResponse.get("data", None):
+                raise ResponseProcessingError("Could not found Oracle wallet")
+
+            oracleWallet = oracleWalletResponse["data"]
+
+            seed = oracleWallet["seed"]
+            hdwallet = HDWallet.from_seed(seed)
+            child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+
+            oracle_vkey = PaymentVerificationKey.from_primitive(
+                child_hdwallet.public_key
+            )
+
+            oracle_policy_id = Helpers().build_oraclePolicyId(oracle_vkey)
+
             print(bytes.fromhex(oracle_policy_id))
             print(oracle_policy_id)
             recursion_limit(2000)
@@ -346,8 +348,13 @@ async def createContract(
 
         return final_response
 
+    except ResponseProcessingError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 
 @router.get(

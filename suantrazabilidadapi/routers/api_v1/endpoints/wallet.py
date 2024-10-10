@@ -8,7 +8,7 @@ from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Plataforma
 from suantrazabilidadapi.utils.response import Response
-from suantrazabilidadapi.utils.exception import PlataformaException, ResponseTypeError, ResponseProcessingError
+from suantrazabilidadapi.utils.exception import ResponseTypeError, ResponseProcessingError
 
 router = APIRouter()
 
@@ -157,7 +157,7 @@ async def createWallet(mnemonic_words: str, wallet_type: pydantic_schemas.wallet
 
         return final_response
 
-    except PlataformaException as e:
+    except ResponseProcessingError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except Exception as e:
         msg = "Error with the endpoint"

@@ -51,14 +51,15 @@ query getWalletByAddress ($address: String!) {
   }
 }
 
-# query getWalletByToken {
-#   listWallets(filter: {claimed_token: {eq: false}}) {
-#     items {
-#       id
-#       address
-#     }
-#   }
-# }
+query getMarketplaceByOracle ($oracleWalletID: ID!) {
+  listMarketplaces(filter: {oracleWalletID: {eq: $oracleWalletID}}) {
+    items {
+      id
+      name
+      oracleTokenName
+    }
+  }
+}
 
 query listWallets {
   listWallets {

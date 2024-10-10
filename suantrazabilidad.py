@@ -180,6 +180,7 @@ async def root():
 @suantrazabilidad.get("/generate-api-key")
 async def get_new_api_key():
     api_key = generate_api_key()
+
     return {"api_key": api_key}
 
 
@@ -195,7 +196,7 @@ if __name__ == "__main__":
     import uvicorn
 
     env = os.getenv("env")
-    if env =="internal":
+    if env == "internal":
         logging.warning(f"Running in {env} mode. Do not run like this in production")
     elif env == "dev":
         logging.warning(f"Running in {env} mode. Do not run like this in production")

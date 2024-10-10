@@ -305,7 +305,7 @@ async def mintTokens(
 async def claimTx(
     claim_redeemer: pydantic_schemas.ClaimRedeem,
     claim: pydantic_schemas.Claim,
-    oracle_token_name: str = Constants.ORACLE_TOKEN_NAME,
+    oracle_wallet_id: str,
 ) -> dict:
     # try:
     ########################
@@ -329,17 +329,17 @@ async def claimTx(
 
             # Add user own address as the input address
             user_address = Address.from_primitive(userWalletInfo["address"])
-            # builder.add_input_address(user_address) # I just commented this
-            utxo_to_spend = None
-            for utxo in chain_context.utxos(user_address):
-                if utxo.output.amount.coin > 3_000_000:
-                    utxo_to_spend = utxo
-                    break
-            assert (
-                utxo_to_spend is not None
-            ), "UTxO not found to spend! You must have a utxo with more than 3 ADA"
+            builder.add_input_address(user_address) # I just commented this
+            # utxo_to_spend = None
+            # for utxo in chain_context.utxos(user_address):
+            #     if utxo.output.amount.coin > 3_000_000:
+            #         utxo_to_spend = utxo
+            #         break
+            # assert (
+            #     utxo_to_spend is not None
+            # ), "UTxO not found to spend! You must have a utxo with more than 3 ADA"
 
-            builder.add_input(utxo_to_spend)
+            # builder.add_input(utxo_to_spend)
             must_before_slot = InvalidHereAfter(
                 chain_context.last_block_slot + 10000
             )
@@ -509,7 +509,7 @@ async def claimTx(
             # End of the contract implementation
 
             oracle_utxo = Helpers().build_reference_input_oracle(
-                chain_context, oracle_token_name
+                chain_context, oracle_wallet_id
             )
 
             assert oracle_utxo is not None, "Oracle UTxO not found!"
@@ -528,9 +528,6 @@ async def claimTx(
             # tmp_builder = deepcopy(builder)
             # redeemer_report = Redeemer(redeemer)
             redeemers = builder.redeemers()
-
-            # redeemers = tmp_builder.redeemers()
-
 
             # Processing the tx body
             format_body = Plataforma().formatTxBody(build_body)

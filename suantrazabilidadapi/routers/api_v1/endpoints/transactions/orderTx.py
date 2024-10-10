@@ -185,7 +185,7 @@ async def createOrder(
 async def unlockOrder(
     order: pydantic_schemas.UnlockOrder,
     order_side: pydantic_schemas.ClaimRedeem,
-    oracle_token_name: str = Constants.ORACLE_TOKEN_NAME,
+    oracle_wallet_id: str,
 ) -> dict:
     try:
         ########################
@@ -224,7 +224,7 @@ async def unlockOrder(
                     contractInfo = r["data"]["data"]["getScript"]
                     if contractInfo is None:
                         raise ValueError(
-                            f"Contract with id: {order.spendPolicyId} does not exist in DynamoDB"
+                            f"Contract with id: {order.orderPolicyId} does not exist in DynamoDB"
                         )
                     else:
                         order_address = contractInfo.get("testnetAddr", None)
@@ -261,7 +261,7 @@ async def unlockOrder(
                     raise ValueError("No utxo found in body message")
 
                 oracle_utxo = Helpers().build_reference_input_oracle(
-                    chain_context, oracle_token_name
+                    chain_context, oracle_wallet_id
                 )
 
                 assert oracle_utxo is not None, "Oracle UTxO not found!"

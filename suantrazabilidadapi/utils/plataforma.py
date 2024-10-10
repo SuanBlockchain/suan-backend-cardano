@@ -37,8 +37,9 @@ from pycardano import (
 from pycardano.key import Key
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.blockchain import Keys
+# from suantrazabilidadapi.utils.blockchain import Keys
 from suantrazabilidadapi.utils.generic import Constants
+from suantrazabilidadapi.utils.response import Response
 
 plataformaSecrets = config(section="plataforma")
 security = config(section="security")
@@ -49,11 +50,12 @@ environment = security["env"]
 @dataclass()
 class Plataforma(Constants):
     """Class representing all the methods to interact with Plataforma"""
+
     def __post_init__(self):
         if environment == "internal":
             self.graphqlEndpoint = os.getenv("endpoint_internal")
             self.awsAppSyncApiKey = os.getenv("graphql_key_internal")
-        elif environment =="dev":
+        elif environment == "dev":
             self.graphqlEndpoint = os.getenv("endpoint_dev")
             self.awsAppSyncApiKey = os.getenv("graphql_key_dev")
         elif environment == "prod":
@@ -81,7 +83,7 @@ class Plataforma(Constants):
                     "variables": graphql_variables,
                 },
                 headers=self.HEADERS,
-                timeout = 10
+                timeout=10
             )
             rawResult.raise_for_status()
             data = json.loads(rawResult.content.decode("utf-8"))
@@ -101,6 +103,7 @@ class Plataforma(Constants):
         return dictionary
 
     def getProject(self, command_name: str, query_param: str) -> dict:
+        data = {}
         if command_name == "id":
             graphql_variables = {"projectId": query_param}
 
@@ -112,6 +115,7 @@ class Plataforma(Constants):
         return self._post("listProjects")
 
     def getWallet(self, command_name: str, query_param: str) -> dict:
+        data = {}
         if command_name == "id":
             graphql_variables = {"walletId": query_param}
 
@@ -126,7 +130,7 @@ class Plataforma(Constants):
 
     def listWallets(self) -> dict:
         return self._post("listWallets")
-    
+
     def generateWallet(self, mnemonic_words) -> tuple[str, str, ExtendedSigningKey, Key, Address, Address]:
 
         hdwallet = HDWallet.from_mnemonic(mnemonic_words)
@@ -154,13 +158,13 @@ class Plataforma(Constants):
 
         wallet_id = binascii.hexlify(pkh.payload).decode("utf-8")
 
-        seed = binascii.hexlify(hdwallet._seed).decode("utf-8") # pylint: disable=protected-access
+        seed = binascii.hexlify(hdwallet._seed).decode("utf-8")  # pylint: disable=protected-access
 
         return wallet_id, seed, skey, payment_verification_key, address, stake_address
 
     def createWallet(self, values, mutation_type: str) -> list[dict]:
 
-        operation_name = "WalletMuation" if mutation_type == "user" else "WalletMutationWithouttUserID"
+        operation_name = "WalletMutation" if mutation_type == "user" else "WalletMutationWithouttUserID"
 
         response = self._post(operation_name, values)
         return response
@@ -179,6 +183,14 @@ class Plataforma(Constants):
 
     def listScripts(self) -> dict:
         return self._post("listScripts")
+
+    def listMarketplaces(self, command_name: str, query_param: str) -> dict:
+        if command_name == "oracleWalletID":
+            graphql_variables = {"oracleWalletID": query_param}
+
+            data = self._post("getMarketplaceByOracle", graphql_variables)
+
+            return data
 
     def formatTxBody(self, txBody: TransactionBody) -> dict:
         """_summary_
@@ -399,6 +411,7 @@ class Plataforma(Constants):
 @dataclass()
 class CardanoApi(Constants):
     """Class with endpoints to interact with the blockchain"""
+
     def __post_init__(self):
         pass
 
@@ -542,6 +555,7 @@ class CardanoApi(Constants):
 @dataclass()
 class Helpers:
     """Class with generic methods to convert datatypes and parse data"""
+
     def __post_init__(self):
         pass
 
@@ -632,11 +646,11 @@ class Helpers:
         return utxo_existence, utxo_is
 
     def build_oraclePolicyId(
-        self, oracle_wallet_name: Optional[str] = "SuanOracle"
+        self, oracle_vkey: PaymentVerificationKey
     ) -> str:
         # Recreate oracle policyId
-        oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
-        pub_key_policy = ScriptPubkey(oracle_walletInfo[2].hash())
+        # oracle_walletInfo = Keys().load_or_create_key_pair(oracle_wallet_name)
+        pub_key_policy = ScriptPubkey(oracle_vkey.hash())
         # Combine two policies using ScriptAll policy
         policy = ScriptAll([pub_key_policy])
         # Calculate policy ID, which is the hash of the policy
@@ -662,16 +676,39 @@ class Helpers:
     def build_reference_input_oracle(
         self,
         chain_context: ChainContext,
-        oracle_token_name: str = Constants.ORACLE_TOKEN_NAME,
+        oracle_wallet_id: str
     ) -> Union[UTxO, None]:
+        oracle_utxo = None
+        oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
 
-        oracle_walletInfo = Keys().load_or_create_key_pair(Constants.ORACLE_WALLET_NAME)
-        oracle_address = oracle_walletInfo[3]
-        oracle_asset = self.build_multiAsset(
-            policy_id=self.build_oraclePolicyId(Constants.ORACLE_WALLET_NAME),
-            tq_dict={oracle_token_name: 1},
-        )
-        oracle_utxo = self.find_utxos_with_tokens(
-            chain_context, oracle_address, multi_asset=oracle_asset
-        )
+        if oracleWalletResponse.get("data", None):
+
+            oracleWallet = oracleWalletResponse["data"]
+            oracle_address = oracleWallet["address"]
+
+            seed = oracleWallet["seed"]
+            hdwallet = HDWallet.from_seed(seed)
+            child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+
+            oracle_vkey = PaymentVerificationKey.from_primitive(
+                child_hdwallet.public_key
+            )
+
+            # Get the oracle token name
+
+            response = Plataforma().listMarketplaces("oracleWalletID", oracle_wallet_id)
+            marketplaceResponse = Response().handle_listMarketplaces_response(response)
+
+            if marketplaceResponse.get("data", None):
+                marketplaceInfo = marketplaceResponse["data"]["items"][0]
+
+                oracle_token_name = marketplaceInfo["oracleTokenName"]
+
+                oracle_asset = self.build_multiAsset(
+                    policy_id=self.build_oraclePolicyId(oracle_vkey),
+                    tq_dict={oracle_token_name: 1},
+                )
+                oracle_utxo = self.find_utxos_with_tokens(
+                    chain_context, oracle_address, multi_asset=oracle_asset
+                )
         return oracle_utxo

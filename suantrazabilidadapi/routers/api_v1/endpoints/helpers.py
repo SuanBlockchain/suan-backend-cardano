@@ -395,7 +395,7 @@ async def oracleDatum(
         )
 
         signed_tx = builder.build_and_sign(
-            [oracle_skey, core_skey], change_address=oracle_address
+            [oracle_skey, core_skey], change_address=core_address
         )
 
         # Submit signed transaction to the network
