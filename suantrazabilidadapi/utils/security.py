@@ -11,16 +11,22 @@ security = config(section="security")
 load_dotenv()
 environment = security["env"]
 
+env = ""
+api_key_header = ""
 if environment == "internal":
     env = os.getenv("platform_api_key_internal")
 elif environment == "dev":
     env = os.getenv("platform_api_key_dev")
 elif environment == "prod":
     env = os.getenv("platform_api_key_prod")
+elif environment == "test":
+    env = os.getenv("platform_api_key_test")
+
 
 API_KEYS = {"platform": env}
 
-api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
+if env != "":
+    api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
 
 def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
