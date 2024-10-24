@@ -1,13 +1,12 @@
 import binascii
 import logging
 from typing import Optional
-import os
 
-import uuid
+# import uuid
 from cbor2 import loads
 from fastapi import APIRouter, HTTPException
-import redis
-from redis.commands.search.query import Query
+# import redis
+# from redis.commands.search.query import Query
 from pycardano import (
     Address,
     AssetName,
@@ -29,7 +28,7 @@ from pycardano import (
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.generic import Constants
-from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma
+from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma, RedisClient
 from suantrazabilidadapi.utils.response import Response
 from suantrazabilidadapi.utils.exception import ResponseDynamoDBException, ResponseFindingUtxo
 
@@ -51,132 +50,100 @@ async def sendAccessToken(
     save_flag: bool = False,
 ):
     try:
-        # TODO: change the redis connectio to a more generic form
-
         # Set generic variables
         scriptName = "NativeAccessToken"
         scriptCategory = "PlutusV2"
         script_type = "native"
 
         r = Plataforma().getWallet("id", wallet_id)
-        if r["data"].get("data", None) is not None:
-            walletInfo = r["data"]["data"]["getWallet"]
-            if walletInfo is None:
-                raise ValueError(
-                    f"Wallet with id: {wallet_id} does not exist in DynamoDB"
-                )
-            else:
-                ########################
-                """1. Obtain the payment sk and vk from the walletInfo"""
-                ########################
-                seed = walletInfo["seed"]
-                hdwallet = HDWallet.from_seed(seed)
-                child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+        wallet_response = Response().handle_getWallet_response(getWallet_response=r)
+        walletInfo = wallet_response.get("data", None)
+        final_response = wallet_response
+        if wallet_response["success"] and walletInfo:
+            ########################
+            """Obtain the payment sk and vk from the walletInfo"""
+            ########################
+            seed = walletInfo["seed"]
+            hdwallet = HDWallet.from_seed(seed)
+            child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
 
-                payment_vk = PaymentVerificationKey.from_primitive(
-                    child_hdwallet.public_key
-                )
-                pub_key_policy = ScriptPubkey(payment_vk.hash())
-                policy = ScriptAll([pub_key_policy])
-                # Calculate policy ID, which is the hash of the policy
-                policy_id = policy.hash()
-                policy_id_str = binascii.hexlify(policy_id.payload).decode("utf-8")
+            payment_vk = PaymentVerificationKey.from_primitive(
+                child_hdwallet.public_key
+            )
+            pub_key_policy = ScriptPubkey(payment_vk.hash())
+            policy = ScriptAll([pub_key_policy])
+            # Calculate policy ID, which is the hash of the policy
+            policy_id = policy.hash()
+            policy_id_str = binascii.hexlify(policy_id.payload).decode("utf-8")
 
-                ########################
-                """2. Create the request in redis cache to be processed by the scheduler"""
-                ########################
+            ########################
+            """Create the request in redis cache to be processed by the scheduler"""
+            ########################
+            # redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+            # rdb = redis.Redis.from_url(redis_url, decode_responses=True)
+            token_string = "SandboxSuanAccess1"
 
-                redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-                rdb = redis.Redis.from_url(redis_url, decode_responses=True)
-                # rdb = redis.Redis(decode_responses=True)
-                token_string = "SandboxSuanAccess1"
+            record = {
+                "status": "pending",
+                "destinAddress": destinAddress,
+                "wallet_id": wallet_id,
+                "token_string": token_string,
+            }
+            index_name = "AccessTokenIndex"
+            redisclient = RedisClient()
+            await redisclient.create_index(index_name)
+            # key = str(uuid.uuid4())
+            # rdb.json().set("AccessToken:" + key, "$", record)
+            await redisclient.create_task(index_name, record)
+            # query = Query("@status:pending")
+            # result = rdb.ft(index_name).search(query)
+            result = await redisclient.make_query(index_name, "@status:pending")
+            redisclient.close()
+            logging.info(result)
 
-                record = {
-                    "status": "pending",
-                    "destinAddress": destinAddress,
-                    "wallet_id": wallet_id,
-                    "token_string": token_string,
+            ########################
+            """3. Save the script if save_flag is true"""
+            ########################
+            if save_flag:
+                variables = {
+                    "id": policy_id_str,
+                    "name": scriptName,
+                    "MainnetAddr": "na",
+                    "testnetAddr": "na",
+                    "cbor": "na",
+                    "pbk": wallet_id,
+                    "script_category": scriptCategory,
+                    "script_type": script_type,
+                    "Active": True,
+                    "token_name": token_string,
+                    "marketplaceID": marketplace_id,
                 }
-                index_name = "idx:AccessToken"
-                key = str(uuid.uuid4())
-                rdb.json().set("AccessToken:" + key, "$", record)
-                query = Query("@status:pending")
-                result = rdb.ft(index_name).search(query)
-
-                logging.info(result)
-
-                ########################
-                """3. Save the script if save_flag is true"""
-                ########################
-                if save_flag:
-                    variables = {
-                        "id": policy_id_str,
-                        "name": scriptName,
-                        "MainnetAddr": "na",
-                        "testnetAddr": "na",
-                        "cbor": "na",
-                        "pbk": wallet_id,
-                        "script_category": scriptCategory,
-                        "script_type": script_type,
-                        "Active": True,
-                        "token_name": token_string,
-                        "marketplaceID": marketplace_id,
-                    }
-                    responseScript = Plataforma().createContract(variables)
-                    # TODO: if script exists don't try to write it in dynamoDB
-                    if responseScript["success"]:
-                        if (
-                            responseScript["data"]["data"] is not None
-                            and responseScript["data"].get("errors", None) is None
-                        ):
-                            final_response = {
-                                "success": True,
-                                "msg": "Token scheduled to be sent soon",
-                                "policy_id": policy_id_str,
-                                "tokenName": token_string,
-                            }
-                        else:
-                            final_response = {
-                                "success": False,
-                                "msg": "Token scheduled to be sent soon but problems creating the script in dynamoDB",
-                                "data": responseScript["data"]["errors"],
-                                "policy_id": policy_id_str,
-                                "tokenName": token_string,
-                            }
-                    else:
-                        final_response = {
-                            "success": False,
-                            "msg": "Token scheduled to be sent soon but problems creating the script in dynamoDB",
-                            "data": responseScript["error"],
-                            "policy_id": policy_id_str,
-                            "tokenName": token_string,
-                        }
-                else:
+                r = Plataforma().createContract(variables)
+                responseCreateScript = Response().handle_createContract_response(r)
+                if responseCreateScript and not responseCreateScript.get("data", None):
                     final_response = {
                         "success": True,
-                        "msg": "Token scheduled to be sent soon but script not saved in dynamoDB",
+                        "msg": "Token scheduled to be sent soon",
                         "policy_id": policy_id_str,
                         "tokenName": token_string,
                     }
-
-        else:
-            if r["success"]:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["data"]["errors"],
-                }
+                else:
+                    final_response = {
+                        "success": False,
+                        "msg": "Token scheduled to be sent soon but problems creating the script in dynamoDB",
+                        "data": responseCreateScript,
+                        "policy_id": policy_id_str,
+                        "tokenName": token_string,
+                    }
             else:
                 final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["error"],
+                    "success": True,
+                    "msg": "Token scheduled to be sent soon but script not saved in dynamoDB",
+                    "policy_id": policy_id_str,
+                    "tokenName": token_string,
                 }
 
         return final_response
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
 
     except Exception as e:
         # Handling other types of exceptions

@@ -1,6 +1,5 @@
 import functools
 import logging
-from copy import deepcopy
 
 from fastapi import APIRouter, HTTPException
 from pycardano import (
@@ -10,7 +9,6 @@ from pycardano import (
     InvalidHereAfter,
     MultiAsset,
     Redeemer,
-    RedeemerMap,
     ScriptHash,
     TransactionBuilder,
     TransactionOutput,
@@ -23,8 +21,9 @@ from pycardano import (
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
-from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
-from suantrazabilidadapi.utils.generic import Constants
+from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma, RedisClient
+from suantrazabilidadapi.utils.response import Response
+from suantrazabilidadapi.utils.exception import ResponseProcessingError
 
 router = APIRouter()
 
@@ -39,20 +38,18 @@ router = APIRouter()
 async def mintTokens(
     mint_redeemer: pydantic_schemas.MintRedeem, send: pydantic_schemas.TokenGenesis
 ) -> dict:
-    # try:
-    ########################
-    """1. Get wallet info"""
-    ########################
-    r = Plataforma().getWallet("id", send.wallet_id)
-    if r["data"].get("data", None) is not None:
-        walletInfo = r["data"]["data"]["getWallet"]
-        if walletInfo is None:
-            raise ValueError(
-                f"Wallet with id: {send.wallet_id} does not exist in DynamoDB"
-            )
-        else:
+    try:
+        ########################
+        """Get wallet info"""
+        ########################
+        r = Plataforma().getWallet("id", send.wallet_id)
+        wallet_response = Response().handle_getWallet_response(getWallet_response=r)
+        final_response = wallet_response
+        walletInfo = wallet_response.get("data", None)
+        if wallet_response["success"] and walletInfo:
+
             ########################
-            """2. Build transaction"""
+            """Build transaction"""
             ########################
             chain_context = CardanoNetwork().get_chain_context()
 
@@ -66,6 +63,7 @@ async def mintTokens(
             pkh = bytes(master_address.payment_part)
 
             # Validate utxo
+            utxo_results = ()
             if send.utxo:
                 transaction_id = send.utxo.transaction_id
                 index = send.utxo.index
@@ -87,18 +85,14 @@ async def mintTokens(
                 script_id = send.mint.asset.policyid
 
                 r = Plataforma().getScript("id", script_id)
-                if r["data"].get("data", None) is not None:
-                    contractInfo = r["data"]["data"]["getScript"]
-                    if contractInfo is None:
-                        raise ValueError(
-                            "Script with policyId does not exist in database"
-                        )
-                    else:
-                        cbor_hex = contractInfo.get("cbor", None)
-                        cbor = bytes.fromhex(cbor_hex)
-                        plutus_script = PlutusV2Script(cbor)
-                else:
-                    raise ValueError("Error fetching Script from database")
+                script_response = Response().handle_getScript_response(r)
+                scriptInfo = script_response.get("data", None)
+                if not script_response["success"] and not scriptInfo:
+                    raise ResponseProcessingError("Script with policyId does not exist in database")
+
+                cbor_hex = scriptInfo.get("cbor", None)
+                cbor = bytes.fromhex(cbor_hex)
+                plutus_script = PlutusV2Script(cbor)
 
                 script_hash = plutus_script_hash(plutus_script)
                 logging.info(f"script_hash: {script_hash}")
@@ -275,25 +269,15 @@ async def mintTokens(
                 "utxos_info": utxo_list_info,
                 "tx_size": len(build_body.to_cbor()),
             }
-    else:
-        if r["success"]:
-            final_response = {
-                "success": False,
-                "msg": "Error fetching data",
-                "data": r["data"]["errors"],
-            }
-        else:
-            final_response = {
-                "success": False,
-                "msg": "Error fetching data",
-                "data": r["error"],
-            }
 
-    return final_response
+        return final_response
     # except ValueError as e:
     #     raise HTTPException(status_code=400, detail=str(e)) from e
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail=str(e)) from e
+    except ResponseProcessingError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @router.post(
     "/claim-tx/{claim_redeemer}",
@@ -307,21 +291,42 @@ async def claimTx(
     claim: pydantic_schemas.Claim,
     oracle_wallet_id: str,
 ) -> dict:
-    # try:
-    ########################
-    """1. Get wallet info"""
-    ########################
-    r = Plataforma().getWallet("id", claim.wallet_id)
-    if r["data"].get("data", None) is not None:
-        userWalletInfo = r["data"]["data"]["getWallet"]
-        if userWalletInfo is None:
-            raise ValueError(
-                f"Wallet with id: {claim.wallet_id} does not exist in DynamoDB"
-            )
-        else:
+    try:
+        ########################
+        """Get wallet info"""
+        ########################
+        r = Plataforma().getWallet("id", claim.wallet_id)
+        wallet_response = Response().handle_getWallet_response(getWallet_response=r)
+        userWalletInfo = wallet_response.get("data", None)
+        final_response = wallet_response
+        if wallet_response["success"] and userWalletInfo:
             ########################
-            """2. Build transaction"""
+            """Create the request in redis cache to be processed by the scheduler"""
             ########################
+            index_name = "MultipleContractBuy"
+            record = {
+                "status": "pending",
+                "destinAddresses": claim.addresses,
+                "wallet_id": wallet_id,
+                "spendPolicyId": claim.spendPolicyId,
+                "oracle_wallet_id": oracle_wallet_id,
+                "metadata": metadata
+            }
+            redisclient = RedisClient()
+            await redisclient.create_index(index_name)
+            await redisclient.create_task(index_name, record)
+            result = await redisclient.make_query(index_name, "@status:pending")
+            redisclient.close()
+            logging.info(result)
+
+
+
+
+
+            ########################
+            """Build transaction"""
+            ########################
+
             chain_context = CardanoNetwork().get_chain_context()
 
             # Create a transaction builder
@@ -329,7 +334,7 @@ async def claimTx(
 
             # Add user own address as the input address
             user_address = Address.from_primitive(userWalletInfo["address"])
-            builder.add_input_address(user_address) # I just commented this
+            builder.add_input_address(user_address)  # I just commented this
             # utxo_to_spend = None
             # for utxo in chain_context.utxos(user_address):
             #     if utxo.output.amount.coin > 3_000_000:
@@ -347,19 +352,17 @@ async def claimTx(
             builder.ttl = must_before_slot.after
 
             # Get the contract address and cbor from policyId
-
+            parent_mint_policyID = ""
             r = Plataforma().getScript("id", claim.spendPolicyId)
-            if r["success"]:
-                contractInfo = r["data"]["data"]["getScript"]
-                if contractInfo is None:
-                    raise ValueError(
-                        f"Contract with id: {claim.spendPolicyId} does not exist in DynamoDB"
-                    )
-                else:
-                    testnet_address = contractInfo.get("testnetAddr", None)
-                    cbor_hex = contractInfo.get("cbor", None)
-                    parent_mint_policyID = contractInfo.get("scriptParentID", None)
-                    tokenName = contractInfo.get("token_name", None)
+            script_response = Response().handle_getScript_response(r)
+            scriptInfo = script_response.get("data", None)
+            if not script_response["success"] and not scriptInfo:
+                raise ResponseProcessingError("Script with policyId does not exist in database")
+
+            testnet_address = scriptInfo.get("testnetAddr", None)
+            cbor_hex = scriptInfo.get("cbor", None)
+            parent_mint_policyID = scriptInfo.get("scriptParentID", None)
+            tokenName = scriptInfo.get("token_name", None)
 
             metadata = {}
             if claim.metadata is not None and claim.metadata != {}:
@@ -552,32 +555,30 @@ async def claimTx(
                 "msg": "Tx Build",
                 "build_tx": format_body,
                 "cbor": str(tx_cbor),
-                # "redeemer_cbor": Redeemer.to_cbor_hex(
-                #     redeemers[0]
-                # ),  # Redeemers is a list, but assume that only 1 redeemer is passed
                 "redeemer_cbor": redeemers.to_cbor_hex(),
                 "metadata_cbor": metadata.to_cbor_hex() if metadata else "",
                 "utxos_info": utxo_list_info,
                 "tx_size": len(build_body.to_cbor()),
                 # "tx_id": str(signed_tx.id)
             }
-    else:
-        if r["success"]:
-            final_response = {
-                "success": False,
-                "msg": "Error fetching data",
-                "data": r["data"]["errors"],
-            }
         else:
-            final_response = {
-                "success": False,
-                "msg": "Error fetching data",
-                "data": r["error"],
-            }
+            if r["success"]:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["data"]["errors"],
+                }
+            else:
+                final_response = {
+                    "success": False,
+                    "msg": "Error fetching data",
+                    "data": r["error"],
+                }
 
-    return final_response
+        return final_response
     # except ValueError as e:
     #     raise HTTPException(status_code=400, detail=str(e)) from e
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail=str(e)) from e
-    
+    except ResponseProcessingError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e

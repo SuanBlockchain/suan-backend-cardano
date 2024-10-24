@@ -151,10 +151,9 @@ async def createContract(
                 raise ValueError(
                     f"Wallet with id: {wallet_id} does not exist in DynamoDB"
                 )
-            else:
-                # Get payment address
-                payment_address = Address.from_primitive(walletInfo["address"])
-                pkh = bytes(payment_address.payment_part)
+            # Get payment address
+            payment_address = Address.from_primitive(walletInfo["address"])
+            pkh = bytes(payment_address.payment_part)
 
         else:
             raise ValueError("Error fetching data")

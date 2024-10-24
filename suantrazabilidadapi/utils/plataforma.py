@@ -3,10 +3,17 @@ import json
 import logging
 import os
 import pathlib
+import uuid
 from dataclasses import dataclass
 from typing import Optional, Union, Any, Dict
 from types import SimpleNamespace as Namespace
 from blockfrost.utils import ApiError
+# from redis import asyncio as aioredis
+from redis.asyncio import ConnectionPool, Redis
+from redis.commands.search.query import Query
+from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+from redis.exceptions import ResponseError
+from redis.commands.search.field import TextField
 
 import boto3
 import requests
@@ -712,3 +719,70 @@ class Helpers:
                     chain_context, oracle_address, multi_asset=oracle_asset
                 )
         return oracle_utxo
+
+
+@dataclass()
+class RedisClient:
+    """Class to handle data from and to Redis DB"""
+
+    def __post_init__(self):
+        self.REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        self.pool = ConnectionPool.from_url(self.REDIS_URL, decode_responses=True)
+        self.schemas = self._initialize_schemas()
+        self.rdb = Redis(connection_pool=self.pool)
+
+    def _initialize_schemas(self):
+        # Define multiple schemas in a dictionary
+        return {
+            "AccessToken": (
+                TextField("$.action", as_name="action"),
+                TextField("$.status", as_name="status"),
+                TextField("$.destinAddress", as_name="destinAddress"),
+                TextField("$.wallet_id", as_name="wallet_id"),
+                TextField("$.token_string", as_name="token_string"),
+            ),
+            "MultipleContractBuy": (
+                TextField("$.action", as_name="action"),
+                TextField("$.status", as_name="status"),
+                TextField("$.destinAddress", as_name="destinAddress"),
+                TextField("$.wallet_id", as_name="wallet_id"),
+                TextField("$.spendPolicyId", as_name="spendPolicyId"),
+            ),
+            # Add more schemas here as needed
+        }
+
+    # async def get_connection(self):
+    #     return Redis(connection_pool=self.pool)
+
+    async def close(self):
+        await self.pool.disconnect()
+
+    async def create_index(self, index_name):
+        # rdb = await self.get_connection()
+        schema = self.schemas.get(index_name)
+        if not schema:
+            logging.error(f"Schema for {index_name} not found.")
+            return
+        try:
+            # Check if the index already exists
+            index_info = await self.rdb.ft(index_name).info()
+            if index_info.get("index_name") == index_name:
+                logging.info(f"Index {index_name} already exists.")
+                return
+        except ResponseError as e:
+            if "Unknown index name" in e.args[0]:
+                # If the index does not exist, create it
+                definition = IndexDefinition(prefix=[f"{index_name}:"], index_type=IndexType.JSON)
+                await self.rdb.ft(index_name).create_index(schema, definition=definition)
+                print(f"Index {index_name} created successfully.")
+
+    async def create_task(self, index_name: str, record: dict):
+        key = f"{index_name}:{str(uuid.uuid4())}"
+        # rdb = await self.get_connection()
+        await self.rdb.json().set(key, "$", record)
+        logging.info(f"Task created with key: {key}")
+
+    async def make_query(self, index_name: str, query_string: str):
+        query = Query(query_string)
+        # rdb = await self.get_connection()
+        return self.rdb.ft(index_name).search(query)
