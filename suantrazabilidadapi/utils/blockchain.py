@@ -6,7 +6,7 @@ import requests
 
 from blockfrost import ApiUrls
 
-from ogmios import OgmiosChainContext as OgChainContext
+from pycardano.backend.ogmios_v6 import OgmiosChainContext as OgChainContext
 
 from pycardano import (
     Address,

@@ -152,3 +152,11 @@ aws ecs execute-command \
 celery -A suantrazabilidad.celery_app worker --loglevel debug
 celery -A suantrazabilidad.celery_app beat --loglevel debug
 ```
+
+### Ogmios
+
+    docker run -it \
+    --name cardano-node-ogmios \
+    -p 1337:1337 \
+    -v cardano-node-ogmios-mainnet-db:/db \
+    cardanosolutions/cardano-node-ogmios:latest
