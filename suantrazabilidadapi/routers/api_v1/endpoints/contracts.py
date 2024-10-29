@@ -19,7 +19,7 @@ from suantrazabilidadapi.utils.generic import (
 )
 from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma
 from suantrazabilidadapi.utils.response import Response
-from suantrazabilidadapi.utils.exception import ResponseProcessingError
+from suantrazabilidadapi.utils.exception import ResponseProcessingError, ResponseDynamoDBException
 
 router = APIRouter()
 
@@ -116,8 +116,17 @@ async def getScript(
 ) -> dict:
     final_response = {}
     if script_type == "id":
-        final_response = Response().handle_getScript_response(getScript_response=Plataforma().getScript(script_type, query_param))
 
+        command_name = "getScriptById"
+
+        graphql_variables = {script_type: query_param}
+
+        r = Plataforma().getScript(command_name, graphql_variables)
+        final_response = Response().handle_getScript_response(getWallet_response=r)
+
+        if not final_response["connection"] or not final_response.get("success", None):
+            raise ResponseDynamoDBException(final_response["data"])
+        
     return final_response
 
 
@@ -202,12 +211,18 @@ async def createContract(
                 Constants.CONTRACTS_DIR
             ).joinpath(f"{script_type.value}.py")
 
-            oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
+            command_name = "getWalletById"
 
-            if not oracleWalletResponse.get("data", None):
-                raise ResponseProcessingError("Could not found Oracle wallet")
+            graphql_variables = {"walletId": oracle_wallet_id}
 
-            oracleWallet = oracleWalletResponse["data"]
+            # Check first that the core wallet to pay fees exists
+            r = Plataforma().getWallet(command_name, graphql_variables)
+            final_response = Response().handle_getWallet_response(getWallet_response=r)
+
+            if not final_response["connection"] or not final_response.get("success", None):
+                raise ResponseDynamoDBException(final_response["data"])
+
+            oracleWallet = final_response["data"]
 
             seed = oracleWallet["seed"]
             hdwallet = HDWallet.from_seed(seed)
@@ -225,12 +240,18 @@ async def createContract(
                 Constants.CONTRACTS_DIR
             ).joinpath(f"{script_type.value}.py")
 
-            oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
+            command_name = "getWalletById"
 
-            if not oracleWalletResponse.get("data", None):
-                raise ResponseProcessingError("Could not found Oracle wallet")
+            graphql_variables = {"walletId": oracle_wallet_id}
 
-            oracleWallet = oracleWalletResponse["data"]
+            # Check first that the core wallet to pay fees exists
+            r = Plataforma().getWallet(command_name, graphql_variables)
+            final_response = Response().handle_getWallet_response(getWallet_response=r)
+
+            if not final_response["connection"] or not final_response.get("success", None):
+                raise ResponseDynamoDBException(final_response["data"])
+
+            oracleWallet = final_response["data"]
 
             seed = oracleWallet["seed"]
             hdwallet = HDWallet.from_seed(seed)
@@ -266,83 +287,80 @@ async def createContract(
 
         ##################
 
-        r = Plataforma().getScript("id", policy_id)
-        if r["success"]:
-            if r["data"]["data"]["getScript"] is None:
-                # It means that the Script does not exist in database, so update database if save_flag is True
-                if save_flag:
-                    # Build the variables and store in DynamoDB
-                    variables = {
-                        "id": policy_id,
-                        "name": name,
-                        "MainnetAddr": mainnet_address.encode(),
-                        "testnetAddr": testnet_address.encode(),
-                        "cbor": cbor_hex,
-                        "pbk": wallet_id,
-                        "script_category": scriptCategory,
-                        "script_type": script_type,
-                        "Active": True,
-                        "token_name": tokenName,
-                        "scriptParentID": (
-                            parent_policy_id if parent_policy_id != "" else policy_id
-                        ),
-                    }
+        if save_flag:
+            command_name = "getScriptById"
 
-                    variables["productID"] = project_id if project_id else None
+            graphql_variables = {"id": policy_id}
 
-                    responseScript = Plataforma().createContract(variables)
-                    if responseScript["success"] is True:
-                        if responseScript["data"]["data"] is not None:
-                            final_response = {
-                                "success": True,
-                                "msg": "Script created",
-                                "data": {
-                                    "id": policy_id,
-                                    "utxo_to_spend": (
-                                        {
-                                            "transaction_id": oref.id.tx_id.hex(),
-                                            "index": oref.idx,
-                                        }
-                                        if utxo_to_spend
-                                        else ""
-                                    ),
-                                    "mainnet_address": mainnet_address.encode(),
-                                    "testnet_address": testnet_address.encode(),
-                                },
-                            }
-                        else:
-                            final_response = {
-                                "success": False,
-                                "msg": f"Problems creating the script with id: {policy_id} in dynamoDB",
-                            }
+            r = Plataforma().getScript(command_name, graphql_variables)
+            final_response = Response().handle_getScript_response(getWallet_response=r)
+
+            if not final_response["connection"] or not final_response.get("success", None):
+                raise ResponseDynamoDBException(final_response["data"])
+
+            if not final_response["success"]:
+            # It means that the Script does not exist in database, so update database if save_flag is True
+
+                # Build the variables and store in DynamoDB
+                variables = {
+                    "id": policy_id,
+                    "name": name,
+                    "MainnetAddr": mainnet_address.encode(),
+                    "testnetAddr": testnet_address.encode(),
+                    "cbor": cbor_hex,
+                    "pbk": wallet_id,
+                    "script_category": scriptCategory,
+                    "script_type": script_type,
+                    "Active": True,
+                    "token_name": tokenName,
+                    "scriptParentID": (
+                        parent_policy_id if parent_policy_id != "" else policy_id
+                    ),
+                }
+
+                variables["productID"] = project_id if project_id else None
+
+                responseScript = Plataforma().createContract(variables)
+                if responseScript["success"] is True:
+                    if responseScript["data"]["data"] is not None:
+                        final_response = {
+                            "success": True,
+                            "msg": "Script created",
+                            "data": {
+                                "id": policy_id,
+                                "utxo_to_spend": (
+                                    {
+                                        "transaction_id": oref.id.tx_id.hex(),
+                                        "index": oref.idx,
+                                    }
+                                    if utxo_to_spend
+                                    else ""
+                                ),
+                                "mainnet_address": mainnet_address.encode(),
+                                "testnet_address": testnet_address.encode(),
+                            },
+                        }
                     else:
                         final_response = {
                             "success": False,
-                            "msg": "Problems creating the script",
-                            "data": responseScript["error"],
+                            "msg": f"Problems creating the script with id: {policy_id} in dynamoDB",
                         }
                 else:
                     final_response = {
-                        "success": True,
-                        "msg": "Script created but not stored in Database",
-                        "data": {
-                            "id": policy_id,
-                            "mainnet_address": mainnet_address.encode(),
-                            "testnet_address": testnet_address.encode(),
-                            "cbor": cbor_hex,
-                        },
+                        "success": False,
+                        "msg": "Problems creating the script",
+                        "data": responseScript["error"],
                     }
-            else:
-                final_response = {
-                    "success": False,
-                    "msg": f"Script with id: {policy_id} already exists in DynamoDB",
-                    "data": r["data"],
-                }
         else:
             final_response = {
-                "success": False,
-                "msg": "Error fetching data",
-                "data": r["error"],
+                "success": True,
+                "msg": "Script created but not stored in Database",
+                "data": {
+                    "id": policy_id,
+                    "mainnet_address": mainnet_address.encode(),
+                    "testnet_address": testnet_address.encode(),
+                    "cbor": cbor_hex,
+                },
             }
 
         return final_response

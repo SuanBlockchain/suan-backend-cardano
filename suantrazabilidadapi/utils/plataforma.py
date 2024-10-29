@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Optional, Union, Any, Dict
 from types import SimpleNamespace as Namespace
 from blockfrost.utils import ApiError
-# from redis import asyncio as aioredis
+from fastapi import HTTPException
 from redis.asyncio import ConnectionPool, Redis
 from redis.commands.search.query import Query
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
@@ -47,6 +47,7 @@ from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 # from suantrazabilidadapi.utils.blockchain import Keys
 from suantrazabilidadapi.utils.generic import Constants
 from suantrazabilidadapi.utils.response import Response
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException
 
 plataformaSecrets = config(section="plataforma")
 security = config(section="security")
@@ -168,17 +169,15 @@ class Plataforma(Constants):
         response = self._post(operation_name, values)
         return response
 
-    def createContract(self, values) -> list[dict]:
+    def createContract(self, values: dict) -> list[dict]:
         response = self._post("ScriptMutation", values)
         return response
 
-    def getScript(self, command_name: str, query_param: str) -> dict:
-        if command_name == "id":
-            graphql_variables = {"id": query_param}
+    def getScript(self, command_name: str, graphql_variables: str) -> dict:
 
-            data = self._post("getScriptById", graphql_variables)
+        data = self._post(command_name, graphql_variables)
 
-            return data
+        return data
 
     def listScripts(self) -> dict:
         return self._post("listScripts")
@@ -677,12 +676,21 @@ class Helpers:
         chain_context: ChainContext,
         oracle_wallet_id: str
     ) -> Union[UTxO, None]:
-        oracle_utxo = None
-        oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
+        try:
+            oracle_utxo = None
+            
+            command_name = "getWalletById"
 
-        if oracleWalletResponse.get("data", None):
+            graphql_variables = {"walletId": oracle_wallet_id}
 
-            oracleWallet = oracleWalletResponse["data"]
+            r = Plataforma().getWallet(command_name, graphql_variables)
+            final_response = Response().handle_getWallet_response(getWallet_response=r)
+            
+            if not final_response["connection"] or not final_response.get("success", None):
+                raise ResponseDynamoDBException(final_response["data"])
+            
+
+            oracleWallet = final_response["data"]
             oracle_address = oracleWallet["address"]
 
             seed = oracleWallet["seed"]
@@ -698,20 +706,27 @@ class Helpers:
             response = Plataforma().listMarketplaces("oracleWalletID", oracle_wallet_id)
             marketplaceResponse = Response().handle_listMarketplaces_response(response)
 
-            if marketplaceResponse.get("data", None):
-                marketplaceInfo = marketplaceResponse["data"]["items"][0]
+            if not final_response["connection"] or not final_response.get("success", None):
+                raise ResponseDynamoDBException(final_response["data"])
+            
+            marketplaceInfo = marketplaceResponse["data"]
 
-                oracle_token_name = marketplaceInfo["oracleTokenName"]
+            oracle_token_name = marketplaceInfo["oracleTokenName"]
 
-                oracle_asset = self.build_multiAsset(
-                    policy_id=self.build_oraclePolicyId(oracle_vkey),
-                    tq_dict={oracle_token_name: 1},
-                )
-                oracle_utxo = self.find_utxos_with_tokens(
-                    chain_context, oracle_address, multi_asset=oracle_asset
-                )
-        return oracle_utxo
-
+            oracle_asset = self.build_multiAsset(
+                policy_id=self.build_oraclePolicyId(oracle_vkey),
+                tq_dict={oracle_token_name: 1},
+            )
+            oracle_utxo = self.find_utxos_with_tokens(
+                chain_context, oracle_address, multi_asset=oracle_asset
+            )
+                
+            return oracle_utxo
+        except ResponseDynamoDBException as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            # Handling other types of exceptions
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
 @dataclass()
 class RedisClient:

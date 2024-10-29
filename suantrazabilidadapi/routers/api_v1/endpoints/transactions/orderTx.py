@@ -18,7 +18,8 @@ from pycardano import (
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
-from suantrazabilidadapi.utils.generic import Constants
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException
+from suantrazabilidadapi.utils.response import Response
 
 router = APIRouter()
 
@@ -90,16 +91,20 @@ async def createOrder(
                 )
 
                 # Get the contract address and cbor from policyId
+                # Consultar en base de datos
+                command_name = "getScriptById"
 
-                r = Plataforma().getScript("id", order.orderPolicyId)
-                if r["success"]:
-                    contractInfo = r["data"]["data"]["getScript"]
-                    if contractInfo is None:
-                        raise ValueError(
-                            f"Contract with id: {order.orderPolicyId} does not exist in DynamoDB"
-                        )
-                    else:
-                        order_address = contractInfo.get("testnetAddr", None)
+                graphql_variables = {"id": order.orderPolicyId}
+
+                r = Plataforma().getScript(command_name, graphql_variables)
+                final_response = Response().handle_getScript_response(getWallet_response=r)
+
+
+                if not final_response["connection"] or not final_response.get("success", None):
+                    raise ResponseDynamoDBException(final_response["data"])
+
+                contractInfo = final_response["data"]
+                order_address = contractInfo.get("testnetAddr", None)
 
                 min_val = min_lovelace(
                     chain_context,
@@ -218,17 +223,20 @@ async def unlockOrder(
                 builder.ttl = must_before_slot.after
 
                 # Get the contract address and cbor from policyId
+                # Consultar en base de datos
+                command_name = "getScriptById"
 
-                r = Plataforma().getScript("id", order.orderPolicyId)
-                if r["success"]:
-                    contractInfo = r["data"]["data"]["getScript"]
-                    if contractInfo is None:
-                        raise ValueError(
-                            f"Contract with id: {order.orderPolicyId} does not exist in DynamoDB"
-                        )
-                    else:
-                        order_address = contractInfo.get("testnetAddr", None)
-                        cbor_hex = contractInfo.get("cbor", None)
+                graphql_variables = {"id": order.orderPolicyId}
+
+                r = Plataforma().getScript(command_name, graphql_variables)
+                final_response = Response().handle_getScript_response(getWallet_response=r)
+
+                if not final_response["connection"] or not final_response.get("success", None):
+                    raise ResponseDynamoDBException(final_response["data"])
+
+                contractInfo = final_response["data"]
+                order_address = contractInfo.get("testnetAddr", None)
+                cbor_hex = contractInfo.get("cbor", None)
 
                 # Redeemer action
                 if order_side == "Buy":

@@ -9,7 +9,7 @@ from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Plataforma
 from suantrazabilidadapi.utils.response import Response
-from suantrazabilidadapi.utils.exception import ResponseTypeError, ResponseProcessingError
+from suantrazabilidadapi.utils.exception import ResponseTypeError, ResponseProcessingError, ResponseDynamoDBException
 
 router = APIRouter()
 
@@ -25,6 +25,9 @@ async def getWallets():
     try:
         r = Plataforma().listWallets()
         final_response = Response().handle_listWallets_response(r)
+
+        if not final_response["connection"] or not final_response.get("success", None):
+            raise ResponseDynamoDBException(final_response["data"])
 
         return final_response
 
@@ -86,22 +89,22 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
 )
 async def getWalletAdmin():
     """Get the core wallet as registered in Plataforma for the marketplace"""
-    # try:
+    try:
 
-    command_name = "getWalletAdmin"
-    graphql_variables = {"isAdmin": True}
+        command_name = "getWalletAdmin"
+        graphql_variables = {"isAdmin": True}
 
-    listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
+        listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
 
-    final_response = Response().handle_listWallets_response(listWallets_response=listWallet_response)
+        final_response = Response().handle_listWallets_response(listWallets_response=listWallet_response)
 
-    return final_response
+        return final_response
     
-    # except ResponseTypeError as e:
-    #     raise HTTPException(status_code=400, detail=str(e)) from e
-    # except Exception as e:
-    #     msg = "Error with the endpoint"
-    #     raise HTTPException(status_code=500, detail=msg) from e
+    except ResponseTypeError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=msg) from e
 
 @router.get(
     "/generate-words/",
@@ -149,47 +152,59 @@ async def createWallet(mnemonic_words: str, wallet_type: pydantic_schemas.wallet
         """3. Store wallet info"""
         ########################
         # Check if wallet Id already exists in database
-        r = Plataforma().getWallet("id", wallet_id)
-        wallet_response = Response().handle_getWallet_response(r)
-        if wallet_response["success"]:
-            if wallet_response.get("data", None):
-                raise ResponseProcessingError("Not possible to create wallet, wallet already exists in Dynamo")
-            if save_flag:
 
-                variables = {
-                    "id": wallet_id,
+        command_name = "getWalletById"
+
+        graphql_variables = {"walletId": wallet_id}
+
+        r = Plataforma().getWallet(command_name, graphql_variables)
+        final_response = Response().handle_getWallet_response(getWallet_response=r)
+        
+        if not final_response["connection"] or not final_response.get("success", None):
+            raise ResponseDynamoDBException(final_response["data"])
+
+        if save_flag:
+
+            variables = {
+                "id": wallet_id,
+                "seed": seed,
+                "address": str(address),
+                "stake_address": str(stake_address),
+            }
+            if wallet_type == "user":
+                variables["userID"] = userID
+            else:
+                variables["claimed_token"] = False
+                variables["isAdmin"] = False
+                variables["isSelected"] = False
+                variables["name"] = wallet_type
+                variables["status"] = "active"
+
+            r = Plataforma().createWallet(variables, wallet_type)
+            responseCreateWallet = Response().handle_createWallet_response(r)
+            
+            if not responseCreateWallet["connection"] or not responseCreateWallet.get("success", None):
+                raise ResponseDynamoDBException(responseCreateWallet["data"])
+            
+            final_response["wallet_id"] = wallet_id
+            final_response["address"] = str(address)
+            final_response["stake_address"] = str(stake_address)
+        else:
+            final_response = {
+                "success": True,
+                "msg": "Wallet created but not stored in Database",
+                "data": {
+                    "wallet_id": wallet_id,
                     "seed": seed,
                     "address": str(address),
                     "stake_address": str(stake_address),
-                }
-                if wallet_type == "user":
-                    variables["userID"] = userID
-                else:
-                    variables["claimed_token"] = False
-                    variables["isAdmin"] = False
-                    variables["isSelected"] = False
-                    variables["name"] = wallet_type
-                    variables["status"] = "active"
-
-                responseWallet = Plataforma().createWallet(variables, wallet_type)
-                final_response = Response().handle_createWallet_response(responseWallet)
-                final_response["wallet_id"] = wallet_id
-                final_response["address"] = str(address)
-                final_response["stake_address"] = str(stake_address)
-            else:
-                final_response = {
-                    "success": True,
-                    "msg": "Wallet created but not stored in Database",
-                    "data": {
-                        "wallet_id": wallet_id,
-                        "seed": seed,
-                        "address": str(address),
-                        "stake_address": str(stake_address),
-                    },
-                }
+                },
+            }
 
         return final_response
-
+    
+    except ResponseDynamoDBException as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ResponseProcessingError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except Exception as e:

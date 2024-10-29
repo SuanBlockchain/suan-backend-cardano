@@ -55,96 +55,113 @@ async def sendAccessToken(
         scriptCategory = "PlutusV2"
         script_type = "native"
 
-        r = Plataforma().getWallet("id", wallet_id)
-        wallet_response = Response().handle_getWallet_response(getWallet_response=r)
-        walletInfo = wallet_response.get("data", None)
-        final_response = wallet_response
-        if wallet_response["success"] and walletInfo:
-            ########################
-            """Obtain the payment sk and vk from the walletInfo"""
-            ########################
-            seed = walletInfo["seed"]
-            hdwallet = HDWallet.from_seed(seed)
-            child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+        command_name = "getWalletById"
 
-            payment_vk = PaymentVerificationKey.from_primitive(
-                child_hdwallet.public_key
-            )
-            pub_key_policy = ScriptPubkey(payment_vk.hash())
-            policy = ScriptAll([pub_key_policy])
-            # Calculate policy ID, which is the hash of the policy
-            policy_id = policy.hash()
-            policy_id_str = binascii.hexlify(policy_id.payload).decode("utf-8")
+        graphql_variables = {"walletId": wallet_id}
 
-            ########################
-            """Create the request in redis cache to be processed by the scheduler"""
-            ########################
-            # redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-            # rdb = redis.Redis.from_url(redis_url, decode_responses=True)
-            token_string = "SandboxSuanAccess1"
+        r = Plataforma().getWallet(command_name, graphql_variables)
+        final_response = Response().handle_getWallet_response(getWallet_response=r)
+        
+        if not final_response["connection"] or not final_response.get("success", None):
+            raise ResponseDynamoDBException(final_response["data"])
+        
+        walletInfo = final_response["data"]
+        ########################
+        """Obtain the payment sk and vk from the walletInfo"""
+        ########################
+        seed = walletInfo["seed"]
+        hdwallet = HDWallet.from_seed(seed)
+        child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
 
-            record = {
-                "status": "pending",
-                "destinAddress": destinAddress,
-                "wallet_id": wallet_id,
-                "token_string": token_string,
+        payment_vk = PaymentVerificationKey.from_primitive(
+            child_hdwallet.public_key
+        )
+        pub_key_policy = ScriptPubkey(payment_vk.hash())
+        policy = ScriptAll([pub_key_policy])
+        # Calculate policy ID, which is the hash of the policy
+        policy_id = policy.hash()
+        policy_id_str = binascii.hexlify(policy_id.payload).decode("utf-8")
+
+        ########################
+        """Create the request in redis cache to be processed by the scheduler"""
+        ########################
+        # redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        # rdb = redis.Redis.from_url(redis_url, decode_responses=True)
+        token_string = "SandboxSuanAccess1"
+
+        record = {
+            "status": "pending",
+            "destinAddress": destinAddress,
+            "wallet_id": wallet_id,
+            "token_string": token_string,
+        }
+        index_name = "AccessTokenIndex"
+        redisclient = RedisClient()
+        await redisclient.create_index(index_name)
+        # key = str(uuid.uuid4())
+        # rdb.json().set("AccessToken:" + key, "$", record)
+        await redisclient.create_task(index_name, record)
+        # query = Query("@status:pending")
+        # result = rdb.ft(index_name).search(query)
+        result = await redisclient.make_query(index_name, "@status:pending")
+        redisclient.close()
+        logging.info(result)
+
+        ########################
+        """3. Save the script if save_flag is true"""
+        ########################
+        if save_flag:
+            variables = {
+                "id": policy_id_str,
+                "name": scriptName,
+                "MainnetAddr": "na",
+                "testnetAddr": "na",
+                "cbor": "na",
+                "pbk": wallet_id,
+                "script_category": scriptCategory,
+                "script_type": script_type,
+                "Active": True,
+                "token_name": token_string,
+                "marketplaceID": marketplace_id,
             }
-            index_name = "AccessTokenIndex"
-            redisclient = RedisClient()
-            await redisclient.create_index(index_name)
-            # key = str(uuid.uuid4())
-            # rdb.json().set("AccessToken:" + key, "$", record)
-            await redisclient.create_task(index_name, record)
-            # query = Query("@status:pending")
-            # result = rdb.ft(index_name).search(query)
-            result = await redisclient.make_query(index_name, "@status:pending")
-            redisclient.close()
-            logging.info(result)
 
-            ########################
-            """3. Save the script if save_flag is true"""
-            ########################
-            if save_flag:
-                variables = {
-                    "id": policy_id_str,
-                    "name": scriptName,
-                    "MainnetAddr": "na",
-                    "testnetAddr": "na",
-                    "cbor": "na",
-                    "pbk": wallet_id,
-                    "script_category": scriptCategory,
-                    "script_type": script_type,
-                    "Active": True,
-                    "token_name": token_string,
-                    "marketplaceID": marketplace_id,
-                }
-                r = Plataforma().createContract(variables)
-                responseCreateScript = Response().handle_createContract_response(r)
-                if responseCreateScript and not responseCreateScript.get("data", None):
-                    final_response = {
-                        "success": True,
-                        "msg": "Token scheduled to be sent soon",
-                        "policy_id": policy_id_str,
-                        "tokenName": token_string,
-                    }
-                else:
-                    final_response = {
-                        "success": False,
-                        "msg": "Token scheduled to be sent soon but problems creating the script in dynamoDB",
-                        "data": responseCreateScript,
-                        "policy_id": policy_id_str,
-                        "tokenName": token_string,
-                    }
-            else:
-                final_response = {
-                    "success": True,
-                    "msg": "Token scheduled to be sent soon but script not saved in dynamoDB",
-                    "policy_id": policy_id_str,
-                    "tokenName": token_string,
-                }
+            responseWallet = Plataforma().createContract(graphql_variables)
+            final_response = Response().handle_createContract_response(responseWallet)
+            
+            if not final_response["connection"] or not final_response.get("success", None):
+                raise ResponseDynamoDBException(final_response["data"])
+            
+            r = Plataforma().createContract(variables)
+            responseCreateScript = Response().handle_createContract_response(r)
+            if not responseCreateScript["connection"] or not responseCreateScript.get("success", None):
+                raise ResponseDynamoDBException(responseCreateScript["data"])
+            
+            final_response = {
+                "success": True,
+                "msg": "Token scheduled to be sent soon",
+                "policy_id": policy_id_str,
+                "tokenName": token_string,
+            }
+            # else:
+            #     final_response = {
+            #         "success": False,
+            #         "msg": "Token scheduled to be sent soon but problems creating the script in dynamoDB",
+            #         "data": responseCreateScript,
+            #         "policy_id": policy_id_str,
+            #         "tokenName": token_string,
+            #     }
+        else:
+            final_response = {
+                "success": True,
+                "msg": "Token scheduled to be sent soon but script not saved in dynamoDB",
+                "policy_id": policy_id_str,
+                "tokenName": token_string,
+            }
 
         return final_response
 
+    except ResponseDynamoDBException as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         # Handling other types of exceptions
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -179,12 +196,6 @@ async def minLovelace(addressDestin: pydantic_schemas.AddressDestin) -> int:
         datum = None
         if addressDestin.datum:
             datum = Datum(addressDestin.datum)
-        # if not datum_hash:
-        #     datum_hash = None
-        # if not datum:
-        #     datum = None
-        # if not script:
-        #     script = None
 
         output = TransactionOutput(address=address, amount=amount, datum=datum)
 
@@ -234,14 +245,17 @@ async def oracleDatum(
 ) -> dict:
     try:
 
+        command_name = "getWalletById"
+
+        graphql_variables = {"walletId": core_wallet_id}
+
         # Check first that the core wallet to pay fees exists
-        r = Plataforma().getWallet("id", core_wallet_id)
+        r = Plataforma().getWallet(command_name, graphql_variables)
         final_response = Response().handle_getWallet_response(getWallet_response=r)
 
-        if not final_response.get("data", None):
-            raise ResponseDynamoDBException(
-                f"Wallet with id: {core_wallet_id} does not exist in DynamoDB"
-            )
+        if not final_response["connection"] or not final_response.get("success", None):
+            raise ResponseDynamoDBException(final_response["data"])
+
 
         coreWalletInfo = final_response["data"]
 
@@ -252,12 +266,15 @@ async def oracleDatum(
         core_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
         core_address = Address.from_primitive(coreWalletInfo["address"])
 
-        oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
+        graphql_variables = {"walletId": oracle_wallet_id}
 
-        if not oracleWalletResponse.get("data", None):
-            raise ResponseDynamoDBException(
-                f"Wallet with id: {oracle_wallet_id} does not exist in DynamoDB"
-            )
+        # Check first that the core wallet to pay fees exists
+        r = Plataforma().getWallet(command_name, graphql_variables)
+        oracleWalletResponse = Response().handle_getWallet_response(getWallet_response=r)
+
+        if not final_response["connection"] or not final_response.get("success", None):
+            raise ResponseDynamoDBException(final_response["data"])
+
         oracleWallet = oracleWalletResponse["data"]
         oracle_address = oracleWallet["address"]
         seed = oracleWallet["seed"]
@@ -399,7 +416,7 @@ async def oracleDatum(
     response_description="Response with transaction details and in cborhex format",
     # response_model=List[str],
 )
-async def oracleDatum(
+async def sendMetadata(
     metadata: Dict[str, Any]
 ) -> dict:
     try:
@@ -421,6 +438,13 @@ async def oracleDatum(
             raise ResponseDynamoDBException(final_response["data"])
         
         coreWalletInfo = final_response["data"]
+
+        # Get core wallet params
+        seed = coreWalletInfo["seed"]
+        hdwallet = HDWallet.from_seed(seed)
+        child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+        core_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+        core_address = Address.from_primitive(coreWalletInfo["address"])
 
         
         return coreWalletInfo
