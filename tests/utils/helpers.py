@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import os
 from pathlib import Path
 from typing import Final, Optional
 
@@ -112,28 +113,35 @@ def build_mintSuanCO2(
     return contract, utxo_to_spend
 
 
-def find_utxos_with_tokens(
-    context: MockChainContext, address: py.Address, multi_asset: py.MultiAsset
+def mock_find_utxos(
+    context: MockChainContext, address: py.Address, multi_asset: Union[py.MultiAsset, None], tx_id: Union[str, None]= None
 ) -> Union[py.UTxO, None]:
+
     candidate_utxo = None
-    for policy_id, asset in multi_asset.data.items():
-        for tn_bytes, amount in asset.data.items():
-            for utxo in context.utxos(address.encode()):
-                # TODO: correct here to find multiple utxos to fullfill quantity requirement
-                def f(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
-                    return (
-                        pi == policy_id
-                        and an.payload == tn_bytes.payload
-                        and a >= amount
-                    )
+    if not tx_id and not multi_asset:
+        raise Exception("you must provide either tx_id or multi_asset to find a candidate utxo")
+    if tx_id:
+        candidate_utxo = next((utxo for utxo in context.utxos(str(address.encode())) if str(utxo.input.transaction_id) == tx_id), None)
+        return candidate_utxo
+    if multi_asset:
+        for policy_id, asset in multi_asset.data.items():
+            for tn_bytes, amount in asset.data.items():
+                for utxo in context.utxos(address.encode()):
+                    # TODO: correct here to find multiple utxos to fullfill quantity requirement
+                    def f(pi: py.ScriptHash, an: py.AssetName, a: int) -> bool:
+                        return (
+                            pi == policy_id
+                            and an.payload == tn_bytes.payload
+                            and a >= amount
+                        )
 
-                if utxo.output.amount.multi_asset.count(f):
-                    candidate_utxo = utxo
-                    break
+                    if utxo.output.amount.multi_asset.count(f):
+                        candidate_utxo = utxo
+                        break
 
-            assert isinstance(
-                candidate_utxo, py.UTxO
-            ), "Not enough tokens found in Utxo"
+                assert isinstance(
+                    candidate_utxo, py.UTxO
+                ), "Not enough tokens found in Utxo"
 
     return candidate_utxo
 
@@ -159,6 +167,7 @@ def save_transaction(trans: py.Transaction, file: str):
     )
     tx = tx_template.copy()
     tx["cborHex"] = trans.to_cbor().hex()
+    os.makedirs(os.path.dirname(file), exist_ok=True)
     with open(file, "w", encoding="utf-8") as tf:
         tf.write(json.dumps(tx, indent=4))
 

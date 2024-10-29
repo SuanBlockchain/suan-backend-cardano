@@ -10,7 +10,7 @@
   "preamble": {
     "version": "1.0.0",
     "plutusVersion": "v2",
-    "description": "opshin 0.23.0 Smart Contract",
+    "description": "opshin 0.23.1 Smart Contract",
     "title": "validator"
   },
   "validators": [

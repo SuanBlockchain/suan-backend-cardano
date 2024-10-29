@@ -272,7 +272,7 @@ class MockUser:
     #         ),
     #     )
 
-    def utxos(self):
+    def utxos(self) -> List[UTxO]:
         return self.context.utxos(self.address)
 
     def balance(self) -> Value:
