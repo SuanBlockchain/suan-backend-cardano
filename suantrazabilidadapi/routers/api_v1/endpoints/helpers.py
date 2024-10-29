@@ -1,6 +1,6 @@
 import binascii
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 
 # import uuid
 from cbor2 import loads
@@ -386,6 +386,46 @@ async def oracleDatum(
 
     except ResponseFindingUtxo as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except ResponseDynamoDBException as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post(
+    "/send-metadata/{project_id}",
+    status_code=201,
+    summary="Build and upload inline datum",
+    response_description="Response with transaction details and in cborhex format",
+    # response_model=List[str],
+)
+async def oracleDatum(
+    metadata: Dict[str, Any]
+) -> dict:
+    try:
+        command_name = "getWalletAdmin"
+        graphql_variables = {"isAdmin": True}
+        listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
+
+        core_wallet = Response().handle_listWallets_response(listWallets_response=listWallet_response)
+
+        if not core_wallet["connection"] or not core_wallet.get("success", None):
+            raise ResponseDynamoDBException(core_wallet["data"])
+
+        graphql_variables = {"walletId": core_wallet["data"]["items"][0]["id"]}
+        
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
+        final_response = Response().handle_getWallet_response(getWallet_response=r)
+
+        if not final_response["connection"] or not final_response.get("success", None):
+            raise ResponseDynamoDBException(final_response["data"])
+        
+        coreWalletInfo = final_response["data"]
+
+        
+        return coreWalletInfo
+
+    
     except ResponseDynamoDBException as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:

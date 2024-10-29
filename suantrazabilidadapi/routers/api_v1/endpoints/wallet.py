@@ -1,3 +1,4 @@
+from typing import Union
 from fastapi import APIRouter, HTTPException
 from pycardano import (
     Address,
@@ -45,8 +46,12 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
             # Validate the id
             if not is_valid_hex_string(query_param):
                 raise ResponseTypeError("Not valid id format")
+            
+            command_name = "getWalletById"
 
-            getWallet_response = Plataforma().getWallet(command_name, query_param)
+            graphql_variables = {"walletId": query_param}
+
+            getWallet_response = Plataforma().getWallet(command_name, graphql_variables)
 
             final_response = Response().handle_getWallet_response(getWallet_response=getWallet_response)
 
@@ -54,7 +59,11 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
             # Validate the address
             Address.decode(query_param)._infer_address_type()  # pylint: disable=protected-access
 
-            listWallet_response = Plataforma().getWallet(command_name, query_param)
+            command_name = "getWalletByAddress"
+
+            graphql_variables = {"address": query_param}
+
+            listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
 
             final_response = Response().handle_listWallets_response(listWallets_response=listWallet_response)
 
@@ -69,6 +78,30 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
         msg = "Error with the endpoint"
         raise HTTPException(status_code=500, detail=msg) from e
 
+@router.get(
+    "/get-wallet-admin/",
+    status_code=200,
+    summary="Get the core wallet or wallet admin for the marketplace",
+    response_description="Wallet details",
+)
+async def getWalletAdmin():
+    """Get the core wallet as registered in Plataforma for the marketplace"""
+    # try:
+
+    command_name = "getWalletAdmin"
+    graphql_variables = {"isAdmin": True}
+
+    listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
+
+    final_response = Response().handle_listWallets_response(listWallets_response=listWallet_response)
+
+    return final_response
+    
+    # except ResponseTypeError as e:
+    #     raise HTTPException(status_code=400, detail=str(e)) from e
+    # except Exception as e:
+    #     msg = "Error with the endpoint"
+    #     raise HTTPException(status_code=500, detail=msg) from e
 
 @router.get(
     "/generate-words/",

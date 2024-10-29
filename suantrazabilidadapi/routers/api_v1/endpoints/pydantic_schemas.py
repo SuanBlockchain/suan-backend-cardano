@@ -13,7 +13,6 @@ class walletCommandName(str, Enum):
     id = "id"
     address = "address"
 
-
 class walletQueryParam(BaseModel):
     query_param: str
 

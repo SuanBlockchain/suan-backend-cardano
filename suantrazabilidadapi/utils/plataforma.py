@@ -121,17 +121,9 @@ class Plataforma(Constants):
     def listProjects(self) -> dict:
         return self._post("listProjects")
 
-    def getWallet(self, command_name: str, query_param: str) -> dict:
-        data = {}
-        if command_name == "id":
-            graphql_variables = {"walletId": query_param}
+    def getWallet(self, command_name: str, graphql_variables: dict) -> dict:
 
-            data = self._post("getWalletById", graphql_variables)
-
-        elif command_name == "address":
-            graphql_variables = {"address": query_param}
-
-            data = self._post("getWalletByAddress", graphql_variables)
+        data = self._post(command_name, graphql_variables)
 
         return data
 
