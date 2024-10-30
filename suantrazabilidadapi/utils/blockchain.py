@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass, field
 import json
 import requests
-from typing import Any
+from typing import Any, Union
 
 from blockfrost import ApiUrls
 
@@ -20,6 +20,7 @@ from pycardano import (
     BlockFrostChainContext,
     PlutusV2Script,
 )
+from pycardano.cip.cip8 import sign, verify
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.utils.generic import Constants
@@ -231,22 +232,24 @@ class Contracts(Constants):
 
         return plutusScript
 
-from hashlib import blake2b
-
+import hashlib
 @dataclass()
-class Proofs:
+class Proofs(Constants):
     """Class to define proof methods"""
 
     def __post_init__(self):
         pass
 
-    def hash_function(self, data):
-        return blake2b(data.encode('utf-8'), digest_size=32).hexdigest()
+    def hash_function(self, data: Any) -> str:
+        return hashlib.sha256(data.encode('utf-8')).hexdigest()
+    
+    def data_bytes(self, data: Any) -> bytes:
+        return data.encode('utf-8')
 
-    def create_merkle_tree(self, data_list):
+    def create_merkle_tree(self, data_list: list[Any]):
         if len(data_list) == 1:
             return data_list
-        
+
         new_level = []
         for i in range(0, len(data_list), 2):
             left = data_list[i]
@@ -255,40 +258,12 @@ class Proofs:
 
         return self.create_merkle_tree(new_level)
 
-    def get_merkle_root(self, data_list):
+    def get_merkle_root(self, data_list: list[Any]):
         hashed_data = [self.hash_function(data) for data in data_list]
         return self.create_merkle_tree(hashed_data)[0]
-
-    def generate_proof(self, data_list, target_data):
-        hashed_data = [self.hash_function(data) for data in data_list]
-        proof = []
-        index = hashed_data.index(self.hash_function(target_data))
-
-        while len(hashed_data) > 1:
-            new_level = []
-            for i in range(0, len(hashed_data), 2):
-                left = hashed_data[i]
-                right = hashed_data[i + 1] if i + 1 < len(hashed_data) else left
-                
-                # If the current pair contains the target index, add the sibling to the proof
-                if i == index:
-                    proof.append((right, 'right'))
-                elif i + 1 == index:
-                    proof.append((left, 'left'))
-                
-                new_level.append(self.hash_function(left + right))
-            
-            hashed_data = new_level
-            index //= 2
-
-        return proof
-
-    def verify_proof(self, root, target_data, proof):
-        current_hash = self.hash_function(target_data)
-        for sibling_hash, direction in proof:
-            if direction == 'left':
-                current_hash = self.hash_function(sibling_hash + current_hash)
-            else:
-                current_hash = self.hash_function(current_hash + sibling_hash)
-
-        return current_hash == root
+    
+    def sign_data(self, data: Any, key: ExtendedSigningKey) -> Union[str, dict]:
+        return sign(data, key, attach_cose_key=True, network=Network.TESTNET)
+    
+    def verify_signature(self, signed_message: Union[str, dict]) -> bool:
+        return verify(signed_message)
