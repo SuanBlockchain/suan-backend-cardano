@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass, field
 import json
 import requests
+from typing import Any
 
 from blockfrost import ApiUrls
 
@@ -229,3 +230,65 @@ class Contracts(Constants):
         plutusScript = PlutusV2Script(cbor)
 
         return plutusScript
+
+from hashlib import blake2b
+
+@dataclass()
+class Proofs:
+    """Class to define proof methods"""
+
+    def __post_init__(self):
+        pass
+
+    def hash_function(self, data):
+        return blake2b(data.encode('utf-8'), digest_size=32).hexdigest()
+
+    def create_merkle_tree(self, data_list):
+        if len(data_list) == 1:
+            return data_list
+        
+        new_level = []
+        for i in range(0, len(data_list), 2):
+            left = data_list[i]
+            right = data_list[i + 1] if i + 1 < len(data_list) else left
+            new_level.append(self.hash_function(left + right))
+
+        return self.create_merkle_tree(new_level)
+
+    def get_merkle_root(self, data_list):
+        hashed_data = [self.hash_function(data) for data in data_list]
+        return self.create_merkle_tree(hashed_data)[0]
+
+    def generate_proof(self, data_list, target_data):
+        hashed_data = [self.hash_function(data) for data in data_list]
+        proof = []
+        index = hashed_data.index(self.hash_function(target_data))
+
+        while len(hashed_data) > 1:
+            new_level = []
+            for i in range(0, len(hashed_data), 2):
+                left = hashed_data[i]
+                right = hashed_data[i + 1] if i + 1 < len(hashed_data) else left
+                
+                # If the current pair contains the target index, add the sibling to the proof
+                if i == index:
+                    proof.append((right, 'right'))
+                elif i + 1 == index:
+                    proof.append((left, 'left'))
+                
+                new_level.append(self.hash_function(left + right))
+            
+            hashed_data = new_level
+            index //= 2
+
+        return proof
+
+    def verify_proof(self, root, target_data, proof):
+        current_hash = self.hash_function(target_data)
+        for sibling_hash, direction in proof:
+            if direction == 'left':
+                current_hash = self.hash_function(sibling_hash + current_hash)
+            else:
+                current_hash = self.hash_function(current_hash + sibling_hash)
+
+        return current_hash == root

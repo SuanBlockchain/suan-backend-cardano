@@ -23,6 +23,7 @@ from pycardano import (
     Value,
     min_lovelace,
     ExtendedSigningKey,
+    AuxiliaryData
 )
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
@@ -30,7 +31,7 @@ from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.generic import Constants
 from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma, RedisClient
 from suantrazabilidadapi.utils.response import Response
-from suantrazabilidadapi.utils.exception import ResponseDynamoDBException, ResponseFindingUtxo
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException, ResponseFindingUtxo, PlataformaException
 
 
 router = APIRouter()
@@ -420,6 +421,9 @@ async def sendMetadata(
     metadata: Dict[str, Any]
 ) -> dict:
     try:
+        if metadata == {}:
+            raise PlataformaException("metadata cannot be empty")
+
         command_name = "getWalletAdmin"
         graphql_variables = {"isAdmin": True}
         listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
@@ -446,11 +450,54 @@ async def sendMetadata(
         core_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
         core_address = Address.from_primitive(coreWalletInfo["address"])
 
-        
-        return coreWalletInfo
+        ########################
+        """2. Build transaction"""
+        ########################
+        chain_context = CardanoNetwork().get_chain_context()
 
+        # Create a transaction builder
+        builder = TransactionBuilder(chain_context)
+
+        # Add user own address as the input address
+        core_address = Address.from_primitive(core_address)
+        builder.add_input_address(core_address)
+
+        must_before_slot = InvalidHereAfter(
+            chain_context.last_block_slot + 10000
+        )
+        # Since an InvalidHereAfter
+        builder.ttl = must_before_slot.after
+
+        auxiliary_data, metadata = Helpers().build_metadata({721: metadata})
+        # Set transaction metadata
+        if isinstance(auxiliary_data, AuxiliaryData):
+            builder.auxiliary_data = auxiliary_data
+        else:
+            raise ValueError(auxiliary_data)
+        
+        signed_tx = builder.build_and_sign(
+                [core_skey], change_address=core_address
+            )
+        tx_id = signed_tx.transaction_body.hash().hex()
+
+        logging.info(f"Transaction ID: {tx_id}")
+
+        chain_context.submit_tx(signed_tx)
+
+
+        logging.info(f"Metadata succesfully sent to Cardano Blockchain")
+
+        final_response = {
+            "success": True,
+            "msg": "Metadata submitted to the BC",
+            "tx_id": tx_id
+        }
+
+
+        return final_response
     
     except ResponseDynamoDBException as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+    
