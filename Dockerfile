@@ -13,7 +13,7 @@ FROM python:3.11
 WORKDIR /code
 
 # Copy the external pycardano folder
-COPY ./pycardano /code/pycardano
+# COPY ./pycardano /code/pycardano
 
 COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 

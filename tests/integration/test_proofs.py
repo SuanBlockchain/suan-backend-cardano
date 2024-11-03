@@ -2,6 +2,9 @@ import pytest
 from suantrazabilidadapi.utils.blockchain import Proofs
 from pycardano import PaymentKeyPair
 from typing import Union
+from unittest.mock import patch
+
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException
 
 @pytest.fixture
 def proofs() -> Proofs:
@@ -53,3 +56,44 @@ def test_verify_signature(proofs: Proofs, key_pair: PaymentKeyPair):
     data = "test_data"
     signature = proofs.sign_data(data, skey)
     assert proofs.verify_signature(signature)
+
+@patch('suantrazabilidadapi.utils.blockchain.Plataforma.createMerkleTree')
+@patch('suantrazabilidadapi.utils.blockchain.Response.handle_createMerkleTree_response')
+def test_insert_node_success(mock_handle_response, mock_create_merkle_tree, proofs):
+    mock_create_merkle_tree.return_value = {"data": {"node_id": 1}}
+    mock_handle_response.return_value = {"connection": True, "success": True, "data": {"node_id": 1}}
+
+    parent_id = None
+    data = "test_data"
+    level = 0
+    hash_value = "test_hash"
+
+    node_id = proofs.insert_node(parent_id, data, level, hash_value)
+    assert node_id == 1
+
+@patch('suantrazabilidadapi.utils.blockchain.Plataforma.createMerkleTree')
+@patch('suantrazabilidadapi.utils.blockchain.Response.handle_createMerkleTree_response')
+def test_insert_node_failure(mock_handle_response, mock_create_merkle_tree, proofs):
+    mock_create_merkle_tree.return_value = {"data": {"node_id": 1}}
+    mock_handle_response.return_value = {"connection": False, "success": False, "data": "Error"}
+
+    parent_id = None
+    data = "test_data"
+    level = 0
+    hash_value = "test_hash"
+
+    with pytest.raises(ResponseDynamoDBException):
+        proofs.insert_node(parent_id, data, level, hash_value)
+        @patch('suantrazabilidadapi.utils.blockchain.Plataforma.createMerkleTree')
+        @patch('suantrazabilidadapi.utils.blockchain.Response.handle_createMerkleTree_response')
+        def test_insert_node_invalid_data(mock_handle_response, mock_create_merkle_tree, proofs):
+            mock_create_merkle_tree.return_value = {"data": {"node_id": 1}}
+            mock_handle_response.return_value = {"connection": True, "success": True, "data": {"node_id": 1}}
+
+            parent_id = None
+            data = None  # Invalid data
+            level = 0
+            hash_value = "test_hash"
+
+            with pytest.raises(ValueError):
+                proofs.insert_node(parent_id, data, level, hash_value)

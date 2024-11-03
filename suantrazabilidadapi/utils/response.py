@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException
 
 
 @dataclass()
@@ -17,6 +18,28 @@ class Response():
                 "data": response["error"],
             }
         return final_response
+    
+    def _raise_check(self, response):
+        if not response["connection"] or not response.get("success", None):
+            raise ResponseDynamoDBException(response["data"])
+    
+    def handle_getGeneric_response(self, operation_name, getGeneric_response: dict) -> dict[str, Any]:
+        response_success = self._response_success(getGeneric_response)
+        if response_success["connection"]:
+            if getGeneric_response["data"].get("data", None) is not None:
+                walletInfo = getGeneric_response["data"]["data"][operation_name]
+
+                if walletInfo is None:
+                    response_success["success"] = False
+                else:
+                    response_success["success"] = True
+                    response_success["data"] = walletInfo
+            else:
+                response_success["success"] = False
+                response_success["data"] = getGeneric_response["data"]["errors"]
+
+        self._raise_check(response_success)
+        return response_success
 
     def handle_createWallet_response(self, createWallet_response: list[dict]) -> dict[str, Any]:
         response_success = self._response_success(createWallet_response)
@@ -28,7 +51,8 @@ class Response():
                 response_success["data"] = createWallet_response["data"]["errors"]
 
         return response_success
-
+    
+    #TODO: Function to be decomissioned in the future. Move to genericGet
     def handle_getWallet_response(self, getWallet_response: dict) -> dict[str, Any]:
         response_success = self._response_success(getWallet_response)
         if response_success["connection"]:
@@ -82,6 +106,7 @@ class Response():
 
         return response_success
 
+    #TODO: Function to be decomissioned in the future. Move to genericGet
     def handle_getScript_response(self, getScript_response: dict) -> dict[str, Any]:
         response_success = self._response_success(getScript_response)
         if response_success["connection"]:
@@ -107,5 +132,35 @@ class Response():
             else:
                 response_success["success"] = False
                 response_success["data"] = createContractResponse["data"]["errors"]
+
+        return response_success
+
+    #TODO: Function to be decomissioned in the future. Move to genericGet
+    def handle_getMerkleTree_response(self, getMerkleTree_response: dict) -> dict[str, Any]:
+        response_success = self._response_success(getMerkleTree_response)
+        if response_success["connection"]:
+            if getMerkleTree_response["data"].get("data", None) is not None:
+                merkleTreeInfo = getMerkleTree_response["data"]["data"]["getMerkleTree"]
+
+                if merkleTreeInfo is None:
+                    response_success["success"] = False
+                else:
+                    response_success["success"] = True
+                    response_success["data"] = merkleTreeInfo
+            else:
+                response_success["success"] = False
+                response_success["data"] = getMerkleTree_response["data"]["errors"]
+
+        return response_success
+    
+    def handle_createMerkleTree_response(self, createMerkleTreeResponse: list[dict]) -> dict[str, Any]:
+        response_success = self._response_success(createMerkleTreeResponse)
+        if response_success["connection"]:
+            if not createMerkleTreeResponse["data"].get("errors", None):
+                response_success["success"] = True
+                response_success["data"] = createMerkleTreeResponse["data"]["data"]["createMerkleTree"]
+            else:
+                response_success["success"] = False
+                response_success["data"] = createMerkleTreeResponse["data"]["errors"]
 
         return response_success

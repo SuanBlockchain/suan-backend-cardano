@@ -1,10 +1,12 @@
 import binascii
+import datetime
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 
 # import uuid
 from cbor2 import loads
 from fastapi import APIRouter, HTTPException
+from boto3.dynamodb.conditions import Key
 # import redis
 # from redis.commands.search.query import Query
 from pycardano import (
@@ -26,12 +28,13 @@ from pycardano import (
     AuxiliaryData
 )
 
+from suantrazabilidadapi.merkle.dynamo import DynamoDBClient
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.blockchain import CardanoNetwork
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Proofs
 from suantrazabilidadapi.utils.generic import Constants
-from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma, RedisClient
+from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma, RedisClient, CardanoApi
 from suantrazabilidadapi.utils.response import Response
-from suantrazabilidadapi.utils.exception import ResponseDynamoDBException, ResponseFindingUtxo, PlataformaException
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException, ResponseFindingUtxo
 
 
 router = APIRouter()
@@ -418,80 +421,165 @@ async def oracleDatum(
     # response_model=List[str],
 )
 async def sendMetadata(
-    metadata: Dict[str, Any]
+    project_id: str,
+    consulta_id: str,
+    msg: Union[str, dict],
+    url: str,
+    certificate: dict[str, Any] = {},
+
+    # metadata: Dict[str, Any]
 ) -> dict:
     try:
-        if metadata == {}:
-            raise PlataformaException("metadata cannot be empty")
 
-        command_name = "getWalletAdmin"
-        graphql_variables = {"isAdmin": True}
-        listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
+        plataforma = Plataforma()
+        # response = Response()
 
-        core_wallet = Response().handle_listWallets_response(listWallets_response=listWallet_response)
+        # dynamo = DynamoDBClient()
 
-        if not core_wallet["connection"] or not core_wallet.get("success", None):
-            raise ResponseDynamoDBException(core_wallet["data"])
+        # TODO: Check that the project_id exists in the app
+        # TODO: Check that the message hash does not exist in merkle trees
 
-        graphql_variables = {"walletId": core_wallet["data"]["items"][0]["id"]}
+
+        # table_name = f"api-{dynamo.ENVIRONMENT_NAME}-trazabilidad-MerkleTree"
+
+        proofs = Proofs()
+        final_response = proofs.add_leaf(msg)
+
+        # consultaApiInfo = dynamo.query_items("geomapas-test-geomapas-ConsultaApi", {"id": consulta_id, "verificado": True})
+
+        # consultaApiInfo = dynamo.query_items(
+        #     table_name,
+        #     Key('id').eq(consulta_id),
+        #     {':verificado': True}
+        # )
+        # if not consultaApiInfo or consultaApiInfo.get("resultados", {}) is {}:
+        #     raise ValueError(f"Consulta with id: {consulta_id} not found in dynamoDB")
         
-        r = Plataforma().getWallet("getWalletById", graphql_variables)
-        final_response = Response().handle_getWallet_response(getWallet_response=r)
-
-        if not final_response["connection"] or not final_response.get("success", None):
-            raise ResponseDynamoDBException(final_response["data"])
         
-        coreWalletInfo = final_response["data"]
+        # print(consultaApiInfo)
 
-        # Get core wallet params
-        seed = coreWalletInfo["seed"]
-        hdwallet = HDWallet.from_seed(seed)
-        child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
-        core_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
-        core_address = Address.from_primitive(coreWalletInfo["address"])
 
-        ########################
-        """2. Build transaction"""
-        ########################
-        chain_context = CardanoNetwork().get_chain_context()
 
-        # Create a transaction builder
-        builder = TransactionBuilder(chain_context)
+        # operation_name = "getConsultaApi"
+        # # graphql_variables = {"verificado": True, "id": consulta_id}
 
-        # Add user own address as the input address
-        core_address = Address.from_primitive(core_address)
-        builder.add_input_address(core_address)
+        # r = plataforma.genericGet(operation_name, {"id": consulta_id}, application="oracle")
+        # final_response = response.handle_getGeneric_response(
+        #     operation_name=operation_name, getGeneric_response=r
+        # )
 
-        must_before_slot = InvalidHereAfter(
-            chain_context.last_block_slot + 10000
-        )
-        # Since an InvalidHereAfter
-        builder.ttl = must_before_slot.after
+        # consultaApiInfo = final_response["data"]
+        # if not consultaApiInfo["resultados"] or not consultaApiInfo["verificado"]:
+        #     raise ValueError(
+        #         f"Consulta {consulta_id} has no results or has not been verified"
+        #     )
+        # print(consultaApiInfo)
 
-        auxiliary_data, metadata = Helpers().build_metadata({721: metadata})
-        # Set transaction metadata
-        if isinstance(auxiliary_data, AuxiliaryData):
-            builder.auxiliary_data = auxiliary_data
-        else:
-            raise ValueError(auxiliary_data)
+        # proofs = Proofs()
+        # proofs.build_and_store_merkle_tree([consultaApiInfo["resultados"]])
+
+
         
-        signed_tx = builder.build_and_sign(
-                [core_skey], change_address=core_address
-            )
-        tx_id = signed_tx.transaction_body.hash().hex()
 
-        logging.info(f"Transaction ID: {tx_id}")
+        # ########################
+        # """Get the core wallet"""
+        # ########################
+        # command_name = "getWalletAdmin"
+        # graphql_variables = {"isAdmin": True}
+        # listWallet_response = plataforma.getWallet(command_name, graphql_variables)
 
-        chain_context.submit_tx(signed_tx)
+        # core_wallet = Response().handle_listWallets_response(listWallets_response=listWallet_response)
+
+        # if not core_wallet["connection"] or not core_wallet.get("success", None):
+        #     raise ResponseDynamoDBException(core_wallet["data"])
+
+        # graphql_variables = {"walletId": core_wallet["data"]["items"][0]["id"]}
+        
+        # r = plataforma.getWallet("getWalletById", graphql_variables)
+        # final_response = Response().handle_getWallet_response(getWallet_response=r)
+
+        # if not final_response["connection"] or not final_response.get("success", None):
+        #     raise ResponseDynamoDBException(final_response["data"])
+        
+        # coreWalletInfo = final_response["data"]
+
+        # # Get core wallet params
+        # seed = coreWalletInfo["seed"]
+        # hdwallet = HDWallet.from_seed(seed)
+        # child_hdwallet = hdwallet.derive_from_path("m/1852'/1815'/0'/0/0")
+        # core_skey = ExtendedSigningKey.from_hdwallet(child_hdwallet)
+        # core_address = Address.from_primitive(coreWalletInfo["address"])
+
+        # ########################
+        # """Sign the message"""
+        # ########################
+        # signature = Proofs().sign_data(msg, core_skey)
 
 
-        logging.info(f"Metadata succesfully sent to Cardano Blockchain")
+        # ########################
+        # """Build metadata"""
+        # ########################
+        # get_tip = CardanoApi().getTip()
 
-        final_response = {
-            "success": True,
-            "msg": "Metadata submitted to the BC",
-            "tx_id": tx_id
-        }
+        # if "error" in get_tip:
+        #     raise ValueError(get_tip["error"])
+
+        # tip = {"slot": get_tip["slot"], "epoch": get_tip["epoch"]}
+
+        # metadata = {
+        #     # "project_id": project_id,
+        #     "url": url,
+        #     "certificate": certificate,
+        #     "date": int(datetime.datetime.now().timestamp()),
+        #     "tip": tip,
+        #     "signatures": [signature],
+        # }
+
+
+
+
+        # ########################
+        # """Build transaction"""
+        # ########################
+        # chain_context = CardanoNetwork().get_chain_context()
+
+        # # Create a transaction builder
+        # builder = TransactionBuilder(chain_context)
+
+        # # Add user own address as the input address
+        # core_address = Address.from_primitive(core_address)
+        # builder.add_input_address(core_address)
+
+        # must_before_slot = InvalidHereAfter(
+        #     chain_context.last_block_slot + 10000
+        # )
+        # # Since an InvalidHereAfter
+        # builder.ttl = must_before_slot.after
+
+        # auxiliary_data, metadata = Helpers().build_metadata({721: metadata})
+        # # Set transaction metadata
+        # if isinstance(auxiliary_data, AuxiliaryData):
+        #     builder.auxiliary_data = auxiliary_data
+        # else:
+        #     raise ValueError(auxiliary_data)
+        
+        # signed_tx = builder.build_and_sign(
+        #         [core_skey], change_address=core_address
+        #     )
+        # tx_id = signed_tx.transaction_body.hash().hex()
+
+        # logging.info(f"Transaction ID: {tx_id}")
+
+        # chain_context.submit_tx(signed_tx)
+
+
+        # logging.info(f"Metadata succesfully sent to Cardano Blockchain")
+
+        # final_response = {
+        #     "success": True,
+        #     "msg": "Metadata submitted to the BC",
+        #     "tx_id": tx_id
+        # }
 
 
         return final_response

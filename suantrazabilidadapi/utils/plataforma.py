@@ -71,15 +71,24 @@ class Plataforma(Constants):
             self.awsAppSyncApiKey = os.getenv("graphql_key_prod")
 
         self.HEADERS["x-api-key"] = self.awsAppSyncApiKey
-        self.S3_BUCKET_NAME = os.getenv("s3_bucket_name")
-        self.S3_BUCKET_NAME_HIERARCHY = os.getenv("s3_bucket_name_hierarchy")
-        self.AWS_ACCESS_KEY_ID = os.getenv("aws_access_key_id")
-        self.AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
+
         self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/queries.graphql")
+        # Section for Oracle queries
+        # self.oracleGraphqlEndpoint = os.getenv("oracle_endpoint")
+        # self.oracleAwsAppSyncApiKey = os.getenv("oracle_graphql_key")
+        # self.ORACLE_GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/oracle_queries.graphql")
 
     def _post(
-        self, operation_name: str, graphql_variables: Union[dict, None] = None
+        self, operation_name: str, graphql_variables: Union[dict, None] = None, application: str = ""
     ) -> dict:
+        
+        if application == "oracle":
+            self.graphqlEndpoint = os.getenv("oracle_endpoint")
+            self.awsAppSyncApiKey = os.getenv("oracle_graphql_key")
+            self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/oracle_queries.graphql")
+
+
+        self.HEADERS["x-api-key"] = self.awsAppSyncApiKey
         with open(self.GRAPHQL, "r", encoding="utf-8") as file:
             graphqlQueries = file.read()
         try:
@@ -110,6 +119,12 @@ class Plataforma(Constants):
 
         return dictionary
 
+    def genericGet(self, operation_name: str, query_param: str, application: str = "") -> dict:
+
+        data = self._post(operation_name, query_param, application)
+
+        return data
+    
     def getProject(self, command_name: str, query_param: str) -> dict:
         data = {}
         if command_name == "id":
@@ -122,6 +137,7 @@ class Plataforma(Constants):
     def listProjects(self) -> dict:
         return self._post("listProjects")
 
+    #TODO: Function to be decomissioned in the future. Move to genericGet
     def getWallet(self, command_name: str, graphql_variables: dict) -> dict:
 
         data = self._post(command_name, graphql_variables)
@@ -173,6 +189,7 @@ class Plataforma(Constants):
         response = self._post("ScriptMutation", values)
         return response
 
+    #TODO: Function to be decomissioned in the future. Move to genericGet
     def getScript(self, command_name: str, graphql_variables: str) -> dict:
 
         data = self._post(command_name, graphql_variables)
@@ -405,6 +422,23 @@ class Plataforma(Constants):
 
         return {"uploaded": uploaded, "error": error}
 
+    #TODO: Function to be decomissioned in the future. Move to genericGet
+    def getConsultaApiByIdAndVerificado(self, command_name: str, graphql_variables: dict) -> dict:
+
+        data = self._post(command_name, graphql_variables, application="oracle")
+
+        return data
+    
+    #TODO: Function to be decomissioned in the future. Move to genericGet
+    def getMerkleTree(self, command_name: str, graphql_variables: dict) -> dict:
+
+        data = self._post(command_name, graphql_variables, application="oracle")
+
+        return data
+
+    def createMerkleTree(self, values: dict) -> list[dict]:
+        response = self._post("createMerkleTree", values, application="oracle")
+        return response
 
 @dataclass()
 class CardanoApi(Constants):
@@ -422,6 +456,15 @@ class CardanoApi(Constants):
             }
         else:
             return obj
+
+    def getTip(self) -> dict:
+        try:
+            return self.BLOCKFROST_API.block_latest(return_type="json")
+        
+        except ApiError as e:
+            return {
+                "error": f"Unexpected error: {e.status_code} - {e.error}: {e.message}"
+            }
 
     def getAddressInfo(self, address: str) -> list[dict]:
         try:
