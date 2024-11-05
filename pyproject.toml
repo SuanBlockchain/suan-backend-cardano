@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Moxie <moxie@suan.global>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
@@ -22,6 +23,7 @@ ogmios = "^1.1.1"
 celery = {extras = ["redis", "sqs"], version = "^5.4.0"}
 flower = "^2.0.1"
 opshin = "^0.23.1"
+pymerkle = { git = "https://github.com/larestrepo/pymerkle.git", branch = "main" }
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

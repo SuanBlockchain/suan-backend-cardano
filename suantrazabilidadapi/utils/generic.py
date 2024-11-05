@@ -54,6 +54,7 @@ class Constants:
     AWS_ACCESS_KEY_ID = os.getenv("aws_access_key_id")
     AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
     ENVIRONMENT_NAME = os.getenv("env")
+    REGION_NAME = os.getenv("region_name")
 
 
 def is_valid_hex_string(s: str) -> bool:
