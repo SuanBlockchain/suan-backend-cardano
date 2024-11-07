@@ -38,7 +38,8 @@ async def createOrder(
         ########################
         """1. Get wallet info"""
         ########################
-        r = Plataforma().getWallet("id", order.wallet_id)
+        graphql_variables = {"walletId": order.wallet_id}
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
         if r["data"].get("data", None) is not None:
             userWalletInfo = r["data"]["data"]["getWallet"]
             if userWalletInfo is None:
@@ -196,7 +197,9 @@ async def unlockOrder(
         ########################
         """1. Get wallet info"""
         ########################
-        r = Plataforma().getWallet("id", order.wallet_id)
+        graphql_variables = {"walletId": order.wallet_id}
+
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
         if r["data"].get("data", None) is not None:
             userWalletInfo = r["data"]["data"]["getWallet"]
             if userWalletInfo is None:

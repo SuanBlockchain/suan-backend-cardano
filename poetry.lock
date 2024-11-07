@@ -2332,7 +2332,7 @@ cachetools = "^5.5.0"
 type = "git"
 url = "https://github.com/larestrepo/pymerkle.git"
 reference = "main"
-resolved_reference = "aeeecadf8c21c6d9ce78d6de5e4c7ed80080cf86"
+resolved_reference = "7c89efebd5294b800f948461ed1f3808206a2717"
 
 [[package]]
 name = "pynacl"

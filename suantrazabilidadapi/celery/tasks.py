@@ -83,7 +83,7 @@ async def get_access_token():
     token_string = "SandboxSuanAccess1"
     tasks_impacted = []
     # Set the TTL (in seconds)
-    ttl_seconds = 60
+    ttl_seconds = 20
     task_key = ""
 
     query = Query("@status:pending")
@@ -107,7 +107,7 @@ async def get_access_token():
                         rdb.expire(task_key, ttl_seconds)
 
                 else:
-                    rdb.expire(task_key, ttl_seconds * 10)
+                    rdb.expire(task_key, ttl_seconds)
 
         result = rdb.ft(index_name).search(query)
         # Group documents by wallet_id
@@ -127,7 +127,8 @@ async def get_access_token():
             logging.info(f"Processing batch for wallet_id: {wallet_id}")
             chain_context = CardanoNetwork().get_chain_context()
             builder = None
-            r = Plataforma().getWallet("id", wallet_id)
+            graphql_variables = {"walletId": wallet_id}
+            r = Plataforma().getWallet("getWalletById", graphql_variables)
             if r["data"].get("data", None) is not None:
                 walletInfo = r["data"]["data"]["getWallet"]
                 if walletInfo is None:
@@ -284,11 +285,11 @@ def handle_exception(task, exception, log_message):
     }
 
 
-if __name__ == "__main__":
-    # Run the get_access_token function within an asyncio event loop
-    try:
-        response = asyncio.run(get_access_token())
-        logger.debug(f"Access token: {response}")
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-    logger.info(response)
+# if __name__ == "__main__":
+#     # Run the get_access_token function within an asyncio event loop
+#     try:
+#         response = asyncio.run(get_access_token())
+#         logger.debug(f"Access token: {response}")
+#     except Exception as e:
+#         logger.error(f"An error occurred: {e}")
+#     logger.info(response)

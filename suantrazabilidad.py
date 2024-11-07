@@ -121,7 +121,7 @@ async def session_middleware(request: Request, call_next):
         session_id = str(uuid.uuid4())
         sessions[session_id] = {"started": True}
 
-        CardanoNetwork().check_ogmios_service_health()
+        # CardanoNetwork().check_ogmios_service_health()
 
     request.state.session_id = session_id
     expire_time = datetime.now(timezone.utc) + timedelta(minutes=10)

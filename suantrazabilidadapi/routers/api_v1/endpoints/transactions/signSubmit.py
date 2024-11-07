@@ -43,7 +43,9 @@ async def sign_submit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
         ########################
         """1. Get wallet info"""
         ########################
-        r = Plataforma().getWallet("id", signSubmit.wallet_id)
+        graphql_variables = {"walletId": signSubmit.wallet_id}
+
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]
             if walletInfo is None:

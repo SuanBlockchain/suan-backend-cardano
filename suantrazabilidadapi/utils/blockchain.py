@@ -7,7 +7,7 @@ from typing import Any, Union
 
 from blockfrost import ApiUrls
 
-# from ogmios_v6 import OgmiosChainContext as OgChainContext
+from pycardano.backend import OgmiosV6ChainContext as OgChainContext
 
 from pycardano import (
     Address,
@@ -202,10 +202,10 @@ class CardanoNetwork(Constants):
         logging.info(f"Chain backend used: {chain_backend}")
 
         # Validates which backend service is prefered to use first by looking
-        # if chain_backend == "ogmios":
-        #     return OgChainContext(
-        #         host=Constants.OGMIOS_URL, port=Constants.OGMIOS_PORT, secure=False
-        #     )
+        if chain_backend == "ogmios":
+            return OgChainContext(
+                host=Constants.OGMIOS_URL, port=Constants.OGMIOS_PORT, secure=False
+            )
 
         if chain_backend == "blockfrost":
             if self.NETWORK_NAME == "preview":

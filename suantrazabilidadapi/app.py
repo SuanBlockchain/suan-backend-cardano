@@ -11,7 +11,7 @@ from .core.config import settings
 from .routers.api_v1.api import api_router
 from .utils.security import generate_api_key
 from . import __version__
-from .celery.main import lifespan
+# from .celery.main import lifespan
 from .celery.tasks import send_push_notification
 
 DESCRIPTION = "Este API es el backend de la wallet de Plataforma - Suan"

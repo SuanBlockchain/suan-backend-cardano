@@ -43,7 +43,8 @@ async def getPkh(command_name: pydantic_schemas.walletCommandName, wallet: str) 
             if not is_valid_hex_string(wallet):
                 raise ValueError("id provided does not exist in wallet database")
 
-            r = Plataforma().getWallet(command_name, wallet)
+            graphql_variables = {"walletId": wallet}
+            r = Plataforma().getWallet("getWalletById", graphql_variables)
 
             if r["data"].get("data", None) is not None:
                 walletInfo = r["data"]["data"]["getWallet"]
@@ -151,8 +152,8 @@ async def createContract(
         # TODO: Verify that the wallet is admin. For now, the wallet_id is only used as beneficiary
 
         scriptCategory = "PlutusV2"
-
-        r = Plataforma().getWallet("id", wallet_id)
+        graphql_variables = {"walletId": wallet_id}
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]
 
