@@ -268,7 +268,7 @@ async def oracleDatum(
     try:
 
         # Check first that the core wallet to pay fees exists
-        graphql_variables = {"walletId": order.core_wallet_id}
+        graphql_variables = {"walletId": core_wallet_id}
         r = Plataforma().getWallet("getWalletById", graphql_variables)
         final_response = Response().handle_getWallet_response(getWallet_response=r)
 
@@ -347,7 +347,7 @@ async def oracleDatum(
                 }
             }
         )
-
+        #TODO: Move this section to a common function; this section is also used in the merkleTree endpoint
         if action == "Create":
             builder.mint = my_nft
             # Set native script

@@ -56,7 +56,9 @@ query getWalletAdmin ($isAdmin: Boolean!) {
     items {
       id
       name
+      seed
       userID
+      address
     }
   }
 }
