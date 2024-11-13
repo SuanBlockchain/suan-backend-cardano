@@ -89,8 +89,9 @@ def main(script: str, option: str = "send"):
     # Load chain context
     context = get_chain_context()
 
-    wallet_id = "575a7f01272dd95a9ba2696e9e3d4895fe39b12350f7fa88a301b3ad"
-    r = Plataforma().getWallet("id", wallet_id)
+    wallet_id = "a08a8de96263fa61d84de42c51cfc6ba0a3a945043268b1e33762188"
+    graphql_variables = {"walletId": wallet_id}
+    r = Plataforma().getWallet("getWalletById", graphql_variables)
 
     if r["data"].get("data", None) is not None:
         walletInfo = r["data"]["data"]["getWallet"]

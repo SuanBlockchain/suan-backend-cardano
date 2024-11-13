@@ -581,17 +581,32 @@ class CardanoApi(Constants):
                     "error": f"Unexpected error: {e.status_code} - {e.error}: {e.message}"
                 }
 
+    def specificAssetInfo(self, asset_name: str) -> dict:
+        return self.BLOCKFROST_API.asset(asset_name, return_type="json")
+
     def assetInfo(self, policy_id: str) -> list:
         asset_list = self.BLOCKFROST_API.assets_policy(policy_id, return_type="json")
 
         asset_details_list = []
         for asset in asset_list:
             asset_name = asset.get("asset", "")
-            asset_details = self.BLOCKFROST_API.asset(asset_name, return_type="json")
+            asset_details = self.specificAssetInfo(asset_name)
             asset_details_list.append(asset_details)
 
         return asset_details_list
 
+    def getMetadata(self, label: str) -> list[dict]:
+        """Get a list of all UTxOs currently present in the provided address \n
+
+        Args:
+            address (str): Bech32 address
+            page_number (int, optional): The page number for listing the results. Defaults to 1.
+            limit (int, optional): The number of results displayed on one page. Defaults to 10.
+
+        Returns:
+            list[dict]: list of utxos
+        """
+        return self.BLOCKFROST_API.metadata_label_json(label, return_type="json")
 
 @dataclass()
 class Helpers:
