@@ -160,7 +160,7 @@ async def createWallet(mnemonic_words: str, wallet_type: pydantic_schemas.wallet
         r = Plataforma().getWallet(command_name, graphql_variables)
         final_response = Response().handle_getWallet_response(getWallet_response=r)
         
-        if not final_response["connection"] or not final_response.get("success", None):
+        if not final_response["connection"] or final_response.get("success", None):
             raise ResponseDynamoDBException(final_response["data"])
 
         if save_flag:

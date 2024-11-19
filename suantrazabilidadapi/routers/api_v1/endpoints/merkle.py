@@ -59,7 +59,7 @@ async def admin_call():
 async def merkleTree(action: pydantic_schemas.OracleAction, project_id: str, body: dict = {}, onchain: bool = True) -> dict:
     """Include result in merkle tree and submit information to the blockchain as part of a metadata transaction \n"""
     env = os.getenv("env")
-    opts = { "app_name": project_id, "env": env + ("onchain" if onchain else "local") }
+    opts = { "app_name": project_id, "env": env + ("-onchain" if onchain else "-local") }
     try:
         #TODO: In future, explore the possibility to use datum instead of metadata
         tree = DynamoDBTree(aws_access_key_id=Constants.AWS_ACCESS_KEY_ID, aws_secret_access_key=Constants.AWS_SECRET_ACCESS_KEY, region_name=Constants.REGION_NAME, **opts)
