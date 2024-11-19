@@ -25,7 +25,7 @@ from tests.utils.helpers import (
     build_spend,
     build_swap,
     create_contract,
-    find_utxos_with_tokens,
+    mock_find_utxos,
     min_value,
     monitor_transaction,
     save_transaction,
@@ -139,7 +139,7 @@ def test_unlock_buy(
     # Build redeemer
     redeemer = pydantic_schemas.RedeemerBuy()
     # Find the utxo at the contract
-    spend_utxo = find_utxos_with_tokens(
+    spend_utxo = mock_find_utxos(
         context, spend_address, multi_asset=multi_asset_buy
     )
 
@@ -149,7 +149,7 @@ def test_unlock_buy(
     oracle_address = py.Address.from_primitive(
         "addr_test1vqk6jh4xqxmp80dv2tay9hu8cmzhezyes76alt8ezevlpssxz77zr"
     )
-    oracle_utxo = find_utxos_with_tokens(
+    oracle_utxo = mock_find_utxos(
         context, oracle_address, multi_asset=oracle_asset
     )
     tx_builder.reference_inputs.add(oracle_utxo)
@@ -253,7 +253,7 @@ def test_unlock_unlist(
     redeemer = pydantic_schemas.RedeemerUnlist()
     # Take out all the tokens from the spend address
     # Find the utxo at the contract
-    spend_utxo = find_utxos_with_tokens(
+    spend_utxo = mock_find_utxos(
         context, spend_address, multi_asset=multi_asset_unlist
     )
 
@@ -303,7 +303,7 @@ def test_burn(
     )
     # MultiAsset to trade
     multi_asset = build_multiAsset(parent_mint_policyID, tokenName, burnQ)
-    burn_utxo = find_utxos_with_tokens(context, user.address, multi_asset=multi_asset)
+    burn_utxo = mock_find_utxos(context, user.address, multi_asset=multi_asset)
     tx_builder.add_input(burn_utxo)
     multi_asset_burn = build_multiAsset(parent_mint_policyID, tokenName, -burnQ)
     tx_builder.mint = multi_asset_burn
@@ -444,13 +444,13 @@ def test_unlist_order(
 
     redeemer = pydantic_schemas.RedeemerUnlist()
     multi_asset = build_multiAsset(parent_mint_policyID, tokenA_name, qTokenA)
-    multi_asset_spend_utxo = find_utxos_with_tokens(
+    multi_asset_spend_utxo = mock_find_utxos(
         context, swaptoken_address, multi_asset=multi_asset
     )
 
     # nft_swap_token = "nft_swap_" + tokenName
     # nft_swap_multi_asset = build_multiAsset(swaptoken_policy_id, nft_swap_token, 1)
-    # nft_swap_multi_asset_spend_utxo = find_utxos_with_tokens(context, swaptoken_address, multi_asset=nft_swap_multi_asset)
+    # nft_swap_multi_asset_spend_utxo = mock_find_utxos(context, swaptoken_address, multi_asset=nft_swap_multi_asset)
     if multi_asset_spend_utxo:
         tx_builder.add_script_input(
             multi_asset_spend_utxo,
@@ -508,7 +508,7 @@ def test_unlock_order(contracts_info: dict, tokenA_name: str, qTokenA: int, pric
     oracle_address = py.Address.from_primitive(
         "addr_test1vqk6jh4xqxmp80dv2tay9hu8cmzhezyes76alt8ezevlpssxz77zr"
     )
-    oracle_utxo = find_utxos_with_tokens(
+    oracle_utxo = mock_find_utxos(
         context, oracle_address, multi_asset=oracle_asset
     )
     tx_builder.reference_inputs.add(oracle_utxo)
@@ -520,12 +520,12 @@ def test_unlock_order(contracts_info: dict, tokenA_name: str, qTokenA: int, pric
     tx_builder.required_signers = signatures
     redeemer = pydantic_schemas.RedeemerBuy()
     multi_asset = build_multiAsset(parent_mint_policyID, tokenA_name, qTokenA)
-    multi_asset_spend_utxo = find_utxos_with_tokens(
+    multi_asset_spend_utxo = mock_find_utxos(
         context, swaptoken_address, multi_asset=multi_asset
     )
     # nft_swap_token = "nft_swap_" + tokenName
     # nft_swap_multi_asset = build_multiAsset(swaptoken_policy_id, nft_swap_token, 1)
-    # nft_swap_multi_asset_spend_utxo = find_utxos_with_tokens(context, swaptoken_address, multi_asset=nft_swap_multi_asset)
+    # nft_swap_multi_asset_spend_utxo = mock_find_utxos(context, swaptoken_address, multi_asset=nft_swap_multi_asset)
     if multi_asset_spend_utxo:
         tx_builder.add_script_input(
             multi_asset_spend_utxo,

@@ -51,6 +51,18 @@ query getWalletByAddress ($address: String!) {
   }
 }
 
+query getWalletAdmin ($isAdmin: Boolean!) {
+  listWallets(filter: {isAdmin: {eq: $isAdmin}}) {
+    items {
+      id
+      name
+      seed
+      userID
+      address
+    }
+  }
+}
+
 query getMarketplaceByOracle ($oracleWalletID: ID!) {
   listMarketplaces(filter: {oracleWalletID: {eq: $oracleWalletID}}) {
     items {

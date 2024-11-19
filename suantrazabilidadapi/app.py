@@ -11,7 +11,7 @@ from .core.config import settings
 from .routers.api_v1.api import api_router
 from .utils.security import generate_api_key
 from . import __version__
-from .celery.main import lifespan
+# from .celery.main import lifespan
 from .celery.tasks import send_push_notification
 
 DESCRIPTION = "Este API es el backend de la wallet de Plataforma - Suan"
@@ -69,7 +69,7 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     "run-me-every-thirty-seconds": {
         "task": "access-token-task",
-        "schedule": 120,
+        "schedule": 30,
         "options": {"queue": "celery"},
     }
 }
@@ -85,7 +85,7 @@ suantrazabilidad = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     version=VERSION,
     debug=True,
-    lifespan=lifespan,
+    # lifespan=lifespan,
 )
 
 root_router = APIRouter()

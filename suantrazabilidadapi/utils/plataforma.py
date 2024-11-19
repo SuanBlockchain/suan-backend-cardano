@@ -3,10 +3,17 @@ import json
 import logging
 import os
 import pathlib
+import uuid
 from dataclasses import dataclass
 from typing import Optional, Union, Any, Dict
 from types import SimpleNamespace as Namespace
 from blockfrost.utils import ApiError
+from fastapi import HTTPException
+from redis.asyncio import ConnectionPool, Redis
+from redis.commands.search.query import Query
+from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+from redis.exceptions import ResponseError
+from redis.commands.search.field import TextField
 
 import boto3
 import requests
@@ -40,6 +47,7 @@ from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 # from suantrazabilidadapi.utils.blockchain import Keys
 from suantrazabilidadapi.utils.generic import Constants
 from suantrazabilidadapi.utils.response import Response
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException
 
 plataformaSecrets = config(section="plataforma")
 security = config(section="security")
@@ -63,15 +71,24 @@ class Plataforma(Constants):
             self.awsAppSyncApiKey = os.getenv("graphql_key_prod")
 
         self.HEADERS["x-api-key"] = self.awsAppSyncApiKey
-        self.S3_BUCKET_NAME = os.getenv("s3_bucket_name")
-        self.S3_BUCKET_NAME_HIERARCHY = os.getenv("s3_bucket_name_hierarchy")
-        self.AWS_ACCESS_KEY_ID = os.getenv("aws_access_key_id")
-        self.AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
+
         self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/queries.graphql")
+        # Section for Oracle queries
+        # self.oracleGraphqlEndpoint = os.getenv("oracle_endpoint")
+        # self.oracleAwsAppSyncApiKey = os.getenv("oracle_graphql_key")
+        # self.ORACLE_GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/oracle_queries.graphql")
 
     def _post(
-        self, operation_name: str, graphql_variables: Union[dict, None] = None
+        self, operation_name: str, graphql_variables: Union[dict, None] = None, application: str = ""
     ) -> dict:
+        
+        if application == "oracle":
+            self.graphqlEndpoint = os.getenv("oracle_endpoint")
+            self.awsAppSyncApiKey = os.getenv("oracle_graphql_key")
+            self.GRAPHQL = self.PROJECT_ROOT.joinpath("graphql/oracle_queries.graphql")
+
+
+        self.HEADERS["x-api-key"] = self.awsAppSyncApiKey
         with open(self.GRAPHQL, "r", encoding="utf-8") as file:
             graphqlQueries = file.read()
         try:
@@ -102,6 +119,12 @@ class Plataforma(Constants):
 
         return dictionary
 
+    def genericGet(self, operation_name: str, query_param: str, application: str = "") -> dict:
+
+        data = self._post(operation_name, query_param, application)
+
+        return data
+    
     def getProject(self, command_name: str, query_param: str) -> dict:
         data = {}
         if command_name == "id":
@@ -114,17 +137,10 @@ class Plataforma(Constants):
     def listProjects(self) -> dict:
         return self._post("listProjects")
 
-    def getWallet(self, command_name: str, query_param: str) -> dict:
-        data = {}
-        if command_name == "id":
-            graphql_variables = {"walletId": query_param}
+    #TODO: Function to be decomissioned in the future. Move to genericGet
+    def getWallet(self, command_name: str, graphql_variables: dict) -> dict:
 
-            data = self._post("getWalletById", graphql_variables)
-
-        elif command_name == "address":
-            graphql_variables = {"address": query_param}
-
-            data = self._post("getWalletByAddress", graphql_variables)
+        data = self._post(command_name, graphql_variables)
 
         return data
 
@@ -169,17 +185,16 @@ class Plataforma(Constants):
         response = self._post(operation_name, values)
         return response
 
-    def createContract(self, values) -> list[dict]:
+    def createContract(self, values: dict) -> list[dict]:
         response = self._post("ScriptMutation", values)
         return response
 
-    def getScript(self, command_name: str, query_param: str) -> dict:
-        if command_name == "id":
-            graphql_variables = {"id": query_param}
+    #TODO: Function to be decomissioned in the future. Move to genericGet
+    def getScript(self, command_name: str, graphql_variables: str) -> dict:
 
-            data = self._post("getScriptById", graphql_variables)
+        data = self._post(command_name, graphql_variables)
 
-            return data
+        return data
 
     def listScripts(self) -> dict:
         return self._post("listScripts")
@@ -407,6 +422,23 @@ class Plataforma(Constants):
 
         return {"uploaded": uploaded, "error": error}
 
+    #TODO: Function to be decomissioned in the future. Move to genericGet
+    def getConsultaApiByIdAndVerificado(self, command_name: str, graphql_variables: dict) -> dict:
+
+        data = self._post(command_name, graphql_variables, application="oracle")
+
+        return data
+    
+    #TODO: Function to be decomissioned in the future. Move to genericGet
+    def getMerkleTree(self, command_name: str, graphql_variables: dict) -> dict:
+
+        data = self._post(command_name, graphql_variables, application="oracle")
+
+        return data
+
+    def createMerkleTree(self, values: dict) -> list[dict]:
+        response = self._post("createMerkleTree", values, application="oracle")
+        return response
 
 @dataclass()
 class CardanoApi(Constants):
@@ -424,6 +456,15 @@ class CardanoApi(Constants):
             }
         else:
             return obj
+
+    def getTip(self) -> dict:
+        try:
+            return self.BLOCKFROST_API.block_latest(return_type="json")
+        
+        except ApiError as e:
+            return {
+                "error": f"Unexpected error: {e.status_code} - {e.error}: {e.message}"
+            }
 
     def getAddressInfo(self, address: str) -> list[dict]:
         try:
@@ -540,17 +581,32 @@ class CardanoApi(Constants):
                     "error": f"Unexpected error: {e.status_code} - {e.error}: {e.message}"
                 }
 
+    def specificAssetInfo(self, asset_name: str) -> dict:
+        return self.BLOCKFROST_API.asset(asset_name, return_type="json")
+
     def assetInfo(self, policy_id: str) -> list:
         asset_list = self.BLOCKFROST_API.assets_policy(policy_id, return_type="json")
 
         asset_details_list = []
         for asset in asset_list:
             asset_name = asset.get("asset", "")
-            asset_details = self.BLOCKFROST_API.asset(asset_name, return_type="json")
+            asset_details = self.specificAssetInfo(asset_name)
             asset_details_list.append(asset_details)
 
         return asset_details_list
 
+    def getMetadata(self, label: str) -> list[dict]:
+        """Get a list of all UTxOs currently present in the provided address \n
+
+        Args:
+            address (str): Bech32 address
+            page_number (int, optional): The page number for listing the results. Defaults to 1.
+            limit (int, optional): The number of results displayed on one page. Defaults to 10.
+
+        Returns:
+            list[dict]: list of utxos
+        """
+        return self.BLOCKFROST_API.metadata_label_json(label, return_type="json")
 
 @dataclass()
 class Helpers:
@@ -678,12 +734,21 @@ class Helpers:
         chain_context: ChainContext,
         oracle_wallet_id: str
     ) -> Union[UTxO, None]:
-        oracle_utxo = None
-        oracleWalletResponse = Response().handle_getWallet_response(Plataforma().getWallet("id", oracle_wallet_id))
+        try:
+            oracle_utxo = None
+            
+            command_name = "getWalletById"
 
-        if oracleWalletResponse.get("data", None):
+            graphql_variables = {"walletId": oracle_wallet_id}
 
-            oracleWallet = oracleWalletResponse["data"]
+            r = Plataforma().getWallet(command_name, graphql_variables)
+            final_response = Response().handle_getWallet_response(getWallet_response=r)
+            
+            if not final_response["connection"] or not final_response.get("success", None):
+                raise ResponseDynamoDBException(final_response["data"])
+            
+
+            oracleWallet = final_response["data"]
             oracle_address = oracleWallet["address"]
 
             seed = oracleWallet["seed"]
@@ -699,16 +764,90 @@ class Helpers:
             response = Plataforma().listMarketplaces("oracleWalletID", oracle_wallet_id)
             marketplaceResponse = Response().handle_listMarketplaces_response(response)
 
-            if marketplaceResponse.get("data", None):
-                marketplaceInfo = marketplaceResponse["data"]["items"][0]
+            if not final_response["connection"] or not final_response.get("success", None):
+                raise ResponseDynamoDBException(final_response["data"])
+            
+            marketplaceInfo = marketplaceResponse["data"]
 
-                oracle_token_name = marketplaceInfo["oracleTokenName"]
+            oracle_token_name = marketplaceInfo["oracleTokenName"]
 
-                oracle_asset = self.build_multiAsset(
-                    policy_id=self.build_oraclePolicyId(oracle_vkey),
-                    tq_dict={oracle_token_name: 1},
-                )
-                oracle_utxo = self.find_utxos_with_tokens(
-                    chain_context, oracle_address, multi_asset=oracle_asset
-                )
-        return oracle_utxo
+            oracle_asset = self.build_multiAsset(
+                policy_id=self.build_oraclePolicyId(oracle_vkey),
+                tq_dict={oracle_token_name: 1},
+            )
+            oracle_utxo = self.find_utxos_with_tokens(
+                chain_context, oracle_address, multi_asset=oracle_asset
+            )
+                
+            return oracle_utxo
+        except ResponseDynamoDBException as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            # Handling other types of exceptions
+            raise HTTPException(status_code=500, detail=str(e)) from e
+
+@dataclass()
+class RedisClient:
+    """Class to handle data from and to Redis DB"""
+
+    def __post_init__(self):
+        self.REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        self.pool = ConnectionPool.from_url(self.REDIS_URL, decode_responses=True)
+        self.schemas = self._initialize_schemas()
+        self.rdb = Redis(connection_pool=self.pool)
+
+    def _initialize_schemas(self):
+        # Define multiple schemas in a dictionary
+        return {
+            "AccessToken": (
+                TextField("$.action", as_name="action"),
+                TextField("$.status", as_name="status"),
+                TextField("$.destinAddress", as_name="destinAddress"),
+                TextField("$.wallet_id", as_name="wallet_id"),
+                TextField("$.token_string", as_name="token_string"),
+            ),
+            "MultipleContractBuy": (
+                TextField("$.action", as_name="action"),
+                TextField("$.status", as_name="status"),
+                TextField("$.destinAddress", as_name="destinAddress"),
+                TextField("$.wallet_id", as_name="wallet_id"),
+                TextField("$.spendPolicyId", as_name="spendPolicyId"),
+            ),
+            # Add more schemas here as needed
+        }
+
+    # async def get_connection(self):
+    #     return Redis(connection_pool=self.pool)
+
+    async def close(self):
+        await self.pool.disconnect()
+
+    async def create_index(self, index_name):
+        # rdb = await self.get_connection()
+        schema = self.schemas.get(index_name)
+        if not schema:
+            logging.error(f"Schema for {index_name} not found.")
+            return
+        try:
+            # Check if the index already exists
+            index_info = await self.rdb.ft(index_name).info()
+            if index_info.get("index_name") == index_name:
+                logging.info(f"Index {index_name} already exists.")
+                return
+        except ResponseError as e:
+            if "Unknown index name" in e.args[0]:
+                # If the index does not exist, create it
+                definition = IndexDefinition(prefix=[f"{index_name}:"], index_type=IndexType.JSON)
+                await self.rdb.ft(index_name).create_index(schema, definition=definition)
+                print(f"Index {index_name} created successfully.")
+
+    async def create_task(self, index_name: str, record: dict):
+        key = f"{index_name}:{str(uuid.uuid4())}"
+        # rdb = await self.get_connection()
+        await self.rdb.json().set(key, "$", record)
+        logging.info(f"Task created with key: {key}")
+
+    async def make_query(self, index_name: str, query_string: str):
+        query = Query(query_string)
+        # rdb = await self.get_connection()
+        return self.rdb.ft(index_name).search(query)

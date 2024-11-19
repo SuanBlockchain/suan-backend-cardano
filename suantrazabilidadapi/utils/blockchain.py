@@ -3,10 +3,11 @@ import os
 from dataclasses import dataclass, field
 import json
 import requests
+from typing import Any, Union
 
 from blockfrost import ApiUrls
 
-from ogmios import OgmiosChainContext as OgChainContext
+from pycardano.backend import OgmiosV6ChainContext as OgChainContext
 
 from pycardano import (
     Address,
@@ -19,6 +20,7 @@ from pycardano import (
     BlockFrostChainContext,
     PlutusV2Script,
 )
+from pycardano.cip.cip8 import sign, verify
 
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.utils.generic import Constants
@@ -229,3 +231,39 @@ class Contracts(Constants):
         plutusScript = PlutusV2Script(cbor)
 
         return plutusScript
+
+import hashlib
+@dataclass()
+class Proofs(Constants):
+    """Class to define proof methods"""
+
+    def __post_init__(self):
+        pass
+
+    def hash_function(self, data: Any) -> str:
+        return hashlib.sha256(data.encode('utf-8')).hexdigest()
+    
+    def data_bytes(self, data: Any) -> bytes:
+        return data.encode('utf-8')
+
+    def create_merkle_tree(self, data_list: list[Any]):
+        if len(data_list) == 1:
+            return data_list
+
+        new_level = []
+        for i in range(0, len(data_list), 2):
+            left = data_list[i]
+            right = data_list[i + 1] if i + 1 < len(data_list) else left
+            new_level.append(self.hash_function(left + right))
+
+        return self.create_merkle_tree(new_level)
+
+    def get_merkle_root(self, data_list: list[Any]):
+        hashed_data = [self.hash_function(data) for data in data_list]
+        return self.create_merkle_tree(hashed_data)[0]
+    
+    def sign_data(self, data: Any, key: ExtendedSigningKey) -> Union[str, dict]:
+        return sign(data, key, attach_cose_key=True, network=Network.TESTNET)
+    
+    def verify_signature(self, signed_message: Union[str, dict]) -> bool:
+        return verify(signed_message)

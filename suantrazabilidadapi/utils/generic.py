@@ -11,6 +11,9 @@ from pycardano import Network, Transaction
 from suantrazabilidadapi.core.config import config
 
 plataformaSecrets = config(section="plataforma")
+security = config(section="security")
+optional = config(section="optional")
+# environment = security["env"]
 load_dotenv()
 
 
@@ -33,7 +36,6 @@ class Constants:
         NETWORK = Network.TESTNET
 
     HEADERS = {"Content-Type": "application/json"}
-    REGION_NAME = "us-east-1"
     ORACLE_WALLET_NAME = "SuanOracle"
     # ORACLE_POLICY_ID = "b11a367d61a2b8f6a77049a809d7b93c6d44c140678d69276ab77c12"
     ORACLE_TOKEN_NAME = "SuanOracle"
@@ -47,6 +49,12 @@ class Constants:
     else:
         OGMIOS_URL = f"{OGMIOS_SERVICE_NAME}.{COPILOT_SERVICE_DISCOVERY_ENDPOINT}"
     OGMIOS_PORT = 1337
+    S3_BUCKET_NAME = os.getenv("s3_bucket_name")
+    S3_BUCKET_NAME_HIERARCHY = os.getenv("s3_bucket_name_hierarchy")
+    AWS_ACCESS_KEY_ID = os.getenv("aws_access_key_id")
+    AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
+    ENVIRONMENT_NAME = os.getenv("env")
+    REGION_NAME = os.getenv("region_name")
 
 
 def is_valid_hex_string(s: str) -> bool:

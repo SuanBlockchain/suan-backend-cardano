@@ -1,16 +1,15 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import logging
+import os
+# from contextlib import asynccontextmanager
+# from fastapi import FastAPI
 from redis.commands.search.field import TextField  # , NumericField, TagField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.exceptions import ResponseError
 
 from redis import asyncio as aioredis
-import logging
-import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 async def redis_config(index_name: str):
 
@@ -50,13 +49,13 @@ async def redis_config(index_name: str):
 #########################
 # lifespan function that starts and ends when the fastapi application is started or ended
 #########################
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Define the schema to store blockchain requests in redis
-    index_name = "idx:AccessToken"
-    await redis_config(index_name)
+# @asynccontextmanager
+# async def lifespan(app: FastAPI): # pylint: disable=unused-argument
+#     # Define the schema to store blockchain requests in redis
+#     index_name = "idx:AccessToken"
+#     await redis_config(index_name)
 
-    try:
-        yield
-    finally:
-        pass
+#     try:
+#         yield
+#     finally:
+#         pass

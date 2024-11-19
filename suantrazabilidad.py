@@ -8,13 +8,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from celery import Celery
 
-from suantrazabilidadapi.celery.main import lifespan
+# from suantrazabilidadapi.celery.main import lifespan
 from suantrazabilidadapi.core.config import settings
 from suantrazabilidadapi.routers.api_v1.api import api_router
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.security import generate_api_key
 from suantrazabilidadapi import __version__
-from suantrazabilidadapi.celery.tasks import send_push_notification
+from suantrazabilidadapi.celery.tasks import send_push_notification, get_access_token
 
 ################################################################
 load_dotenv()
@@ -63,7 +63,7 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     "run-me-every-thirty-seconds": {
         "task": "access-token-task",
-        "schedule": 120,
+        "schedule": 30,
         "options": {"queue": "celery"},
     }
 }
@@ -79,7 +79,7 @@ suantrazabilidad = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     version=__version__,
     debug=True,
-    lifespan=lifespan,
+    # lifespan=lifespan,
 )
 
 root_router = APIRouter()
@@ -121,7 +121,7 @@ async def session_middleware(request: Request, call_next):
         session_id = str(uuid.uuid4())
         sessions[session_id] = {"started": True}
 
-        CardanoNetwork().check_ogmios_service_health()
+        # CardanoNetwork().check_ogmios_service_health()
 
     request.state.session_id = session_id
     expire_time = datetime.now(timezone.utc) + timedelta(minutes=10)
@@ -156,6 +156,7 @@ async def session_middleware(request: Request, call_next):
 
 @suantrazabilidad.get("/push/{device_token}")
 async def notify(device_token: str):
+    await get_access_token()
     send_push_notification.delay(device_token)
     return {"message": "Notification sent"}
 

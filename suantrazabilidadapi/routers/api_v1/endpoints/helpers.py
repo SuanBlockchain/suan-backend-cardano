@@ -57,8 +57,8 @@ async def sendAccessToken(
         scriptName = "NativeAccessToken"
         scriptCategory = "PlutusV2"
         script_type = "native"
-
-        r = Plataforma().getWallet("id", wallet_id)
+        graphql_variables = {"walletId": wallet_id}
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]
             if walletInfo is None:
@@ -268,7 +268,8 @@ async def oracleDatum(
     try:
 
         # Check first that the core wallet to pay fees exists
-        r = Plataforma().getWallet("id", core_wallet_id)
+        graphql_variables = {"walletId": core_wallet_id}
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
         final_response = Response().handle_getWallet_response(getWallet_response=r)
 
         if not final_response.get("data", None):
@@ -346,7 +347,7 @@ async def oracleDatum(
                 }
             }
         )
-
+        #TODO: Move this section to a common function; this section is also used in the merkleTree endpoint
         if action == "Create":
             builder.mint = my_nft
             # Set native script

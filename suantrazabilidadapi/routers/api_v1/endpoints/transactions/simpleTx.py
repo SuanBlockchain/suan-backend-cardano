@@ -33,7 +33,8 @@ async def buildTx(send: pydantic_schemas.BuildTx) -> dict:
         ########################
         """1. Get wallet info"""
         ########################
-        r = Plataforma().getWallet("id", send.wallet_id)
+        graphql_variables = {"walletId": send.wallet_id}
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
         if r["data"].get("data", None) is not None:
             userWalletInfo = r["data"]["data"]["getWallet"]
             if userWalletInfo is None:

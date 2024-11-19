@@ -1,0 +1,30 @@
+# query getMerkleTree ($node_id: ID!) {
+#   getMerkleTree(id: $node_id) {
+#   node_id
+#   data
+#   hash
+#   left_child
+#   level
+#   parent_id
+#   right_child
+#   consulta_id {
+#     id
+#     }
+#   }
+#     }
+
+query getConsultaApi ($id: ID!) {
+  getConsultaApi(id: $id) {
+    resultados
+    verificado
+    proyectoID
+  }
+}
+
+
+mutation createMerkleTree($hash: String!, $level: Int!, $parent_id: ID, $data: String!) {
+  createMerkleTree(input: {hash: $hash, level: $level, parent_id: $parent_id, data: $data}) {
+    node_id
+  }
+}
+

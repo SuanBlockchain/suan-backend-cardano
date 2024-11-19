@@ -26,6 +26,8 @@ from pycardano import (
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
 from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.plataforma import Plataforma
+from suantrazabilidadapi.utils.exception import ResponseDynamoDBException
+from suantrazabilidadapi.utils.response import Response
 
 router = APIRouter()
 
@@ -41,7 +43,9 @@ async def sign_submit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
         ########################
         """1. Get wallet info"""
         ########################
-        r = Plataforma().getWallet("id", signSubmit.wallet_id)
+        graphql_variables = {"walletId": signSubmit.wallet_id}
+
+        r = Plataforma().getWallet("getWalletById", graphql_variables)
         if r["data"].get("data", None) is not None:
             walletInfo = r["data"]["data"]["getWallet"]
             if walletInfo is None:
@@ -87,21 +91,27 @@ async def sign_submit(signSubmit: pydantic_schemas.SignSubmit) -> dict:
                             # redeemers.append(redeemer)
                 if signSubmit.scriptIds:
                     for scriptId in signSubmit.scriptIds:
-                        r = Plataforma().getScript("id", scriptId)
-                        if r["success"]:
-                            contractInfo = r["data"]["data"]["getScript"]
-                            if contractInfo is None:
-                                raise ValueError(
-                                    f"Contract with id: {scriptId} does not exist in DynamoDB"
-                                )
-                            else:
-                                cbor_hex = contractInfo.get("cbor", None)
+                        # Get the contract address and cbor from policyId
+                        # Consultar en base de datos
+                        command_name = "getScriptById"
 
-                                cbor = bytes.fromhex(cbor_hex)
-                                plutus_v2_script = PlutusV2Script(cbor)
-                                plutus_v2_scripts.append(plutus_v2_script)
-                                # plutus_v3_script = PlutusV3Script(cbor)
-                                # plutus_v3_scripts.append(plutus_v3_script)
+                        graphql_variables = {"id": scriptId}
+
+                        r = Plataforma().getScript(command_name, graphql_variables)
+                        final_response = Response().handle_getScript_response(getWallet_response=r)
+
+                        if not final_response["connection"] or not final_response.get("success", None):
+                            raise ResponseDynamoDBException(final_response["data"])
+                        
+                        contractInfo = final_response["data"]
+
+                        cbor_hex = contractInfo.get("cbor", None)
+
+                        cbor = bytes.fromhex(cbor_hex)
+                        plutus_v2_script = PlutusV2Script(cbor)
+                        plutus_v2_scripts.append(plutus_v2_script)
+                        # plutus_v3_script = PlutusV3Script(cbor)
+                        # plutus_v3_scripts.append(plutus_v3_script)
 
                 witness_set = TransactionWitnessSet(
                     vkey_witnesses=vk_witnesses,

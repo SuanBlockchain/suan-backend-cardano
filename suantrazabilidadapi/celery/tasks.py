@@ -1,12 +1,18 @@
-import binascii
-from datetime import timedelta
+import logging
+import json
+import os
+import sys
 import time
-
-from celery.utils.log import get_task_logger
-
-from celery import shared_task
+from typing import Any
 from collections import defaultdict
+import asyncio
+import redis
+from redis.commands.search.query import Query
+from celery import shared_task
+from celery.utils.log import get_task_logger
+from kombu.exceptions import EncodeError
 
+from pycardano.exception import TransactionFailedException
 from pycardano import (
     Address,
     AlonzoMetadata,
@@ -22,26 +28,34 @@ from pycardano import (
     TransactionOutput,
     Value,
 )
-from pycardano.exception import TransactionFailedException
 
-import redis
-from redis.commands.search.query import Query
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.append(project_root)
+
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork  # pylint: disable=wrong-import-position
+from suantrazabilidadapi.utils.generic import Constants  # pylint: disable=wrong-import-position
+from suantrazabilidadapi.utils.plataforma import Plataforma  # pylint: disable=wrong-import-position
+from suantrazabilidadapi.celery.main import redis_config  # pylint: disable=wrong-import-position
 
 # from redis import asyncio as aioredis
 
-import logging
-import json
-import os
-
-from suantrazabilidadapi.utils.blockchain import CardanoNetwork
-from suantrazabilidadapi.utils.generic import Constants
-from suantrazabilidadapi.utils.plataforma import CardanoApi, Helpers, Plataforma
 
 logger = get_task_logger("tasks")
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 rdb = redis.Redis.from_url(redis_url, decode_responses=True)
 # rdb = aioredis.from_url(redis_url, decode_responses=True)
+
+
+def set_ttl(task_key: Any, ttl_seconds: int):
+    # Check if a TTL is already set
+    current_ttl = rdb.ttl(task_key)
+    # If TTL is -1, it means the key has no expiration set
+    if current_ttl == -1:
+        # Set the TTL if it's not already set
+        rdb.expire(task_key, ttl_seconds)
+    else:
+        logging.info(f"TTL is already set for key {task_key} and will not be overwritten.")
 
 
 @shared_task(name="send_push_notification")
@@ -53,33 +67,46 @@ def send_push_notification(device_token: str):
 
 
 @shared_task(name="access-token-task")
-def schedule_task():
+def get_access_token_sync():
+    # Wrapper to run the async function within a Celery task
+    try:
+        return asyncio.run(get_access_token())
+    except Exception as e:
+        logging.error(f"Failed to run get_access_token: {e}")
+        raise EncodeError(f"Error running async function: {str(e)}") from e
+
+
+async def get_access_token():
     # TODO: Make sure that the same address cannot claim twice by checking from the wallet table in dynamoDB or There must be a way to derive from the stake key when it already has the token, but also when requesting more than one in the same transaction
-    # TODO:
 
     index_name = "idx:AccessToken"
     token_string = "SandboxSuanAccess1"
+    tasks_impacted = []
+    # Set the TTL (in seconds)
+    ttl_seconds = 20
+    task_key = ""
 
     query = Query("@status:pending")
-    tasks_impacted = []
+    await redis_config(index_name)
+
     try:
-
-        # Set the TTL (in seconds)
-        ttl_seconds = 60  # For example, 1 hour
-
         # Get all keys that start with 'celery-task-meta-'
         task_keys = rdb.keys("celery-task-meta-*")
-
         # Update the TTL for each task
         for task_key in task_keys:
+
             task_data = rdb.get(task_key)
             if task_data:
                 # Parse the task data from JSON
                 task_data_json = json.loads(task_data)
-
                 # Check if 'processed_addresses' is 0
-                if task_data_json.get("result", {}).get("processed_addresses", -1) == 0:
-                    # Update the TTL (e.g., 10 minutes)
+                result = task_data_json.get("result", {})
+                if result and not isinstance(result, str):
+                    if result.get("processed_addresses", -1) == 0:
+                        # Update the TTL (e.g., 10 minutes)
+                        rdb.expire(task_key, ttl_seconds)
+
+                else:
                     rdb.expire(task_key, ttl_seconds)
 
         result = rdb.ft(index_name).search(query)
@@ -100,7 +127,8 @@ def schedule_task():
             logging.info(f"Processing batch for wallet_id: {wallet_id}")
             chain_context = CardanoNetwork().get_chain_context()
             builder = None
-            r = Plataforma().getWallet("id", wallet_id)
+            graphql_variables = {"walletId": wallet_id}
+            r = Plataforma().getWallet("getWalletById", graphql_variables)
             if r["data"].get("data", None) is not None:
                 walletInfo = r["data"]["data"]["getWallet"]
                 if walletInfo is None:
@@ -128,23 +156,16 @@ def schedule_task():
                     ########################
                     """2. Create the native script and policy from the pubkey"""
                     ########################
-
-                    # A time policy that disallows token minting after 10000 seconds from last block
-                    # must_before_slot = InvalidHereAfter(chain_context.last_block_slot + 10000)
-                    # Combine two policies using ScriptAll policy
                     pub_key_policy = ScriptPubkey(payment_vk.hash())
                     policy = ScriptAll([pub_key_policy])
                     # Calculate policy ID, which is the hash of the policy
                     policy_id = policy.hash()
-                    policy_id_str = binascii.hexlify(policy_id.payload).decode("utf-8")
-                    with open(Constants().PROJECT_ROOT / "policy.id", "a+") as f:
+                    with open(Constants().PROJECT_ROOT / "policy.id", "a+", encoding="utf-8") as f:
                         f.truncate(0)
                         f.write(str(policy_id))
                     # Create the final native script that will be attached to the transaction
                     native_scripts = [policy]
 
-                    # Since an InvalidHereAfter rule is included in the policy, we must specify time to live (ttl) for this transaction
-                    # builder.ttl = must_before_slot.after
                     # Set native script
                     builder.native_scripts = native_scripts
 
@@ -236,32 +257,39 @@ def schedule_task():
 
     except TypeError as e:
         # Log and update impacted tasks on TypeError
-        return handle_exception(tasks_impacted, e, "Possible non NoneType error")
+        return handle_exception(task_key, e, "Possible non NoneType error")
     except TransactionFailedException as e:
-        return handle_exception(tasks_impacted, e, "Invalid transaction")
+        return handle_exception(task_key, e, "Invalid transaction")
     except Exception as e:
         # Log and update impacted tasks on any other exception
-        return handle_exception(tasks_impacted, e, "General exception raised")
+        return handle_exception(task_key, e, "General exception raised")
+
+# @shared_task(name="multiple-contract-buy")
+# def multiple_contract_buy():
 
 
-def handle_exception(tasks_impacted, exception, log_message):
+def handle_exception(task, exception, log_message):
     """
     Function to handle exceptions, log them, and update impacted tasks.
     """
-    for task in tasks_impacted:
-        task_data = rdb.json().get(task)
-        if task_data:
-            task_data["status"] = "failure"
-            rdb.json().set(task, "$", task_data)
+    task_data = rdb.json().get(task)
+    if task_data:
+        task_data["status"] = "failure"
+        rdb.json().set(task, "$", task_data)
 
     logging.error(f"{log_message}: {str(exception)}")
     return {
         "status": "error",
-        "tasks_impacted": tasks_impacted,
+        "task_errors": task,
         "msg": f"{log_message}: {str(exception)}",
     }
 
 
-if __name__ == "__main__":
-    response = schedule_task()
-    logger.info(response)
+# if __name__ == "__main__":
+#     # Run the get_access_token function within an asyncio event loop
+#     try:
+#         response = asyncio.run(get_access_token())
+#         logger.debug(f"Access token: {response}")
+#     except Exception as e:
+#         logger.error(f"An error occurred: {e}")
+#     logger.info(response)
