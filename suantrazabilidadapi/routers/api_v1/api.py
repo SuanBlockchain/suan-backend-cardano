@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Security
 
-from suantrazabilidadapi.utils.security import get_api_key
+from suantrazabilidadapi.utils.security import get_api_key, merkle_api_key
 
 from .endpoints import projects, transactions, wallet, helpers, ogmios, contracts, merkle
 
@@ -47,5 +47,5 @@ api_router.include_router(
     merkle.router,
     prefix="/merkle",
     tags=["MerkleTree"],
-    dependencies=[Security(get_api_key)],
+    dependencies=[Security(merkle_api_key)],
 )

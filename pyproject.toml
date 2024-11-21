@@ -34,6 +34,7 @@ flake8 = "^7.0.0"
 bandit = "^1.7.8"
 safety = "^3.2.0"
 watchdog = "^4.0.1"
+moto = "^5.0.21"
 
 
 

@@ -1,8 +1,7 @@
 from typing import Union
 from fastapi import APIRouter, HTTPException
 from pycardano import (
-    Address,
-    HDWallet,
+    HDWallet
 )
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
@@ -60,7 +59,8 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
 
         elif command_name == "address":
             # Validate the address
-            Address.decode(query_param)._infer_address_type()  # pylint: disable=protected-access
+            if not query_param.startswith("addr_"):
+                raise ResponseTypeError("Not valid address format")
 
             command_name = "getWalletByAddress"
 
@@ -78,8 +78,8 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
     except ResponseTypeError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        msg = "Error with the endpoint"
-        raise HTTPException(status_code=500, detail=msg) from e
+        # msg = "Error with the endpoint"
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get(
     "/get-wallet-admin/",

@@ -59,6 +59,7 @@ environment = security["env"]
 class Plataforma(Constants):
     """Class representing all the methods to interact with Plataforma"""
 
+    # TODO: Add input parameters to Plataforma class to make the graphqlEndpoints dynamic
     def __post_init__(self):
         if environment == "internal":
             self.graphqlEndpoint = os.getenv("endpoint_internal")

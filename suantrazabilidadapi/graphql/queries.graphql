@@ -47,6 +47,7 @@ query getWalletByAddress ($address: String!) {
       id
       name
       userID
+      address
     }
   }
 }

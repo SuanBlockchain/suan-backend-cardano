@@ -218,3 +218,4 @@ pycardano_bckp/crypto/bech32.py
 pycardano_bckp/crypto/bip32.py
 suantrazabilidadapi/merkle/dynamo.py
 tests/integration/test_proofs.py
+tests/integration/test_wallet copy.py
