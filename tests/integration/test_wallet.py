@@ -5,7 +5,6 @@ from starlette.testclient import TestClient
 from suantrazabilidadapi.app import suantrazabilidad
 from suantrazabilidadapi.core.config import config
 from suantrazabilidadapi.utils.plataforma import Plataforma
-from suantrazabilidadapi.utils.response import Response
 
 
 security = config(section="security")
@@ -23,32 +22,6 @@ def headers():
         "x-api-key": os.getenv("platform_api_key_internal"),
     }
 
-# def test_get_wallets():
-
-#     plataforma = Plataforma()
-#     response = plataforma.listWallets()
-
-#     assert response["success"] == True
-#     assert 'data' in response["data"]
-#     assert 'listWallets' in response['data']["data"]
-#     assert 'items' in response['data']["data"]['listWallets']
-#     assert len(response['data']["data"]['listWallets']['items']) > 0
-
-#     wallet = response['data']["data"]['listWallets']['items'][0]
-#     assert 'id' in wallet
-#     assert 'name' in wallet
-#     assert 'userID' in wallet
-#     assert 'address' in wallet
-#     assert 'isAdmin' in wallet
-
-#     final_response = Response().handle_listWallets_response(response)
-    
-#     assert final_response["connection"] == True
-#     assert final_response["success"] == True
-#     assert 'data' in final_response
-#     assert 'items' in final_response['data']
-#     assert len(final_response['data']['items']) > 0
-
 def test_get_wallets_endpoint(client, headers):  
 
     response = client.get("/api/v1/wallet/get-wallets/", headers=headers)
@@ -60,55 +33,6 @@ def test_get_wallets_endpoint(client, headers):
     assert 'data' in response
     assert 'items' in response['data']
     assert len(response['data']['items']) > 0
-
-# @pytest.mark.parametrize("wallet_id", ["1", ""], ids=["wallet_not_found", "wallet_success"])
-# def test_get_wallet(wallet_id):
-#     # Add a mock wallet to the table
-#     plataforma = Plataforma()
-#     command_name = "getWalletById"
-
-#     if wallet_id == "":
-#         response = plataforma.listWallets()
-#         wallet = response['data']["data"]['listWallets']['items'][0]
-#         wallet_id = wallet['id']
-
-#         graphql_variables = {"walletId": wallet_id}
-
-#         response = plataforma.getWallet(command_name, graphql_variables)
-
-#         assert response["success"] == True
-#         assert 'data' in response["data"]
-#         assert 'getWallet' in response['data']["data"]
-#         assert 'id' in response['data']["data"]['getWallet']
-#         assert 'name' in response['data']["data"]['getWallet']
-#         assert 'userID' in response['data']["data"]['getWallet']
-#         assert 'address' in response['data']["data"]['getWallet']
-#         assert wallet_id == response['data']["data"]['getWallet']['id']
-
-#         final_response = Response().handle_getWallet_response(response)
-
-#         assert final_response["connection"] == True
-#         assert final_response["success"] == True
-#         assert 'data' in final_response
-#         assert 'id' in final_response['data']
-#         assert 'name' in final_response['data']
-#         assert 'userID' in final_response['data']
-#         assert 'address' in final_response['data']
-#         assert wallet_id in final_response['data']['id']
-
-#     else:
-#         graphql_variables = {"walletId": wallet_id}
-#         response = plataforma.getWallet(command_name, graphql_variables)
-        
-#         assert response["success"] == True
-#         assert 'data' in response["data"]
-#         assert 'getWallet' in response['data']["data"]
-#         assert response['data']["data"]['getWallet'] is None
-
-#         final_response = Response().handle_getWallet_response(response)
-
-#         assert final_response["connection"] == True
-#         assert final_response["success"] == False
 
 @pytest.mark.parametrize(
     "command_name, query_param, test_id",
@@ -162,13 +86,136 @@ def test_get_wallet_endpoint(client, command_name, query_param, test_id, headers
         assert response.status_code == 400
         response = response.json()
         assert response["detail"] == f"Not valid {command_name} format"
-        # assert response["success"] == False
-        # assert 'data' in response
-        # assert response['data'] == None
+
     elif test_id == "id_valid_but_not_found" or test_id == "address_valid_but_not_found":
         response = client.get(f"/api/v1/wallet/get-wallet/{command_name}?query_param={query_param}", headers=headers)
         assert response.status_code == 200
         response = response.json()
         assert response["connection"] == True
         assert response["success"] == False
-        
+
+def test_get_wallet_admin_endpoint(client, headers):  
+
+    response = client.get("/api/v1/wallet/get-wallet-admin/", headers=headers)
+
+    assert response.status_code == 200
+    response = response.json()
+    assert response["connection"] == True
+    assert response["success"] == True
+    assert 'data' in response
+    assert 'items' in response['data']
+    assert len(response['data']['items']) > 0
+
+def test_generate_words_endpoint(client, headers):  
+
+    response = client.get("/api/v1/wallet/generate-words/?size=24", headers=headers)
+
+    assert response.status_code == 200
+    response = response.json()
+    assert isinstance(response, str)
+    words = response.split()
+    assert len(words) == 24
+
+def test_create_wallet_endpoint(client, headers):
+    mnemonic_words = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+    wallet_type = "user"
+    userID = "test_user"
+    save_flag = False
+
+    response = client.post(
+        f"/api/v1/wallet/create-wallet/?mnemonic_words={mnemonic_words}&wallet_type={wallet_type}&userID={userID}&save_flag={save_flag}",
+        headers=headers
+    )
+
+    assert response.status_code == 201
+    response = response.json()
+    assert response["success"] == True
+    assert 'wallet_id' in response["data"]
+    assert 'address' in response["data"]
+    assert 'stake_address' in response["data"]
+
+    wallet_info = Plataforma().generateWallet(mnemonic_words)
+    wallet_id = wallet_info[0]
+    assert wallet_id == response["data"]["wallet_id"]
+    assert str(wallet_info[4]) == response["data"]["address"]
+    assert str(wallet_info[5]) == response["data"]["stake_address"]
+
+def test_query_address_endpoint(client, headers):
+    address = "addr_test1vpdjpghjxlh8v35r8atus9yqx3g0fx52pnanv7ynxv2wkjqng6f8v"
+
+    response = client.get(f"/api/v1/wallet/query-address/?address={address}", headers=headers)
+
+    assert response.status_code == 200
+    response = response.json()
+    assert 'balance' in response
+    assert 'stake_address' in response
+    assert 'script_address' in response
+    assert 'assets' in response
+    assert response["stake_address"] is None
+    assert int(response["balance"]) == 0
+    assert response["script_address"] is False
+    assert response["assets"] == []
+
+def test_address_txs_endpoint(client, headers):
+    address = "addr_test1vpdjpghjxlh8v35r8atus9yqx3g0fx52pnanv7ynxv2wkjqng6f8v"
+    from_block = None
+    to_block = None
+    page_number = 1
+    limit = 10
+    "address=addr_test1vpdjpghjxlh8v35r8atus9yqx3g0fx52pnanv7ynxv2wkjqng6f8v&page_number=1&limit=10"
+    response = client.get(f"/api/v1/wallet/address-tx/?address={address}&page_number={page_number}&limit={limit}", headers=headers)
+
+    assert response.status_code == 200
+    response = response.json()
+    assert isinstance(response, list)
+
+def test_address_utxos_endpoint(client, headers):
+    address = "addr_test1vpdjpghjxlh8v35r8atus9yqx3g0fx52pnanv7ynxv2wkjqng6f8v"
+    page_number = 1
+    limit = 10
+
+    response = client.get(f"/api/v1/wallet/address-utxo/?address={address}&page_number={page_number}&limit={limit}", headers=headers)
+
+    assert response.status_code == 200
+    response = response.json()
+    assert isinstance(response, list)
+
+def test_address_details_endpoint(client, headers):
+    address = "addr_test1vpdjpghjxlh8v35r8atus9yqx3g0fx52pnanv7ynxv2wkjqng6f8v"
+
+    response = client.get(f"/api/v1/wallet/address-details/?address={address}", headers=headers)
+
+    assert response.status_code == 200
+    response = response.json()
+    assert 'amount' in response
+    assert 'stake_address' in response
+    assert 'type' in response
+    assert 'script' in response
+
+    assert response["stake_address"] is None
+    assert isinstance(response["amount"], list)
+    assert 'unit' in response["amount"][0]
+    assert 'quantity' in response["amount"][0]
+    assert 'decimals' in response["amount"][0]
+    assert 'has_nft_onchain_metadata' in response["amount"][0]
+    assert response["script"] is False
+    assert response["type"] == "shelley"
+
+def test_account_utxos_endpoint(client, headers):
+    policy_id = "8726ae04e47a9d651336da628998eda52c7b4ab0a4f86deb90e51d83"
+
+    response = client.get(f"/api/v1/wallet/asset-info/?policy_id={policy_id}", headers=headers)
+
+    assert response.status_code == 200
+    response = response.json()
+    assert isinstance(response, list)
+    assert 'asset' in response[0]
+    assert 'policy_id' in response[0]
+    assert 'asset_name' in response[0]
+    assert 'fingerprint' in response[0]
+    assert 'quantity' in response[0]
+    assert 'initial_mint_tx_hash' in response[0]
+    assert 'mint_or_burn_count' in response[0]
+    assert 'onchain_metadata' in response[0]
+    assert 'metadata' in response[0]
+    assert response[0]["policy_id"] == policy_id

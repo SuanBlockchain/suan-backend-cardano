@@ -214,7 +214,7 @@ async def createWallet(mnemonic_words: str, wallet_type: pydantic_schemas.wallet
 
 @router.get(
     "/query-address/",
-    status_code=201,
+    status_code=200,
     summary="Given an address or a list of address obtain the details",
     response_description="Get address info - balance, associated stake address (if any) and UTxO set for given addresses",
 )
