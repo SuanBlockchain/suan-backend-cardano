@@ -219,3 +219,23 @@ def test_account_utxos_endpoint(client, headers):
     assert 'onchain_metadata' in response[0]
     assert 'metadata' in response[0]
     assert response[0]["policy_id"] == policy_id
+
+@pytest.mark.parametrize(
+    "address, test_id", [("addr_test1vpdjpghjxlh8v35r8atus9yqx3g0fx52pnanv7ynxv2wkjqng6f8v", "address_valid"), ("not_valid_address", "not_valid_address")],
+    ids=[
+        "address_valid",
+        "not_valid_address"
+    ]
+)
+def test_get_pkh_endpoint(client, headers, address, test_id):
+
+    response = client.get(f"/api/v1/wallet/get-pkh/{address}", headers=headers)
+    if test_id == "address_valid":
+        assert response.status_code == 200
+        response = response.json()
+        assert response == "5b20a2f237ee7646833f57c814803450f49a8a0cfb3678933314eb48"
+
+    else:
+        assert response.status_code == 400
+        response = response.json()
+        assert response["detail"] == "Not valid address format"

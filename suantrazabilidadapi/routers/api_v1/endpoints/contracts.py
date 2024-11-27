@@ -11,7 +11,7 @@ from pycardano import (
 )
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
-from suantrazabilidadapi.utils.blockchain import CardanoNetwork, Keys
+from suantrazabilidadapi.utils.blockchain import CardanoNetwork
 from suantrazabilidadapi.utils.generic import (
     Constants,
     is_valid_hex_string,
@@ -19,47 +19,9 @@ from suantrazabilidadapi.utils.generic import (
 )
 from suantrazabilidadapi.utils.plataforma import Helpers, Plataforma
 from suantrazabilidadapi.utils.response import Response
-from suantrazabilidadapi.utils.exception import ResponseProcessingError, ResponseDynamoDBException
+from suantrazabilidadapi.utils.exception import ResponseProcessingError, ResponseDynamoDBException, ResponseTypeError
 
 router = APIRouter()
-
-
-@router.post(
-    "/get-pkh/{pkh_command}",
-    status_code=201,
-    summary="From address or wallet name obtain pkh. If wallet name is provided, it has to exist locally",
-    response_description="script hash",
-)
-async def getPkh(command_name: pydantic_schemas.walletCommandName, wallet: str) -> str:
-    """From address or wallet name obtain pkh. If wallet name is provided, it has to exist locally\n"""
-
-    final_response = "Error fetching wallet info"
-    try:
-        if command_name == "address":
-            address = wallet
-            final_response = Keys().getPkh(address)
-
-        elif command_name == "id":
-            if not is_valid_hex_string(wallet):
-                raise ValueError("id provided does not exist in wallet database")
-
-            graphql_variables = {"walletId": wallet}
-            r = Plataforma().getWallet("getWalletById", graphql_variables)
-
-            if r["data"].get("data", None) is not None:
-                walletInfo = r["data"]["data"]["getWallet"]
-                if walletInfo is None:
-                    final_response = "Wallet not found"
-                else:
-                    address = walletInfo["address"]
-                    final_response = Keys().getPkh(address)
-
-        return final_response
-
-    except ResponseProcessingError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -72,38 +34,14 @@ async def getScripts():
     """Get all the scripts registered in Plataforma"""
     try:
         r = Plataforma().listScripts()
-        if r["data"].get("data", None) is not None:
-            script_list = r["data"]["data"]["listScripts"]["items"]
-            if script_list == []:
-                final_response = {
-                    "success": True,
-                    "msg": "No scripts present in the table",
-                    "data": r["data"],
-                }
-            else:
-                final_response = {
-                    "success": True,
-                    "msg": "List of scripts",
-                    "data": script_list,
-                }
-        else:
-            if r["success"]:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["data"]["errors"],
-                }
-            else:
-                final_response = {
-                    "success": False,
-                    "msg": "Error fetching data",
-                    "data": r["error"],
-                }
+        final_response = Response().handle_listGeneric_response(operation_name="listScripts", listGeneric_response=r)
 
         return final_response
 
-    except ValueError as e:
+    except ResponseDynamoDBException as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get(
@@ -115,21 +53,27 @@ async def getScripts():
 async def getScript(
     script_type: pydantic_schemas.contractCommandName, query_param: str
 ) -> dict:
-    final_response = {}
-    if script_type == "id":
+    try:
+        final_response = {}
+        if script_type == "id":
+            # Validate the id
+            if not is_valid_hex_string(query_param):
+                raise ResponseTypeError("Not valid id format")
 
-        command_name = "getScriptById"
+            command_name = "getScriptById"
 
-        graphql_variables = {script_type: query_param}
+            graphql_variables = {script_type: query_param}
 
-        r = Plataforma().getScript(command_name, graphql_variables)
-        final_response = Response().handle_getScript_response(getWallet_response=r)
+            r = Plataforma().getScript(command_name, graphql_variables)
+            final_response = Response().handle_getGeneric_response(operation_name="getScript", getGeneric_response=r)
 
-        if not final_response["connection"] or not final_response.get("success", None):
-            raise ResponseDynamoDBException(final_response["data"])
         
-    return final_response
-
+        return final_response
+    
+    except ResponseTypeError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get(
     "/create-contract/{script_type}",
@@ -150,23 +94,20 @@ async def createContract(
     """From parameters build a smart contract"""
     try:
         # TODO: Verify that the wallet is admin. For now, the wallet_id is only used as beneficiary
-
         scriptCategory = "PlutusV2"
+
         graphql_variables = {"walletId": wallet_id}
         r = Plataforma().getWallet("getWalletById", graphql_variables)
-        if r["data"].get("data", None) is not None:
-            walletInfo = r["data"]["data"]["getWallet"]
+        final_response = Response().handle_getGeneric_response(operation_name="getWallet", getGeneric_response=r)
+        
+        if not final_response["success"]:
+            raise ValueError( f"Wallet with id: {wallet_id} does not exist in DynamoDB")
 
-            if walletInfo is None:
-                raise ValueError(
-                    f"Wallet with id: {wallet_id} does not exist in DynamoDB"
-                )
+        walletInfo = final_response["data"]
+
             # Get payment address
-            payment_address = Address.from_primitive(walletInfo["address"])
-            pkh = bytes(payment_address.payment_part)
-
-        else:
-            raise ValueError("Error fetching data")
+        payment_address = Address.from_primitive(walletInfo["address"])
+        pkh = bytes(payment_address.payment_part)
 
         tn_bytes = bytes(tokenName, encoding="utf-8")
 
@@ -181,10 +122,12 @@ async def createContract(
             contract = build(script_path, pkh, tn_bytes)
 
         elif script_type == "mintProjectToken":
+            if tokenName == "":
+                raise ValueError("Token name is required for this script type")
+            
             chain_context = CardanoNetwork().get_chain_context()
             for utxo in chain_context.utxos(payment_address):
                 if (
-                    # not utxo.output.amount.multi_asset
                     utxo.output.amount.coin
                     > 3000000
                 ):
@@ -205,8 +148,6 @@ async def createContract(
             ).joinpath(f"{script_type.value}.py")
             contract = build(script_path, oref, pkh, tn_bytes)
 
-            # utxo_to_spend = f"{oref.id.tx_id.hex()}#{oref.idx}"
-
         elif script_type == "spendSwap":
             script_path = Constants.PROJECT_ROOT.joinpath(
                 Constants.CONTRACTS_DIR
@@ -218,10 +159,10 @@ async def createContract(
 
             # Check first that the core wallet to pay fees exists
             r = Plataforma().getWallet(command_name, graphql_variables)
-            final_response = Response().handle_getWallet_response(getWallet_response=r)
+            final_response = Response().handle_getGeneric_response(operation_name="getWallet", getGeneric_response=r)
 
-            if not final_response["connection"] or not final_response.get("success", None):
-                raise ResponseDynamoDBException(final_response["data"])
+            if not final_response["success"]:
+                raise ValueError( f"Wallet with id: {oracle_wallet_id} does not exist in DynamoDB")
 
             oracleWallet = final_response["data"]
 
@@ -247,10 +188,10 @@ async def createContract(
 
             # Check first that the core wallet to pay fees exists
             r = Plataforma().getWallet(command_name, graphql_variables)
-            final_response = Response().handle_getWallet_response(getWallet_response=r)
+            final_response = Response().handle_getGeneric_response(operation_name="getWallet", getGeneric_response=r)
 
-            if not final_response["connection"] or not final_response.get("success", None):
-                raise ResponseDynamoDBException(final_response["data"])
+            if not final_response["success"]:
+                raise ValueError( f"Wallet with id: {oracle_wallet_id} does not exist in DynamoDB")
 
             oracleWallet = final_response["data"]
 
@@ -294,64 +235,54 @@ async def createContract(
             graphql_variables = {"id": policy_id}
 
             r = Plataforma().getScript(command_name, graphql_variables)
-            final_response = Response().handle_getScript_response(getWallet_response=r)
+            # final_response = Response().handle_getScript_response(getScript_response=r)
+            final_response = Response().handle_getGeneric_response(operation_name="getScript", getGeneric_response=r)
 
-            if not final_response["connection"] or not final_response.get("success", None):
-                raise ResponseDynamoDBException(final_response["data"])
+            if final_response["success"]:
+                raise ValueError("Script already exists in database")
 
-            if not final_response["success"]:
-            # It means that the Script does not exist in database, so update database if save_flag is True
 
-                # Build the variables and store in DynamoDB
-                variables = {
+            # Build the variables and store in DynamoDB
+            variables = {
+                "id": policy_id,
+                "name": name,
+                "MainnetAddr": mainnet_address.encode(),
+                "testnetAddr": testnet_address.encode(),
+                "cbor": cbor_hex,
+                "pbk": wallet_id,
+                "script_category": scriptCategory,
+                "script_type": script_type,
+                "Active": True,
+                "token_name": tokenName,
+                "scriptParentID": (
+                    parent_policy_id if parent_policy_id != "" else policy_id
+                ),
+            }
+
+            variables["productID"] = project_id if project_id else None
+
+            responseScript = Plataforma().createContract(variables)
+            responseCreateContract = Response().handle_createContract_response(responseScript)
+            if not responseCreateContract["connection"] or not responseCreateContract.get("success", None):
+                raise ResponseDynamoDBException(responseCreateContract["data"])
+
+            final_response = {
+                "success": True,
+                "msg": "Script created",
+                "data": {
                     "id": policy_id,
-                    "name": name,
-                    "MainnetAddr": mainnet_address.encode(),
-                    "testnetAddr": testnet_address.encode(),
-                    "cbor": cbor_hex,
-                    "pbk": wallet_id,
-                    "script_category": scriptCategory,
-                    "script_type": script_type,
-                    "Active": True,
-                    "token_name": tokenName,
-                    "scriptParentID": (
-                        parent_policy_id if parent_policy_id != "" else policy_id
+                    "utxo_to_spend": (
+                        {
+                            "transaction_id": oref.id.tx_id.hex(),
+                            "index": oref.idx,
+                        }
+                        if utxo_to_spend
+                        else ""
                     ),
-                }
-
-                variables["productID"] = project_id if project_id else None
-
-                responseScript = Plataforma().createContract(variables)
-                if responseScript["success"] is True:
-                    if responseScript["data"]["data"] is not None:
-                        final_response = {
-                            "success": True,
-                            "msg": "Script created",
-                            "data": {
-                                "id": policy_id,
-                                "utxo_to_spend": (
-                                    {
-                                        "transaction_id": oref.id.tx_id.hex(),
-                                        "index": oref.idx,
-                                    }
-                                    if utxo_to_spend
-                                    else ""
-                                ),
-                                "mainnet_address": mainnet_address.encode(),
-                                "testnet_address": testnet_address.encode(),
-                            },
-                        }
-                    else:
-                        final_response = {
-                            "success": False,
-                            "msg": f"Problems creating the script with id: {policy_id} in dynamoDB",
-                        }
-                else:
-                    final_response = {
-                        "success": False,
-                        "msg": "Problems creating the script",
-                        "data": responseScript["error"],
-                    }
+                    "mainnet_address": mainnet_address.encode(),
+                    "testnet_address": testnet_address.encode(),
+                },
+            }
         else:
             final_response = {
                 "success": True,
@@ -366,6 +297,8 @@ async def createContract(
 
         return final_response
 
+    except ResponseDynamoDBException as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ResponseProcessingError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except ValueError as e:
@@ -398,93 +331,3 @@ async def listContracts() -> list:
     """List all the contracts available in S3"""
     result = Plataforma().list_files("public/contracts")
     return result
-
-
-# @click.command()
-# @click.argument("wallet_name")
-# @click.argument("token_name")
-# @click.option( "--amount", type=int, default=1)
-# @click.option(
-#     "--script",
-#     type=click.Choice(["free", "nft", "signed"]),
-#     default="nft",
-# # )
-# def main(wallet_name: str, token_name: str, amount: int, script: str):
-#     # Load chain context
-#     context = get_chain_context()
-
-#     # Get payment address
-#     payment_address = get_address(wallet_name)
-
-#     # Get input utxo
-#     utxo_to_spend = None
-#     for utxo in context.utxos(payment_address):
-#         if utxo.output.amount.coin > 3000000:
-#             utxo_to_spend = utxo
-#             break
-#     assert utxo_to_spend is not None, "UTxO not found to spend!"
-
-#     tn_bytes = bytes(token_name, encoding="utf-8")
-#     signatures = []
-#     if script == "nft":
-#         # Build script
-#         script_path = lecture_dir.joinpath("nft.py")
-#         oref = TxOutRef(
-#             id=TxId(bytes(utxo_to_spend.input.transaction_id)),
-#             idx=utxo_to_spend.input.index,
-#         )
-#         plutus_script = build(script_path, oref, tn_bytes)
-#     elif script == "signed":
-#         # Build script
-#         script_path = lecture_dir.joinpath("signed.py")
-#         pkh = bytes(get_address(wallet_name).payment_part)
-#         signatures.append(VerificationKeyHash(pkh))
-#         plutus_script = build(script_path, pkh)
-#     else:
-#         cbor_path = assets_dir.joinpath(script, "script.cbor")
-#         with open(cbor_path, "r") as f:
-#             cbor_hex = f.read()
-#         cbor = bytes.fromhex(cbor_hex)
-#         plutus_script = PlutusV2Script(cbor)
-
-#     # Load script info
-#     script_hash = plutus_script_hash(plutus_script)
-
-#     # Build the transaction
-#     builder = TransactionBuilder(context)
-#     builder.add_minting_script(script=plutus_script, redeemer=Redeemer(0))
-#     builder.mint = MultiAsset.from_primitive({bytes(script_hash): {tn_bytes: amount}})
-#     if amount > 0:
-#         builder.add_input(utxo_to_spend)
-#         builder.add_output(
-#             TransactionOutput(
-#                 payment_address, amount=Value(coin=2000000, multi_asset=builder.mint)
-#             )
-#         )
-#     else:
-#         assert script != "nft", "lecture nft script doesn't allow burning"
-#         burn_utxo = None
-
-#         def f(pi: ScriptHash, an: AssetName, a: int) -> bool:
-#             return pi == script_hash and an.payload == tn_bytes and a >= -amount
-
-#         for utxo in context.utxos(payment_address):
-#             if utxo.output.amount.multi_asset.count(f):
-#                 burn_utxo = utxo
-#         builder.add_input(burn_utxo)
-#         assert burn_utxo, "UTxO containing token not found!"
-
-#     builder.required_signers = signatures
-
-#     # Sign the transaction
-#     payment_vkey, payment_skey, payment_address = get_signing_info(wallet_name)
-#     signed_tx = builder.build_and_sign(
-#         signing_keys=[payment_skey],
-#         change_address=payment_address,
-#     )
-
-#     # Submit the transaction
-#     context.submit_tx(signed_tx)
-
-#     print(f"transaction id: {signed_tx.id}")
-#     print(f"Cardanoscan: https://preview.cardanoscan.io/transaction/{signed_tx.id}")

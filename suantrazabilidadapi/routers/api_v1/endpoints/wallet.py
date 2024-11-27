@@ -5,6 +5,7 @@ from pycardano import (
 )
 
 from suantrazabilidadapi.routers.api_v1.endpoints import pydantic_schemas
+from suantrazabilidadapi.utils.blockchain import Keys
 from suantrazabilidadapi.utils.generic import Constants, is_valid_hex_string
 from suantrazabilidadapi.utils.plataforma import CardanoApi, Plataforma
 from suantrazabilidadapi.utils.response import Response
@@ -23,28 +24,27 @@ async def getWallets():
     """Get all the wallets registered in Plataforma"""
     try:
         r = Plataforma().listWallets()
-        final_response = Response().handle_listWallets_response(r)
-
-        if not final_response["connection"] or not final_response.get("success", None):
-            raise ResponseDynamoDBException(final_response["data"])
+        final_response = Response().handle_listGeneric_response(operation_name="listWallets", listGeneric_response=r)
 
         return final_response
-
+    
+    except ResponseDynamoDBException as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
-    "/get-wallet/{command_name}",
+    "/get-wallet/{wallet_type}",
     status_code=200,
     summary="Get the wallet with specific id or address as registered in Plataforma",
     response_description="Wallet details",
 )
-async def getWallet(command_name: pydantic_schemas.walletCommandName, query_param: str):
+async def getWallet(wallet_type: pydantic_schemas.walletCommandName, query_param: str):
     """Get the wallet with specific id as registered in Plataforma"""
     try:
         final_response = {}
-        if command_name == "id":
+        if wallet_type == "id":
             # Validate the id
             if not is_valid_hex_string(query_param):
                 raise ResponseTypeError("Not valid id format")
@@ -55,9 +55,9 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
 
             getWallet_response = Plataforma().getWallet(command_name, graphql_variables)
 
-            final_response = Response().handle_getWallet_response(getWallet_response=getWallet_response)
-
-        elif command_name == "address":
+            final_response = Response().handle_getGeneric_response(operation_name="getWallet", getGeneric_response=getWallet_response)
+        
+        elif wallet_type == "address":
             # Validate the address
             if not query_param.startswith("addr_"):
                 raise ResponseTypeError("Not valid address format")
@@ -66,19 +66,17 @@ async def getWallet(command_name: pydantic_schemas.walletCommandName, query_para
 
             graphql_variables = {"address": query_param}
 
-            listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
-
-            final_response = Response().handle_listWallets_response(listWallets_response=listWallet_response)
+            r = Plataforma().getWallet(command_name, graphql_variables)
+            final_response = Response().handle_listGeneric_response(operation_name="listWallets", listGeneric_response=r)
 
         else:
             raise Exception("Error. Please review your id or address provided")
-
+        
         return final_response
 
     except ResponseTypeError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        # msg = "Error with the endpoint"
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get(
@@ -94,14 +92,11 @@ async def getWalletAdmin():
         command_name = "getWalletAdmin"
         graphql_variables = {"isAdmin": True}
 
-        listWallet_response = Plataforma().getWallet(command_name, graphql_variables)
-
-        final_response = Response().handle_listWallets_response(listWallets_response=listWallet_response)
-
+        r = Plataforma().getWallet(command_name, graphql_variables)
+        final_response = Response().handle_listGeneric_response(operation_name="listWallets", listGeneric_response=r)
+        
         return final_response
     
-    except ResponseTypeError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         msg = "Error with the endpoint"
         raise HTTPException(status_code=500, detail=msg) from e
@@ -158,10 +153,10 @@ async def createWallet(mnemonic_words: str, wallet_type: pydantic_schemas.wallet
         graphql_variables = {"walletId": wallet_id}
 
         r = Plataforma().getWallet(command_name, graphql_variables)
-        final_response = Response().handle_getWallet_response(getWallet_response=r)
+        final_response = Response().handle_getGeneric_response(operation_name="getWallet", getGeneric_response=r)
         
-        if not final_response["connection"] or final_response.get("success", None):
-            raise ResponseDynamoDBException(final_response["data"])
+        if final_response["success"]:
+            raise ValueError("Wallet already exists in database")
 
         if save_flag:
 
@@ -203,7 +198,7 @@ async def createWallet(mnemonic_words: str, wallet_type: pydantic_schemas.wallet
 
         return final_response
     
-    except ResponseDynamoDBException as e:
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except ResponseProcessingError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
@@ -317,3 +312,26 @@ async def accountUtxos(policy_id: str):
     except Exception as e:
         msg = "Error with the endpoint"
         raise HTTPException(status_code=500, detail=msg) from e
+
+@router.get(
+    "/get-pkh/{address}",
+    status_code=200,
+    summary="From address obtain pkh",
+    response_description="script hash",
+)
+async def getPkh(address: str) -> str:
+    """From address obtain pkh.\n"""
+
+    try:
+        # Validate the address
+        if not address.startswith("addr_"):
+            raise ResponseTypeError("Not valid address format")
+        
+        final_response = Keys().getPkh(address)
+
+        return final_response
+
+    except ResponseTypeError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e

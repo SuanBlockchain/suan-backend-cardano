@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
+
+from fastapi import HTTPException
 from suantrazabilidadapi.utils.exception import ResponseDynamoDBException
 
 
@@ -20,9 +22,9 @@ class Response():
         return final_response
     
     def _raise_check(self, response):
-        if not response["connection"] or not response.get("success", None):
-            raise ResponseDynamoDBException(response["data"])
-    
+        if not response["connection"]:
+            raise ResponseDynamoDBException("Problem with the connection to the database")
+        
     def handle_getGeneric_response(self, operation_name, getGeneric_response: dict) -> dict[str, Any]:
         response_success = self._response_success(getGeneric_response)
         if response_success["connection"]:
@@ -37,8 +39,26 @@ class Response():
             else:
                 response_success["success"] = False
                 response_success["data"] = getGeneric_response["data"]["errors"]
+        else:
+            self._raise_check(response_success)
+        return response_success
+    
+    def handle_listGeneric_response(self, operation_name, listGeneric_response: dict) -> dict[str, Any]:
+        response_success = self._response_success(listGeneric_response)
+        if response_success["connection"]:
+            if listGeneric_response["data"].get("data", None) is not None:
+                walletInfo = listGeneric_response["data"]["data"][operation_name]
 
-        self._raise_check(response_success)
+                if walletInfo["items"] == []:
+                    response_success["success"] = False
+                    response_success["data"] = []
+                else:
+                    response_success["success"] = True
+                    response_success["data"] = walletInfo
+            else:
+                response_success["success"] = False
+                response_success["data"] = listGeneric_response["data"]["errors"]
+
         return response_success
 
     def handle_createWallet_response(self, createWallet_response: list[dict]) -> dict[str, Any]:
@@ -69,7 +89,8 @@ class Response():
                 response_success["data"] = getWallet_response["data"]["errors"]
 
         return response_success
-
+    
+    #TODO: Function to be decomissioned in the future. Move to genericList
     def handle_listWallets_response(self, listWallets_response: dict) -> dict[str, Any]:
         response_success = self._response_success(listWallets_response)
         if response_success["connection"]:
@@ -87,24 +108,43 @@ class Response():
                 response_success["data"] = listWallets_response["data"]["errors"]
 
         return response_success
-
-    def handle_listMarketplaces_response(self, listMarketplaces_response: dict) -> dict[str, Any]:
-        response_success = self._response_success(listMarketplaces_response)
+    
+    #TODO: Function to be decomissioned in the future. Move to genericList
+    def handle_listScripts_response(self, listScripts_response: dict) -> dict[str, Any]:
+        response_success = self._response_success(listScripts_response)
         if response_success["connection"]:
-            if listMarketplaces_response["data"].get("data", None) is not None:
-                MarketplaceInfo = listMarketplaces_response["data"]["data"]["listMarketplaces"]
+            if listScripts_response["data"].get("data", None) is not None:
+                walletInfo = listScripts_response["data"]["data"]["listScripts"]
 
-                if MarketplaceInfo["items"] == []:
+                if walletInfo["items"] == []:
                     response_success["success"] = False
-                    response_success["data"] = listMarketplaces_response["data"]
+                    response_success["data"] = []
                 else:
                     response_success["success"] = True
-                    response_success["data"] = MarketplaceInfo
+                    response_success["data"] = walletInfo
             else:
                 response_success["success"] = False
-                response_success["data"] = listMarketplaces_response["data"]["errors"]
+                response_success["data"] = listScripts_response["data"]["errors"]
 
         return response_success
+
+    # def handle_listMarketplaces_response(self, listMarketplaces_response: dict) -> dict[str, Any]:
+    #     response_success = self._response_success(listMarketplaces_response)
+    #     if response_success["connection"]:
+    #         if listMarketplaces_response["data"].get("data", None) is not None:
+    #             MarketplaceInfo = listMarketplaces_response["data"]["data"]["listMarketplaces"]
+
+    #             if MarketplaceInfo["items"] == []:
+    #                 response_success["success"] = False
+    #                 response_success["data"] = listMarketplaces_response["data"]
+    #             else:
+    #                 response_success["success"] = True
+    #                 response_success["data"] = MarketplaceInfo
+    #         else:
+    #             response_success["success"] = False
+    #             response_success["data"] = listMarketplaces_response["data"]["errors"]
+
+    #     return response_success
 
     #TODO: Function to be decomissioned in the future. Move to genericGet
     def handle_getScript_response(self, getScript_response: dict) -> dict[str, Any]:

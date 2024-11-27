@@ -22,9 +22,9 @@ def headers():
     }
 
 @pytest.mark.parametrize(
-        "id, test_id", [("test_wallet_id", "existing_id"), ("non_existent_wallet_id", "non_existing_id")], ids=["existing_id", "non_existing_id"]
+        "test_id", ["existing_id", "non_existing_id"], ids=["existing_id", "non_existing_id"]
 )
-def test_build_tx_success(client, headers, id, test_id):
+def test_build_simple_tx(client, headers, test_id):
 
     if test_id == "existing_id":
         plataforma = Plataforma()

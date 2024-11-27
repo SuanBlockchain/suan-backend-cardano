@@ -207,6 +207,13 @@ class Plataforma(Constants):
             data = self._post("getMarketplaceByOracle", graphql_variables)
 
             return data
+        
+    def deleteScript(self, script_id: str) -> dict:
+        graphql_variables = {"id": script_id}
+
+        data = self._post("ScriptDelete", graphql_variables)
+
+        return data
 
     def formatTxBody(self, txBody: TransactionBody) -> dict:
         """_summary_
@@ -551,7 +558,7 @@ class CardanoApi(Constants):
 
         return final_response
 
-    def getAddressUtxos(self, address: str, page_number: int, limit: int) -> list[dict]:
+    def getAddressUtxos(self, address: str, page_number: int = 1, limit: int = 10) -> list[dict]:
         """Get a list of all UTxOs currently present in the provided address \n
 
         Args:
@@ -743,12 +750,11 @@ class Helpers:
             graphql_variables = {"walletId": oracle_wallet_id}
 
             r = Plataforma().getWallet(command_name, graphql_variables)
-            final_response = Response().handle_getWallet_response(getWallet_response=r)
+            final_response = Response().handle_getGeneric_response(operation_name="getWallet", getGeneric_response=r)
             
-            if not final_response["connection"] or not final_response.get("success", None):
-                raise ResponseDynamoDBException(final_response["data"])
+            if not final_response["success"]:
+                raise ValueError( f"Wallet with id: {oracle_wallet_id} does not exist in DynamoDB")
             
-
             oracleWallet = final_response["data"]
             oracle_address = oracleWallet["address"]
 
@@ -762,11 +768,12 @@ class Helpers:
 
             # Get the oracle token name
 
-            response = Plataforma().listMarketplaces("oracleWalletID", oracle_wallet_id)
-            marketplaceResponse = Response().handle_listMarketplaces_response(response)
+            r = Plataforma().listMarketplaces("oracleWalletID", oracle_wallet_id)
 
-            if not final_response["connection"] or not final_response.get("success", None):
-                raise ResponseDynamoDBException(final_response["data"])
+            marketplaceResponse = Response().handle_listGeneric_response(operation_name="listMarketplaces", listGeneric_response=r)
+            
+            # if not final_response["connection"] or not final_response.get("success", None):
+            #     raise ResponseDynamoDBException(final_response["data"])
             
             marketplaceInfo = marketplaceResponse["data"]
 
@@ -781,7 +788,8 @@ class Helpers:
             )
                 
             return oracle_utxo
-        except ResponseDynamoDBException as e:
+        
+        except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
         except Exception as e:
             # Handling other types of exceptions

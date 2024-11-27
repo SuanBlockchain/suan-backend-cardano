@@ -50,7 +50,7 @@ async def mintTokens(
         final_response = Response().handle_getWallet_response(getWallet_response=r)
         
         if not final_response["connection"] or not final_response.get("success", None):
-            raise ResponseDynamoDBException(final_response["data"])
+            raise ValueError( f"Wallet with id: {send.wallet_id} does not exist in DynamoDB")
         
         walletInfo = final_response["data"]
         ########################
@@ -75,6 +75,8 @@ async def mintTokens(
             utxo_results = Helpers().validate_utxos_existente(
                 chain_context, master_address, transaction_id, index
             )
+            if not utxo_results[0]:
+                raise ValueError("Provided UTxO not found in wallet to spend!")
 
         builder.add_input(utxo_results[1])
 
@@ -92,10 +94,10 @@ async def mintTokens(
             graphql_variables = {"id": send.mint.asset.policyid}
 
             r = Plataforma().getScript(command_name, graphql_variables)
-            final_response = Response().handle_getScript_response(getWallet_response=r)
+            final_response = Response().handle_getScript_response(getScript_response=r)
 
             if not final_response["connection"] or not final_response.get("success", None):
-                raise ResponseDynamoDBException(final_response["data"])
+                raise ValueError(final_response["data"])
 
             scriptInfo = final_response["data"]
 
@@ -280,8 +282,8 @@ async def mintTokens(
         }
 
         return final_response
-    # except ValueError as e:
-    #     raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ResponseProcessingError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except Exception as e:

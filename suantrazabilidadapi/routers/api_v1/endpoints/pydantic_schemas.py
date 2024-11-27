@@ -114,7 +114,7 @@ class Utxo(BaseModel):
 class TokenGenesis(BaseModel):
     wallet_id: str
     utxo: Utxo
-    addresses: Optional[list[AddressDestin]]
+    addresses: Optional[list[AddressDestin]] = None
     metadata: Optional[Dict[str, Dict[str, Any]]] = None
     mint: Optional[Mint] = None
 

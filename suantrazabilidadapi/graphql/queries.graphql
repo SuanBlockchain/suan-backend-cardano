@@ -155,3 +155,9 @@ mutation ScriptMutation ($id: ID!, $Active: Boolean!, $MainnetAddr: String!, $cb
     id
   }
 }
+
+mutation ScriptDelete ($id: ID!) {
+  deleteScript(input: {id: $id}) {
+    id
+  }
+}
