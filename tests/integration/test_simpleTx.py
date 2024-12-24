@@ -21,8 +21,23 @@ def headers():
         "x-api-key": os.getenv("platform_api_key_internal"),
     }
 
+def build_tx(client, headers, body):
+
+    response = client.post(
+        "/api/v1/transactions/build-tx",
+        json=body,
+        headers=headers
+    )
+
+    return response
+
 @pytest.mark.parametrize(
-        "test_id", ["existing_id", "non_existing_id"], ids=["existing_id", "non_existing_id"]
+        "test_id", 
+        [
+            "existing_id", 
+            "non_existing_id",
+        ], 
+        ids=["existing_id", "non_existing_id"]
 )
 def test_build_simple_tx(client, headers, test_id):
 
@@ -42,17 +57,14 @@ def test_build_simple_tx(client, headers, test_id):
             "multiAsset": []
         }
     ]
+    # TODO: test with metadata
     body = {
         "wallet_id": wallet_id,
         "addresses": addresses,
         "metadata": {}
     }
 
-    response = client.post(
-        "/api/v1/transactions/build-tx",
-        json=body,
-        headers=headers
-    )
+    response = build_tx(client, headers, body)
 
     if test_id == "existing_id":
 
@@ -61,6 +73,25 @@ def test_build_simple_tx(client, headers, test_id):
         assert response_data["success"] == True
         assert isinstance(response_data["tx_size"], int)
         assert isinstance(response_data["build_tx"]["fee"], int)
+
+        cbor = response_data["cbor"]
+        metadata_cbor = response_data["metadata_cbor"]
+        body = {
+            "wallet_id": wallet_id,
+            "cbor": cbor,
+            "metadata": metadata_cbor
+        }
+        response = client.post(
+            "/api/v1/transactions/sign-submit?mockSubmit=true",
+            json=body,
+            headers=headers
+        )
+
+        assert response.status_code == 201
+        response_data = response.json()
+        assert response_data["success"] == True
+        assert response_data["tx_id"] != None
+        assert response_data["msg"] == "Tx submitted to the blockchain"
 
     else:
         assert response.status_code == 400

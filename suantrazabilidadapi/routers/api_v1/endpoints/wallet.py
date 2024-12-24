@@ -237,6 +237,7 @@ async def addressTxs(
     limit: int = 10,
 ) -> list[dict]:
 
+    # TODO: review the inputs from address, they are coming twice
     try:
         return CardanoApi().getAddressTxs(
             address, from_block, to_block, page_number, limit

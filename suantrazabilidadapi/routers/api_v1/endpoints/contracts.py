@@ -235,7 +235,6 @@ async def createContract(
             graphql_variables = {"id": policy_id}
 
             r = Plataforma().getScript(command_name, graphql_variables)
-            # final_response = Response().handle_getScript_response(getScript_response=r)
             final_response = Response().handle_getGeneric_response(operation_name="getScript", getGeneric_response=r)
 
             if final_response["success"]:
