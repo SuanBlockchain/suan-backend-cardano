@@ -2,7 +2,16 @@ FROM python:3.11 AS requirements-stage
 
 WORKDIR /tmp
 
-RUN pip install poetry
+# RUN pip install poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install the poetry export plugin
+RUN poetry self add poetry-plugin-export
+
+# Debug: Check if Poetry and the plugin are installed
+RUN poetry --version && poetry self show plugins
 
 COPY ./pyproject.toml ./poetry.lock* /tmp/
 
